@@ -1,0 +1,213 @@
+"use client";
+
+import React, { useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useFinora } from "@/context/FinoraContext";
+import { formatTHB } from "@/lib/seed";
+import { TransactionModal } from "./TransactionModal";
+
+const NAV_ITEMS = [
+  { href: "/", label: "ภาพรวมการเงิน", icon: "space_dashboard" },
+  { href: "/transactions", label: "รายรับรายจ่าย", icon: "receipt_long" },
+  { href: "/recurring", label: "ตัดเงินอัตโนมัติ", icon: "autorenew" },
+  { href: "/qr-scanner", label: "สแกน QR Code", icon: "qr_code_scanner" },
+  { href: "/categories", label: "จัดการหมวดหมู่", icon: "category" },
+  { href: "/virtual-bank", label: "ธนาคารจำลอง", icon: "account_balance" },
+  { href: "/ai-assistant", label: "ผู้ช่วย AI", icon: "auto_awesome", badge: "AI" },
+  { href: "/settings", label: "ตั้งค่าระบบ", icon: "settings" },
+];
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { theme, toggleTheme, bankBalance, user, logoutUser, setTxModalOpen } = useFinora();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const currentNav = NAV_ITEMS.find((item) => item.href === pathname) || NAV_ITEMS[0];
+
+  const handleLogout = () => {
+    logoutUser();
+    router.push("/login");
+  };
+
+  return (
+    <div className="min-h-screen bg-background text-on-surface flex">
+      {/* Mobile Overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Left Sidebar */}
+      <aside
+        className={`fixed left-0 top-0 bottom-0 z-50 w-72 bg-surface-container-low border-r border-outline-variant/30 flex flex-col justify-between transition-transform duration-200 lg:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div>
+          <div className="h-16 px-6 flex items-center justify-between border-b border-outline-variant/20">
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-bold">
+                F
+              </div>
+              <div className="flex flex-col">
+                <span className="text-lg font-bold tracking-tight text-on-surface leading-tight">
+                  Finora
+                </span>
+                <span className="text-[10px] font-semibold text-primary uppercase tracking-wider leading-tight">
+                  AI Wealth Engine
+                </span>
+              </div>
+            </Link>
+            <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant">
+              v2.4
+            </span>
+          </div>
+
+          <div className="px-4 pt-5 pb-2">
+            <span className="px-3 text-[11px] font-semibold uppercase tracking-wider text-outline">
+              เมนูหลัก
+            </span>
+          </div>
+
+          <nav className="flex flex-col gap-1 px-4">
+            {NAV_ITEMS.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm transition-colors ${
+                    active
+                      ? "bg-primary-container text-on-primary-container font-semibold shadow-sm"
+                      : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        active
+                          ? "bg-on-primary-container/20 text-on-primary-container"
+                          : "bg-tertiary-container text-on-tertiary-container"
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Virtual Wallet Summary Widget */}
+        <div className="p-4">
+          <Link
+            href="/virtual-bank"
+            className="block rounded-xl bg-surface-container border border-outline-variant/30 p-4 hover:border-primary/50 transition-colors"
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+                Virtual Wallet
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-primary">
+                <span className="h-2 w-2 rounded-full bg-primary" />
+                Active
+              </span>
+            </div>
+            <div className="text-xl font-bold tracking-tight text-on-surface">
+              {formatTHB(bankBalance)}
+            </div>
+            <div className="mt-1.5 flex items-center justify-between text-[11px] text-on-surface-variant">
+              <span className="font-mono">782-2-90145-8</span>
+              <span>ดูสมุดบัญชี →</span>
+            </div>
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 lg:pl-72 flex flex-col min-w-0">
+        {/* Top Navigation Bar */}
+        <header className="sticky top-0 z-30 h-16 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 px-4 sm:px-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="lg:hidden p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high"
+              aria-label="เปิดเมนู"
+            >
+              <span className="material-symbols-outlined">menu</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-base font-semibold text-on-surface">{currentNav.label}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Dual Theme Toggle */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant/30 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+              title={theme === "light" ? "สลับเป็น Emerald Nocturne (Dark)" : "สลับเป็น Light Fintech"}
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {theme === "light" ? "dark_mode" : "light_mode"}
+              </span>
+              <span className="hidden sm:inline">
+                {theme === "light" ? "Dark Mode" : "Light Mode"}
+              </span>
+            </button>
+
+            {/* Quick Add Transaction */}
+            <button
+              type="button"
+              onClick={() => setTxModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+              <span className="hidden sm:inline">บันทึกธุรกรรม</span>
+            </button>
+
+            {/* User Profile + Quick Logout */}
+            <div className="hidden md:flex items-center gap-2.5 pl-2 border-l border-outline-variant/30">
+              <div className="w-8 h-8 rounded-full bg-primary-container/20 text-primary flex items-center justify-center font-bold text-sm">
+                {user.name.charAt(0)}
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-xs font-semibold text-on-surface leading-tight">
+                  {user.name}
+                </span>
+                <span className="text-[10px] text-primary leading-tight">{user.role}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="ออกจากระบบ"
+                className="p-1.5 rounded-lg text-on-surface-variant hover:text-error hover:bg-surface-container-high"
+              >
+                <span className="material-symbols-outlined text-[18px]">logout</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Page Body */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] w-full mx-auto">
+          {children}
+        </main>
+      </div>
+
+      <TransactionModal />
+    </div>
+  );
+}
