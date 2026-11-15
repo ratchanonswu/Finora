@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html class="dark" lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_auth" name="shell-type"/>
+  <title>เข้าสู่ระบบ — Finora AI Wealth Engine</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+  <style>
+    @layer base {
+      html, body { margin: 0; padding: 0; }
+      body { overscroll-behavior: none; }
+      h1 { font-size: 28px; line-height: 36px; font-weight: 700; }
+      h2 { font-size: 22px; line-height: 30px; font-weight: 600; }
+      h3 { font-size: 18px; line-height: 26px; font-weight: 600; }
+    }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      "darkMode": "class",
+      "theme": {
+        "extend": {
+          "colors": {
+            "error-container": "#93000a",
+            "on-error-container": "#ffdad6",
+            "on-secondary-fixed-variant": "#930013",
+            "background": "#051424",
+            "tertiary": "#d0bcff",
+            "surface-dim": "#051424",
+            "primary-fixed": "#6ffbbe",
+            "error": "#ffb4ab",
+            "surface-container-lowest": "#010f1f",
+            "on-secondary-container": "#ffaea8",
+            "tertiary-container": "#b090ff",
+            "primary-container": "#10b981",
+            "on-primary": "#003824",
+            "on-primary-fixed": "#002113",
+            "primary-fixed-dim": "#4edea3",
+            "outline-variant": "#3c4a42",
+            "inverse-primary": "#006c49",
+            "tertiary-fixed": "#e9ddff",
+            "surface-container-highest": "#273647",
+            "primary": "#4edea3",
+            "surface-variant": "#273647",
+            "secondary-fixed": "#ffdad7",
+            "on-tertiary": "#3c0091",
+            "secondary-container": "#a40217",
+            "on-surface-variant": "#bbcabf",
+            "surface-tint": "#4edea3",
+            "secondary-fixed-dim": "#ffb3ad",
+            "on-tertiary-fixed": "#23005c",
+            "surface-container-low": "#0d1c2d",
+            "on-error": "#690005",
+            "on-primary-container": "#00422b",
+            "on-secondary-fixed": "#410004",
+            "on-primary-fixed-variant": "#005236",
+            "on-tertiary-fixed-variant": "#5516be",
+            "on-tertiary-container": "#4600a7",
+            "on-surface": "#d4e4fa",
+            "inverse-surface": "#d4e4fa",
+            "surface-bright": "#2c3a4c",
+            "tertiary-fixed-dim": "#d0bcff",
+            "on-background": "#d4e4fa",
+            "surface-container": "#122131",
+            "outline": "#86948a",
+            "secondary": "#ffb3ad",
+            "surface": "#051424",
+            "inverse-on-surface": "#233143",
+            "surface-container-high": "#1c2b3c",
+            "on-secondary": "#68000a"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "space-md": "1rem",
+            "space-lg": "1.5rem",
+            "space-xl": "2.5rem"
+          },
+          "fontFamily": {
+            "headline-xl": ["Inter"],
+            "headline-lg": ["Inter"],
+            "headline-md": ["Inter"],
+            "headline-sm": ["Inter"],
+            "body-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "body-sm": ["Inter"],
+            "label-code": ["JetBrains Mono"],
+            "label-badge": ["Inter"]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-container selection:text-on-primary-container flex items-center justify-center p-4 sm:p-6 lg:p-10">
+
+  <!-- Main Split Layout Container -->
+  <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 min-h-[640px] border border-outline-variant/30 overflow-hidden shadow-2xl bg-surface-container-lowest">
+
+    <!-- Left Brand Column (Fintech Showcase) -->
+    <div class="lg:col-span-5 bg-surface-container-low p-8 lg:p-12 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-outline-variant/20 relative">
+      <div>
+        <!-- Brand Header -->
+        <div class="flex items-center gap-space-sm mb-8">
+          <img alt="Finora Brand Logo" class="h-9 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBHhIRb5yNTg78Ozap3r_cK-CsDaGdjxi8DSXlxs68UHbk4iAwh67Wwg7iw34pj50hYRkq5-3LVHUZF_BOinnFPEBGeEg0va5HRaVixYcx144lPIbHmqeWMGBSTTWBmL9UP1Awa2laxz7kPMFpB2nd_ptPifaCkVhk8oisOAQq8Fm-Db9yCPqT6PKfYN50hTzgYiX33Jchd4Q9XAh0wPyKahIOGyf99hOmL-HPOg-Z"/>
+          <div class="flex flex-col">
+            <span class="text-xl font-bold tracking-tight text-on-surface">Finora</span>
+            <span class="text-[11px] font-semibold text-primary uppercase tracking-wider">AI Wealth Engine</span>
+          </div>
+        </div>
+
+        <!-- Headline & Value Proposition -->
+        <h2 class="text-2xl font-bold text-on-surface mb-3 tracking-tight">ระบบจัดการการเงินอัจฉริยะ สำหรับผู้ต้องการเติบโต</h2>
+        <p class="text-sm text-on-surface-variant leading-relaxed mb-8">
+          วิเคราะห์รายรับรายจ่ายอัตโนมัติด้วย AI ควบคู่กับ Virtual Bank จำลองพอร์ตการเงินเสมือนจริงอย่างไร้รอยต่อ
+        </p>
+
+        <!-- Feature List with Clean Dividers -->
+        <div class="flex flex-col divide-y divide-outline-variant/20 text-sm">
+          <div class="py-3.5 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+            </div>
+            <div>
+              <p class="font-semibold text-on-surface">AI Financial Intelligence</p>
+              <p class="text-xs text-on-surface-variant mt-0.5">จำแนกหมวดหมู่ สรุปงบประมาณ และพยากรณ์เงินออมสิ้นเดือน</p>
+            </div>
+          </div>
+
+          <div class="py-3.5 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-[18px]">account_balance</span>
+            </div>
+            <div>
+              <p class="font-semibold text-on-surface">Virtual Bank Simulator</p>
+              <p class="text-xs text-on-surface-variant mt-0.5">ทดสอบการตัดเงินอัตโนมัติและการจัดสรรเงินใน Sandbox ปลอดภัย</p>
+            </div>
+          </div>
+
+          <div class="py-3.5 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-[18px]">qr_code_scanner</span>
+            </div>
+            <div>
+              <p class="font-semibold text-on-surface">PromptPay QR Verification</p>
+              <p class="text-xs text-on-surface-variant mt-0.5">สแกนและตรวจสอบข้อมูลสลิปธุรกรรมอย่างรวดเร็ว</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trust Footer -->
+      <div class="pt-8 mt-6 border-t border-outline-variant/20 flex items-center justify-between text-xs text-on-surface-variant">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-[16px] text-primary">lock</span>
+          <span>FinTech-grade Security</span>
+        </div>
+        <span class="font-label-code text-[11px] text-outline">Finora v2.4 SaaS</span>
+      </div>
+    </div>
+
+    <!-- Right Form Column -->
+    <div class="lg:col-span-7 p-8 lg:p-14 flex flex-col justify-center bg-surface-container">
+      <div class="max-w-md w-full mx-auto">
+        
+        <!-- Header -->
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-on-surface tracking-tight mb-1.5">เข้าสู่ระบบ</h1>
+          <p class="text-sm text-on-surface-variant">กรอกข้อมูลบัญชีเพื่อเข้าจัดการแดชบอร์ดการเงินของคุณ</p>
+        </div>
+
+        <!-- Demo Account One-Click Quick Fill -->
+        <div class="mb-6 p-3.5 rounded-lg border border-primary/30 bg-primary-container/10 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[20px] text-primary">science</span>
+            <div>
+              <p class="text-xs font-semibold text-on-surface">บัญชีทดสอบ Sandbox (Demo Account)</p>
+              <p class="text-[11px] text-on-surface-variant">คลิกเพื่อกรอกข้อมูลบัญชีตัวอย่างอัตโนมัติ</p>
+            </div>
+          </div>
+          <button id="btn-quick-demo" type="button" class="px-3 py-1.5 rounded-md bg-primary-container text-on-primary-container text-xs font-semibold hover:bg-primary transition-colors shrink-0">
+            กรอกอัตโนมัติ
+          </button>
+        </div>
+
+        <!-- Notification / Error Box (Hidden by default) -->
+        <div id="auth-alert" class="hidden mb-5 p-3 rounded-lg border border-error/40 bg-error-container/20 text-on-error-container text-xs flex items-center gap-2">
+          <span class="material-symbols-outlined text-[16px] text-error shrink-0">error</span>
+          <span id="auth-alert-message">อีเมลหรือรหัสผ่านไม่ถูกต้อง</span>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="space-y-4" novalidate>
+          
+          <!-- Email Field -->
+          <div>
+            <label for="email" class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+              อีเมล (Email)
+            </label>
+            <div class="relative">
+              <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[18px]">mail</span>
+              <input 
+                id="email" 
+                name="email" 
+                type="email" 
+                required 
+                placeholder="example@finora.io" 
+                class="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg pl-10 pr-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
+          </div>
+
+          <!-- Password Field -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label for="password" class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+                รหัสผ่าน (Password)
+              </label>
+              <a href="../finora_forgot_password/code.html" class="text-xs text-primary hover:underline font-medium">
+                ลืมรหัสผ่าน?
+              </a>
+            </div>
+            <div class="relative">
+              <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[18px]">key</span>
+              <input 
+                id="password" 
+                name="password" 
+                type="password" 
+                required 
+                placeholder="••••••••••••" 
+                class="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg pl-10 pr-11 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors"
+              />
+              <button 
+                id="btn-toggle-password" 
+                type="button" 
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface transition-colors p-1"
+                aria-label="แสดงหรือซ่อนรหัสผ่าน"
+              >
+                <span id="icon-toggle-password" class="material-symbols-outlined text-[18px]">visibility</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Remember Me Checkbox -->
+          <div class="flex items-center justify-between pt-1">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input id="remember-me" name="remember-me" type="checkbox" class="w-4 h-4 rounded border-outline-variant/60 bg-surface-container-low text-primary focus:ring-0 focus:ring-offset-0 cursor-pointer accent-primary"/>
+              <span class="text-xs text-on-surface-variant">จดจำการเข้าสู่ระบบไว้ในอุปกรณ์นี้</span>
+            </label>
+          </div>
+
+          <!-- Submit Button -->
+          <button 
+            id="btn-submit" 
+            type="submit" 
+            class="w-full mt-2 py-2.5 px-4 rounded-lg bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-fixed transition-colors flex items-center justify-center gap-2 shadow-sm"
+          >
+            <span>เข้าสู่ระบบ</span>
+            <span class="material-symbols-outlined text-[18px]">login</span>
+          </button>
+        </form>
+
+        <!-- Switch to Register Link -->
+        <div class="mt-6 pt-5 border-t border-outline-variant/20 text-center">
+          <p class="text-xs text-on-surface-variant">
+            ยังไม่มีบัญชีใช้งาน Finora? 
+            <a href="../finora_register/code.html" class="font-semibold text-primary hover:underline ml-1">
+              สร้างบัญชีใหม่ (Register)
+            </a>
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Show/Hide password toggle logic
+    const passwordInput = document.getElementById('password');
+    const togglePasswordBtn = document.getElementById('btn-toggle-password');
+    const togglePasswordIcon = document.getElementById('icon-toggle-password');
+
+    togglePasswordBtn.addEventListener('click', () => {
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+      togglePasswordIcon.textContent = isPassword ? 'visibility_off' : 'visibility';
+    });
+
+    // Quick Demo Account Auto-Fill
+    const quickDemoBtn = document.getElementById('btn-quick-demo');
+    const emailInput = document.getElementById('email');
+
+    quickDemoBtn.addEventListener('click', () => {
+      emailInput.value = 'thanapat@finora.io';
+      passwordInput.value = 'Finora2025!Demo';
+      alertBox.classList.add('hidden');
+    });
+
+    // Form submission simulation
+    const loginForm = document.getElementById('login-form');
+    const alertBox = document.getElementById('auth-alert');
+    const alertMsg = document.getElementById('auth-alert-message');
+
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      if (!email || !password) {
+        alertMsg.textContent = 'กรุณากรอกอีเมลและรหัสผ่านให้ครบถ้วน';
+        alertBox.classList.remove('hidden');
+        return;
+      }
+
+      // Simple email validation regex
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        alertMsg.textContent = 'รูปแบบอีเมลไม่ถูกต้อง';
+        alertBox.classList.remove('hidden');
+        return;
+      }
+
+      alertBox.classList.add('hidden');
+      
+      // Store session simulation in localStorage
+      localStorage.setItem('finora_user', JSON.stringify({
+        email: email,
+        name: 'คุณธนภัทร วงศ์เจริญ',
+        role: 'Pro Member',
+        isLoggedIn: true
+      }));
+
+      // Redirect to main Dashboard
+      window.location.href = '../finora/code.html';
+    });
+  </script>
+</body>
+</html>
