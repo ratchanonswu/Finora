@@ -372,7 +372,7 @@ Design a settings page with sections:
 - Currency Settings.
 - Notification Preferences.
 - AI Categorization Preferences.
-- Virtual Bank API Connection.
+- Linked Accounts & Payment Preferences (บัญชีและการชำระเงิน).
 - Security Settings.
 
 Include a logout option.
