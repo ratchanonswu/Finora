@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html class="dark" lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Finora — ผู้ช่วย AI อัจฉริยะ (AI Assistant)</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <style>
+    @layer base {
+      html, body { margin: 0; padding: 0; font-size: 14px; }
+      body { overscroll-behavior: none; }
+      h1 { font-size: 28px; line-height: 36px; }
+      h2 { font-size: 22px; line-height: 28px; }
+      h3 { font-size: 18px; line-height: 24px; }
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.2); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.4); }
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            background: "#051424",
+            surface: "#091b2e",
+            "surface-low": "#0d2238",
+            "surface-container": "#122a44",
+            "surface-high": "#193757",
+            "surface-highest": "#22466e",
+            "on-surface": "#e2e8f0",
+            "on-surface-variant": "#94a3b8",
+            outline: "#475569",
+            primary: "#10b981",
+            "primary-hover": "#059669",
+            "primary-container": "#064e3b",
+            "on-primary": "#ffffff",
+            secondary: "#ef4444",
+            "secondary-container": "#450a0a",
+            "on-secondary": "#ffffff",
+            tertiary: "#8b5cf6",
+            "tertiary-container": "#2e1065",
+            warning: "#f59e0b"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-background font-sans text-on-surface antialiased min-h-screen">
+
+  <!-- Persistent Left Sidebar -->
+  <aside class="fixed left-0 top-0 h-full w-72 bg-surface-low border-r border-surface-high z-50 flex flex-col justify-between">
+    <div class="flex flex-col">
+      <div class="h-16 px-6 flex items-center justify-between border-b border-surface-high">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+            F
+          </div>
+          <div class="flex flex-col">
+            <span class="text-base text-on-surface font-bold tracking-tight">Finora</span>
+            <span class="text-[11px] text-primary font-medium">Smart Finance</span>
+          </div>
+        </div>
+        <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-surface-high text-on-surface-variant">v2.4</span>
+      </div>
+
+      <div class="px-5 pt-5 pb-2">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-outline">เมนูหลัก</span>
+      </div>
+
+      <nav class="flex flex-col gap-1 px-3">
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora/code.html">
+          <span class="material-symbols-outlined text-[20px]">space_dashboard</span>
+          <span class="text-sm font-medium">ภาพรวมการเงิน</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_transactions/code.html">
+          <span class="material-symbols-outlined text-[20px]">receipt_long</span>
+          <span class="text-sm font-medium">รายรับรายจ่าย</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_recurring_payments/code.html">
+          <span class="material-symbols-outlined text-[20px]">autorenew</span>
+          <span class="text-sm font-medium">ตัดเงินอัตโนมัติ</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_qr_code_qr_scanner/code.html">
+          <span class="material-symbols-outlined text-[20px]">qr_code_scanner</span>
+          <span class="text-sm font-medium">สแกน QR Code</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_categories/code.html">
+          <span class="material-symbols-outlined text-[20px]">category</span>
+          <span class="text-sm font-medium">จัดการหมวดหมู่</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_virtual_bank/code.html">
+          <span class="material-symbols-outlined text-[20px]">account_balance</span>
+          <span class="text-sm font-medium">ธนาคารจำลอง</span>
+        </a>
+        <a aria-current="page" class="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-primary text-on-primary font-semibold shadow-sm" href="../finora_ai_ai_assistant/code.html">
+          <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+            <span class="text-sm">ผู้ช่วย AI</span>
+          </div>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-black/20 text-white font-mono">LLM</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_settings/code.html">
+          <span class="material-symbols-outlined text-[20px]">settings</span>
+          <span class="text-sm font-medium">ตั้งค่าระบบ</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="p-4 border-t border-surface-high">
+      <div class="flex flex-col gap-1 text-xs">
+        <span class="text-on-surface-variant">ยอดเงินในกระเป๋าจำลอง</span>
+        <span class="text-lg font-bold text-on-surface font-mono">฿124,500.00</span>
+        <span class="text-[11px] text-outline font-mono">ID: VB-882104-9901</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="pl-72">
+    <!-- Top Navigation Header -->
+    <header class="fixed top-0 left-72 right-0 h-16 bg-surface-low/90 backdrop-blur-md border-b border-surface-high z-40 flex items-center justify-between px-8">
+      <div class="flex items-center gap-2 text-sm">
+        <span class="text-on-surface-variant">หน้าหลัก</span>
+        <span class="text-outline">/</span>
+        <span class="text-on-surface font-medium">ผู้ช่วย AI อัจฉริยะ (AI Assistant)</span>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="p-2 rounded-lg bg-surface-container border border-surface-high text-on-surface-variant hover:text-on-surface transition-colors" title="สลับธีม สว่าง / มืด" type="button">
+          <span class="material-symbols-outlined text-[18px]">light_mode</span>
+        </button>
+
+        <div class="h-6 w-px bg-surface-high"></div>
+
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-xs">
+            ธภ
+          </div>
+          <div class="flex flex-col text-left">
+            <span class="text-sm font-semibold text-on-surface leading-tight">คุณธนภัทร วงศ์เจริญ</span>
+            <span class="text-xs text-on-surface-variant">Finora Pro</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="pt-20 px-8 pb-32 max-w-5xl mx-auto flex flex-col gap-6">
+
+      <!-- Header Banner -->
+      <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex flex-col gap-1">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-tertiary/10 text-tertiary text-xs font-semibold flex items-center gap-1">
+              <span class="material-symbols-outlined text-[14px]">auto_awesome</span>
+              Google Gemini Powered
+            </span>
+            <span class="text-xs text-on-surface-variant">วิเคราะห์ข้อมูลธุรกรรมล่าสุด</span>
+          </div>
+          <h1 class="text-2xl font-bold text-on-surface tracking-tight mt-1">ผู้ช่วยวางแผนการเงินส่วนบุคคล</h1>
+          <p class="text-sm text-on-surface-variant">ถามคำถาม วิเคราะห์พฤติกรรมการใช้จ่าย สรุปงบประมาณ หรือขอคำแนะนำการออมเงินเป็นภาษาไทย</p>
+        </div>
+
+        <button onclick="clearChat()" class="px-3 py-2 rounded-lg bg-surface-high hover:bg-surface-highest text-xs font-semibold text-on-surface transition-colors self-start md:self-center flex items-center gap-1.5" type="button">
+          <span class="material-symbols-outlined text-[16px] text-outline">delete_sweep</span>
+          <span>ล้างบทสนทนา</span>
+        </button>
+      </div>
+
+      <!-- Quick Suggestion Prompts -->
+      <div class="flex flex-col gap-2">
+        <span class="text-xs font-semibold uppercase tracking-wider text-outline">คำถามแนะนำด่วน</span>
+        <div class="flex items-center gap-2 overflow-x-auto pb-1">
+          <button onclick="askPrompt('สรุปรายรับรายจ่ายเดือนนี้')" class="px-3.5 py-1.5 rounded-full bg-surface-container border border-surface-high hover:border-primary/50 text-xs font-medium text-on-surface shrink-0 transition-colors" type="button">
+            📊 สรุปรายรับรายจ่ายเดือนนี้
+          </button>
+          <button onclick="askPrompt('เดือนนี้ฉันใช้เงินไปกับอะไรมากที่สุด?')" class="px-3.5 py-1.5 rounded-full bg-surface-container border border-surface-high hover:border-primary/50 text-xs font-medium text-on-surface shrink-0 transition-colors" type="button">
+            🛍️ ฉันใช้เงินกับอะไรมากที่สุด?
+          </button>
+          <button onclick="askPrompt('วิเคราะห์พฤติกรรมการใช้เงินของฉัน')" class="px-3.5 py-1.5 rounded-full bg-surface-container border border-surface-high hover:border-primary/50 text-xs font-medium text-on-surface shrink-0 transition-colors" type="button">
+            🧠 วิเคราะห์พฤติกรรมการใช้เงิน
+          </button>
+          <button onclick="askPrompt('แนะนำวิธีลดค่าใช้จ่ายในเดือนนี้')" class="px-3.5 py-1.5 rounded-full bg-surface-container border border-surface-high hover:border-primary/50 text-xs font-medium text-on-surface shrink-0 transition-colors" type="button">
+            💡 แนะนำวิธีลดค่าใช้จ่าย
+          </button>
+          <button onclick="askPrompt('คาดการณ์เงินคงเหลือสิ้นเดือน')" class="px-3.5 py-1.5 rounded-full bg-surface-container border border-surface-high hover:border-primary/50 text-xs font-medium text-on-surface shrink-0 transition-colors" type="button">
+            📈 คาดการณ์เงินคงเหลือสิ้นเดือน
+          </button>
+        </div>
+      </div>
+
+      <!-- Chat Stream -->
+      <div id="chat-stream" class="flex flex-col gap-6">
+
+        <!-- User Message 1 -->
+        <div class="flex items-start justify-end gap-3 max-w-2xl ml-auto">
+          <div class="bg-primary text-on-primary px-4 py-3 rounded-2xl rounded-tr-none text-sm leading-relaxed shadow-sm">
+            สรุปภาพรวมรายรับรายจ่ายของฉันในเดือนมีนาคมนี้ให้หน่อย พร้อมวิเคราะห์ว่าฉันใช้จ่ายเกินงบส่วนไหนบ้าง
+          </div>
+          <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+            ธภ
+          </div>
+        </div>
+
+        <!-- AI Message 1 (Structured Insights) -->
+        <div class="flex items-start gap-3 max-w-3xl">
+          <div class="w-8 h-8 rounded-full bg-tertiary/20 text-tertiary flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+          </div>
+
+          <!-- Flattened Message Bubble with dividers (No nested cards) -->
+          <div class="flex-1 rounded-2xl rounded-tl-none bg-surface-container border border-surface-high p-5 flex flex-col gap-4 text-sm">
+            <div class="flex items-center justify-between text-xs text-on-surface-variant border-b border-surface-high pb-2">
+              <span class="font-semibold text-tertiary flex items-center gap-1">
+                <span class="material-symbols-outlined text-[14px]">psychology</span>
+                Finora Intelligence Report
+              </span>
+              <span>3 มี.ค. 2025</span>
+            </div>
+
+            <p class="text-on-surface leading-relaxed">
+              สวัสดีครับคุณธนภัทร! ผมได้วิเคราะห์ธุรกรรมตั้งแต่ต้นเดือนมีนาคม 2025 เรียบร้อยแล้ว สรุปภาพรวมและสัดส่วนงบประมาณดังนี้ครับ:
+            </p>
+
+            <!-- Metrics Row (Flattened dividers) -->
+            <div class="grid grid-cols-3 gap-3 py-3 border-y border-surface-high text-center">
+              <div>
+                <span class="text-xs text-on-surface-variant block">รายรับรวม</span>
+                <span class="text-base font-bold font-mono text-primary mt-0.5 block">+฿85,000.00</span>
+                <span class="text-[11px] text-outline">เงินเดือนประจำงวด</span>
+              </div>
+              <div class="border-x border-surface-high">
+                <span class="text-xs text-on-surface-variant block">รายจ่ายรวม</span>
+                <span class="text-base font-bold font-mono text-secondary mt-0.5 block">-฿32,450.00</span>
+                <span class="text-[11px] text-outline">38.2% ของรายรับ</span>
+              </div>
+              <div>
+                <span class="text-xs text-on-surface-variant block">เงินออมสุทธิ</span>
+                <span class="text-base font-bold font-mono text-on-surface mt-0.5 block">+฿52,550.00</span>
+                <span class="text-[11px] text-primary">สภาพคล่องแข็งแกร่ง</span>
+              </div>
+            </div>
+
+            <!-- Spending Breakdown -->
+            <div class="flex flex-col gap-2">
+              <span class="text-xs font-semibold uppercase tracking-wider text-outline">สัดส่วนหมวดหมู่รายจ่ายสูงสุด</span>
+              <div class="flex flex-col gap-2">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="text-on-surface">1. อาหาร &amp; เครื่องดื่ม (32%)</span>
+                  <span class="font-mono font-semibold text-on-surface">฿10,384.00</span>
+                </div>
+                <div class="w-full bg-surface-high h-2 rounded-full overflow-hidden">
+                  <div class="bg-[#f97316] h-full rounded-full" style="width: 32%"></div>
+                </div>
+
+                <div class="flex justify-between items-center text-xs mt-1">
+                  <span class="text-on-surface">2. ช้อปปิ้ง &amp; ของใช้ (24%)</span>
+                  <span class="font-mono font-semibold text-on-surface">฿7,788.00</span>
+                </div>
+                <div class="w-full bg-surface-high h-2 rounded-full overflow-hidden">
+                  <div class="bg-[#ec4899] h-full rounded-full" style="width: 24%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="pt-2 border-t border-surface-high flex flex-col gap-1.5 text-xs">
+              <span class="font-semibold text-warning flex items-center gap-1">
+                <span class="material-symbols-outlined text-[15px]">tips_and_updates</span>
+                ข้อแนะนำเพื่อการออม:
+              </span>
+              <ul class="list-disc list-inside text-on-surface-variant space-y-1">
+                <li>ค่าอาหารเฉลี่ยอยู่ที่ ฿450/วัน หากลดการสั่งเดลิเวอรี่ลง 2 วันต่อสัปดาห์ จะประหยัดได้เพิ่ม ฿2,800/เดือน</li>
+                <li>คุณมีรายการตัดเงินอัตโนมัติ Adobe Cloud (฿1,850/เดือน) ที่ไม่ได้เปิดใช้งาน สามารถกดพักชั่วคราวได้ที่หน้า Recurring Payments</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- Floating Chat Input Dock -->
+    <div class="fixed bottom-0 left-72 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-surface-high z-30">
+      <div class="max-w-4xl mx-auto flex items-center gap-2">
+        <input id="chat-input" type="text" placeholder="พิมพ์คำถามทางการเงิน เช่น 'สรุปรายจ่ายสัปดาห์นี้' หรือ 'ฉันเก็บเงินพอซื้อของไหม'..." class="flex-1 bg-surface-container border border-surface-high text-on-surface text-sm px-4 py-3 rounded-xl focus:outline-none focus:border-primary transition-colors" onkeydown="if(event.key === 'Enter') handleSend()"/>
+        <button onclick="handleSend()" class="px-5 py-3 rounded-xl bg-primary hover:bg-primary-hover text-on-primary font-semibold text-sm transition-colors flex items-center gap-1.5 shrink-0" type="button">
+          <span class="material-symbols-outlined text-[18px]">send</span>
+          <span>ส่ง</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function askPrompt(text) {
+      document.getElementById('chat-input').value = text;
+      handleSend();
+    }
+
+    function handleSend() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const stream = document.getElementById('chat-stream');
+
+      // Append User message
+      const userDiv = document.createElement('div');
+      userDiv.className = 'flex items-start justify-end gap-3 max-w-2xl ml-auto';
+      userDiv.innerHTML = `
+        <div class="bg-primary text-on-primary px-4 py-3 rounded-2xl rounded-tr-none text-sm leading-relaxed shadow-sm">
+          ${text}
+        </div>
+        <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs shrink-0">
+          ธภ
+        </div>
+      `;
+      stream.appendChild(userDiv);
+      input.value = '';
+
+      // Append AI response simulation
+      const aiDiv = document.createElement('div');
+      aiDiv.className = 'flex items-start gap-3 max-w-3xl';
+      aiDiv.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-tertiary/20 text-tertiary flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+        </div>
+        <div class="flex-1 rounded-2xl rounded-tl-none bg-surface-container border border-surface-high p-5 flex flex-col gap-3 text-sm">
+          <div class="flex items-center justify-between text-xs text-on-surface-variant border-b border-surface-high pb-2">
+            <span class="font-semibold text-tertiary">Finora AI Response</span>
+            <span>ตอบกลับทันที</span>
+          </div>
+          <p class="text-on-surface leading-relaxed">
+            ผมได้รับคำถามเรื่อง "${text}" แล้วครับ จากการประมวลผลข้อมูลบัญชีจำลองและรายการธุรกรรมของคุณ ระบบวิเคราะห์ว่าสถานะกระแสเงินสดของคุณยังคงอยู่ในเกณฑ์ดี มีเงินสำรองฉุกเฉินและสามารถบริหารจัดการเป้าหมายนี้ได้โดยไม่ส่งผลกระทบต่อภาระค่าใช้จ่ายประจำครับ
+          </p>
+        </div>
+      `;
+      stream.appendChild(aiDiv);
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    function clearChat() {
+      document.getElementById('chat-stream').innerHTML = '<p class="text-center text-xs text-on-surface-variant py-4">ล้างประวัติการสนทนาเรียบร้อย สามารถเริ่มต้นถามคำถามใหม่ได้ทันที</p>';
+    }
+
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+    });
+  </script>
+</body>
+</html>
