@@ -56,13 +56,14 @@ Finora/
 npm install
 ```
 
-### 2. Configure Gemini API Key
-Copy `.env.example` to `.env.local` and set your Gemini API key:
+### 2. Configure Gemini API Key & Model
+Copy `.env.example` to `.env.local` and set your Gemini API key and model:
 ```bash
 cp .env.example .env.local
 ```
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
 ```
 *(Alternatively, you can enter a Gemini API key override directly in **Settings** inside the app.)*
 

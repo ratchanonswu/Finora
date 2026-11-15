@@ -23,6 +23,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const model = process.env.GEMINI_MODEL?.trim();
+    if (!model) {
+      return NextResponse.json(
+        { error: "ยังไม่ได้ตั้งค่า GEMINI_MODEL ในไฟล์ .env.local" },
+        { status: 400 }
+      );
+    }
+
     const ai = new GoogleGenAI({ apiKey });
     const systemContext = [
       "คุณคือ Finora AI Financial Advisor ผู้ช่วยวางแผนการเงินส่วนบุคคลมืออาชีพ",
@@ -33,7 +41,7 @@ export async function POST(request: Request) {
       .join("\n\n");
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model,
       contents: `${systemContext}\n\nคำถามผู้ใช้: ${prompt.trim()}`,
     });
 
