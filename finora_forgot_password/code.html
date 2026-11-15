@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html class="dark" lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_auth" name="shell-type"/>
+  <title>ลืมรหัสผ่าน — Finora AI Wealth Engine</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+  <style>
+    @layer base {
+      html, body { margin: 0; padding: 0; }
+      body { overscroll-behavior: none; }
+      h1 { font-size: 28px; line-height: 36px; font-weight: 700; }
+      h2 { font-size: 22px; line-height: 30px; font-weight: 600; }
+      h3 { font-size: 18px; line-height: 26px; font-weight: 600; }
+    }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      "darkMode": "class",
+      "theme": {
+        "extend": {
+          "colors": {
+            "error-container": "#93000a",
+            "on-error-container": "#ffdad6",
+            "on-secondary-fixed-variant": "#930013",
+            "background": "#051424",
+            "tertiary": "#d0bcff",
+            "surface-dim": "#051424",
+            "primary-fixed": "#6ffbbe",
+            "error": "#ffb4ab",
+            "surface-container-lowest": "#010f1f",
+            "on-secondary-container": "#ffaea8",
+            "tertiary-container": "#b090ff",
+            "primary-container": "#10b981",
+            "on-primary": "#003824",
+            "on-primary-fixed": "#002113",
+            "primary-fixed-dim": "#4edea3",
+            "outline-variant": "#3c4a42",
+            "inverse-primary": "#006c49",
+            "tertiary-fixed": "#e9ddff",
+            "surface-container-highest": "#273647",
+            "primary": "#4edea3",
+            "surface-variant": "#273647",
+            "secondary-fixed": "#ffdad7",
+            "on-tertiary": "#3c0091",
+            "secondary-container": "#a40217",
+            "on-surface-variant": "#bbcabf",
+            "surface-tint": "#4edea3",
+            "secondary-fixed-dim": "#ffb3ad",
+            "on-tertiary-fixed": "#23005c",
+            "surface-container-low": "#0d1c2d",
+            "on-error": "#690005",
+            "on-primary-container": "#00422b",
+            "on-secondary-fixed": "#410004",
+            "on-primary-fixed-variant": "#005236",
+            "on-tertiary-fixed-variant": "#5516be",
+            "on-tertiary-container": "#4600a7",
+            "on-surface": "#d4e4fa",
+            "inverse-surface": "#d4e4fa",
+            "surface-bright": "#2c3a4c",
+            "tertiary-fixed-dim": "#d0bcff",
+            "on-background": "#d4e4fa",
+            "surface-container": "#122131",
+            "outline": "#86948a",
+            "secondary": "#ffb3ad",
+            "surface": "#051424",
+            "inverse-on-surface": "#233143",
+            "surface-container-high": "#1c2b3c",
+            "on-secondary": "#68000a"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "space-sm": "0.5rem",
+            "space-md": "1rem",
+            "space-lg": "1.5rem",
+            "space-xl": "2.5rem"
+          },
+          "fontFamily": {
+            "headline-xl": ["Inter"],
+            "headline-lg": ["Inter"],
+            "headline-md": ["Inter"],
+            "headline-sm": ["Inter"],
+            "body-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "body-sm": ["Inter"],
+            "label-code": ["JetBrains Mono"],
+            "label-badge": ["Inter"]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-container selection:text-on-primary-container flex items-center justify-center p-4 sm:p-6 lg:p-10">
+
+  <!-- Main Split Layout Container -->
+  <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 min-h-[600px] border border-outline-variant/30 overflow-hidden shadow-2xl bg-surface-container-lowest">
+
+    <!-- Left Brand Column -->
+    <div class="lg:col-span-5 bg-surface-container-low p-8 lg:p-12 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-outline-variant/20 relative">
+      <div>
+        <!-- Brand Header -->
+        <div class="flex items-center gap-space-sm mb-8">
+          <img alt="Finora Brand Logo" class="h-9 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBHhIRb5yNTg78Ozap3r_cK-CsDaGdjxi8DSXlxs68UHbk4iAwh67Wwg7iw34pj50hYRkq5-3LVHUZF_BOinnFPEBGeEg0va5HRaVixYcx144lPIbHmqeWMGBSTTWBmL9UP1Awa2laxz7kPMFpB2nd_ptPifaCkVhk8oisOAQq8Fm-Db9yCPqT6PKfYN50hTzgYiX33Jchd4Q9XAh0wPyKahIOGyf99hOmL-HPOg-Z"/>
+          <div class="flex flex-col">
+            <span class="text-xl font-bold tracking-tight text-on-surface">Finora</span>
+            <span class="text-[11px] font-semibold text-primary uppercase tracking-wider">AI Wealth Engine</span>
+          </div>
+        </div>
+
+        <!-- Headline & Instructions -->
+        <h2 class="text-2xl font-bold text-on-surface mb-3 tracking-tight">การกู้คืนบัญชีอย่างปลอดภัย</h2>
+        <p class="text-sm text-on-surface-variant leading-relaxed mb-8">
+          เราปกป้องข้อมูลทางการเงินของคุณด้วยมาตรฐานความปลอดภัยระดับ FinTech ลิงก์รีเซ็ตรหัสผ่านจะถูกเข้ารหัสแบบใช้ครั้งเดียว
+        </p>
+
+        <!-- Highlights with Dividers -->
+        <div class="flex flex-col divide-y divide-outline-variant/20 text-sm">
+          <div class="py-3.5 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-[18px]">timer</span>
+            </div>
+            <div>
+              <p class="font-semibold text-on-surface">ลิงก์มีอายุ 15 นาที</p>
+              <p class="text-xs text-on-surface-variant mt-0.5">เพื่อป้องกันการสวมรอย ลิงก์จะหมดอายุทันทีหลังครบกำหนดเวลา</p>
+            </div>
+          </div>
+
+          <div class="py-3.5 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-[18px]">mark_email_unread</span>
+            </div>
+            <div>
+              <p class="font-semibold text-on-surface">ตรวจสอบกล่องจดหมายเข้า (Inbox &amp; Spam)</p>
+              <p class="text-xs text-on-surface-variant mt-0.5">หากไม่พบอีเมลภายใน 2 นาที โปรดตรวจสอบในโฟลเดอร์ Junk/Spam</p>
+            </div>
+          </div>
+
+          <div class="py-3.5 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center shrink-0">
+              <span class="material-symbols-outlined text-[18px]">support_agent</span>
+            </div>
+            <div>
+              <p class="font-semibold text-on-surface">ต้องการความช่วยเหลือเพิ่มเติม?</p>
+              <p class="text-xs text-on-surface-variant mt-0.5">ติดต่อฝ่ายสนับสนุนได้ตลอด 24 ชั่วโมงที่ support@finora.io</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trust Footer -->
+      <div class="pt-8 mt-6 border-t border-outline-variant/20 flex items-center justify-between text-xs text-on-surface-variant">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-[16px] text-primary">encrypted</span>
+          <span>End-to-End Encryption</span>
+        </div>
+        <span class="font-label-code text-[11px] text-outline">Finora Auth Protocol</span>
+      </div>
+    </div>
+
+    <!-- Right Form Column -->
+    <div class="lg:col-span-7 p-8 lg:p-14 flex flex-col justify-center bg-surface-container">
+      <div class="max-w-md w-full mx-auto">
+        
+        <!-- State 1: Request Reset Link Form -->
+        <div id="request-state">
+          <!-- Header -->
+          <div class="mb-6">
+            <h1 class="text-2xl font-bold text-on-surface tracking-tight mb-1.5">ลืมรหัสผ่าน?</h1>
+            <p class="text-sm text-on-surface-variant">กรอกอีเมลที่ใช้สมัครบัญชี Finora เพื่อรับลิงก์สำหรับตั้งรหัสผ่านใหม่</p>
+          </div>
+
+          <!-- Notification Box -->
+          <div id="reset-alert" class="hidden mb-5 p-3 rounded-lg border border-error/40 bg-error-container/20 text-on-error-container text-xs flex items-center gap-2">
+            <span class="material-symbols-outlined text-[16px] text-error shrink-0">error</span>
+            <span id="reset-alert-message">กรุณากรอกอีเมลที่ถูกต้อง</span>
+          </div>
+
+          <!-- Reset Form -->
+          <form id="reset-form" class="space-y-4" novalidate>
+            <!-- Email Field -->
+            <div>
+              <label for="reset-email" class="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                อีเมล (Registered Email)
+              </label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-outline text-[18px]">mail</span>
+                <input 
+                  id="reset-email" 
+                  name="email" 
+                  type="email" 
+                  required 
+                  placeholder="example@finora.io" 
+                  class="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg pl-10 pr-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary transition-colors"
+                />
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button 
+              id="btn-submit-reset" 
+              type="submit" 
+              class="w-full mt-2 py-2.5 px-4 rounded-lg bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-fixed transition-colors flex items-center justify-center gap-2 shadow-sm"
+            >
+              <span>ส่งลิงก์รีเซ็ตรหัสผ่าน</span>
+              <span class="material-symbols-outlined text-[18px]">send</span>
+            </button>
+          </form>
+
+          <!-- Back to Login Link -->
+          <div class="mt-6 pt-5 border-t border-outline-variant/20 text-center">
+            <a href="../finora_login/code.html" class="inline-flex items-center gap-1.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors">
+              <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+              <span>กลับสู่หน้าเข้าสู่ระบบ (Back to Sign In)</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- State 2: Confirmation / Success State (Hidden by default) -->
+        <div id="success-state" class="hidden text-center">
+          <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-primary-container/20 text-primary flex items-center justify-center">
+            <span class="material-symbols-outlined text-[32px]">mark_email_read</span>
+          </div>
+
+          <h1 class="text-2xl font-bold text-on-surface tracking-tight mb-2">ส่งลิงก์สำเร็จแล้ว</h1>
+          <p class="text-sm text-on-surface-variant leading-relaxed mb-6">
+            เราได้ส่งคำแนะนำในการตั้งรหัสผ่านใหม่ไปยังอีเมล<br/>
+            <strong id="sent-email-display" class="text-on-surface font-label-code">user@example.com</strong><br/>
+            โปรดตรวจสอบกล่องข้อความของคุณและคลิกลิงก์ภายใน 15 นาที
+          </p>
+
+          <div class="space-y-3">
+            <a 
+              href="../finora_login/code.html" 
+              class="block w-full py-2.5 px-4 rounded-lg bg-primary-container text-on-primary-container font-semibold text-sm hover:bg-primary-fixed transition-colors shadow-sm"
+            >
+              กลับสู่หน้าเข้าสู่ระบบ (Sign In)
+            </a>
+
+            <button 
+              id="btn-resend" 
+              type="button" 
+              class="w-full py-2 px-4 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-on-surface text-xs font-medium hover:bg-surface-container-high transition-colors"
+            >
+              ยังไม่ได้รับอีเมล? ส่งใหม่อีกครั้ง
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const resetForm = document.getElementById('reset-form');
+    const resetEmailInput = document.getElementById('reset-email');
+    const alertBox = document.getElementById('reset-alert');
+    const alertMsg = document.getElementById('reset-alert-message');
+    const requestState = document.getElementById('request-state');
+    const successState = document.getElementById('success-state');
+    const sentEmailDisplay = document.getElementById('sent-email-display');
+    const resendBtn = document.getElementById('btn-resend');
+
+    resetForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = resetEmailInput.value.trim();
+
+      if (!email) {
+        alertMsg.textContent = 'กรุณากรอกอีเมลของคุณ';
+        alertBox.classList.remove('hidden');
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        alertMsg.textContent = 'รูปแบบอีเมลไม่ถูกต้อง';
+        alertBox.classList.remove('hidden');
+        return;
+      }
+
+      alertBox.classList.add('hidden');
+      sentEmailDisplay.textContent = email;
+
+      // Transition to Confirmation State
+      requestState.classList.add('hidden');
+      successState.classList.remove('hidden');
+    });
+
+    // Resend button cooldown logic
+    resendBtn.addEventListener('click', () => {
+      resendBtn.disabled = true;
+      let countdown = 30;
+      resendBtn.textContent = `ส่งอีกครั้งได้ใน (${countdown}s)`;
+
+      const timer = setInterval(() => {
+        countdown--;
+        if (countdown > 0) {
+          resendBtn.textContent = `ส่งอีกครั้งได้ใน (${countdown}s)`;
+        } else {
+          clearInterval(timer);
+          resendBtn.disabled = false;
+          resendBtn.textContent = 'ยังไม่ได้รับอีเมล? ส่งใหม่อีกครั้ง';
+        }
+      }, 1000);
+    });
+  </script>
+</body>
+</html>
