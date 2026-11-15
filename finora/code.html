@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}h1{font-size:28px;line-height:36px;font-weight:700;}h2{font-size:22px;line-height:30px;font-weight:600;}h3{font-size:18px;line-height:26px;font-weight:600;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"error-container":"#93000a","on-error-container":"#ffdad6","on-secondary-fixed-variant":"#930013","background":"#051424","tertiary":"#d0bcff","surface-dim":"#051424","primary-fixed":"#6ffbbe","error":"#ffb4ab","surface-container-lowest":"#010f1f","on-secondary-container":"#ffaea8","tertiary-container":"#b090ff","primary-container":"#10b981","on-primary":"#003824","on-primary-fixed":"#002113","primary-fixed-dim":"#4edea3","outline-variant":"#3c4a42","inverse-primary":"#006c49","tertiary-fixed":"#e9ddff","surface-container-highest":"#273647","primary":"#4edea3","surface-variant":"#273647","secondary-fixed":"#ffdad7","on-tertiary":"#3c0091","secondary-container":"#a40217","on-surface-variant":"#bbcabf","surface-tint":"#4edea3","secondary-fixed-dim":"#ffb3ad","on-tertiary-fixed":"#23005c","surface-container-low":"#0d1c2d","on-error":"#690005","on-primary-container":"#00422b","on-secondary-fixed":"#410004","on-primary-fixed-variant":"#005236","on-tertiary-fixed-variant":"#5516be","on-tertiary-container":"#4600a7","on-surface":"#d4e4fa","inverse-surface":"#d4e4fa","surface-bright":"#2c3a4c","tertiary-fixed-dim":"#d0bcff","on-background":"#d4e4fa","surface-container":"#122131","outline":"#86948a","secondary":"#ffb3ad","surface":"#051424","inverse-on-surface":"#233143","surface-container-high":"#1c2b3c","on-secondary":"#68000a"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-xs":"0.25rem","space-xl":"2.5rem","margin":"2rem","margin-mobile":"1rem","gutter":"1.5rem","gutter-mobile":"1rem","space-lg":"1.5rem","space-md":"1rem","space-sm":"0.5rem"},"fontFamily":{"headline-xl-mobile":["Inter"],"label-code":["JetBrains Mono"],"headline-lg":["Inter"],"body-sm":["Inter"],"headline-md":["Inter"],"headline-lg-mobile":["Inter"],"headline-xl":["Inter"],"numeric-metric-lg":["Inter"],"numeric-metric-md":["Inter"],"headline-sm":["Inter"],"body-md":["Inter"],"body-lg":["Inter"],"label-badge":["Inter"]},"fontSize":{"headline-xl-mobile":["28px",{"lineHeight":"36px","letterSpacing":"-0.01em","fontWeight":"700"}],"label-code":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"500"}],"headline-lg":["30px",{"lineHeight":"38px","letterSpacing":"-0.015em","fontWeight":"600"}],"body-sm":["12px",{"lineHeight":"18px","fontWeight":"400"}],"headline-md":["22px",{"lineHeight":"30px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-xl":["36px",{"lineHeight":"44px","letterSpacing":"-0.02em","fontWeight":"700"}],"numeric-metric-lg":["32px",{"lineHeight":"38px","letterSpacing":"-0.02em","fontWeight":"700"}],"numeric-metric-md":["20px",{"lineHeight":"28px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-sm":["18px",{"lineHeight":"26px","letterSpacing":"-0.005em","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],"label-badge":["11px",{"lineHeight":"14px","letterSpacing":"0.04em","fontWeight":"600"}]}}}}</script></head><body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-container selection:text-on-primary-container"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low/95 backdrop-blur-xl z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.2)]"><div class="flex flex-col"><div class="h-16 px-space-lg flex items-center justify-between gap-space-sm bg-surface-container-lowest/60"><div class="flex items-center gap-space-sm"><img alt="Finora Brand Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBHhIRb5yNTg78Ozap3r_cK-CsDaGdjxi8DSXlxs68UHbk4iAwh67Wwg7iw34pj50hYRkq5-3LVHUZF_BOinnFPEBGeEg0va5HRaVixYcx144lPIbHmqeWMGBSTTWBmL9UP1Awa2laxz7kPMFpB2nd_ptPifaCkVhk8oisOAQq8Fm-Db9yCPqT6PKfYN50hTzgYiX33Jchd4Q9XAh0wPyKahIOGyf99hOmL-HPOg-Z"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface tracking-tight font-bold">Finora</span><span class="font-label-badge text-label-badge text-primary uppercase tracking-wider">AI Wealth Engine</span></div></div><span class="font-label-code text-label-code px-space-xs py-0.5 rounded bg-surface-container-highest text-on-surface-variant">v2.4</span></div><div class="px-space-md pt-space-md"><span class="px-space-sm font-label-badge text-label-badge uppercase tracking-wider text-outline">เมนูหลัก</span></div><nav class="flex flex-col gap-1 px-space-md pt-space-xs" data-active-classes="bg-primary-container text-on-primary-container font-semibold rounded-lg shadow-sm"><a aria-current="page" class="flex items-center justify-between px-space-md py-2.5 transition-colors bg-primary-container text-on-primary-container font-semibold rounded-lg shadow-sm" data-path="dashboard" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">space_dashboard</span><span class="font-body-md text-body-md">ภาพรวมการเงิน</span></div></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="transactions" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span class="font-body-md text-body-md">รายรับรายจ่าย</span></div></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="recurring" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">autorenew</span><span class="font-body-md text-body-md">ตัดเงินอัตโนมัติ</span></div></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="qr-scanner" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">qr_code_scanner</span><span class="font-body-md text-body-md">สแกน QR Code</span></div></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="categories" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">category</span><span class="font-body-md text-body-md">จัดการหมวดหมู่</span></div></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="virtual-bank" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">account_balance</span><span class="font-body-md text-body-md">ธนาคารจำลอง</span></div><span class="font-label-badge text-label-badge px-1.5 py-0.5 rounded bg-surface-container-highest text-primary-fixed-dim">API Simulator</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="ai-assistant" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px] text-tertiary">auto_awesome</span><span class="font-body-md text-body-md">ผู้ช่วย AI</span></div><span class="font-label-badge text-label-badge px-1.5 py-0.5 rounded bg-tertiary-container text-on-tertiary-container shadow-[0_0_8px_rgba(208,188,255,0.4)]">LLM</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="settings" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">settings</span><span class="font-body-md text-body-md">ตั้งค่าระบบ</span></div></a></nav></div><div class="p-space-md"><div class="rounded-xl bg-surface-container/70 p-space-md shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] backdrop-blur-md"><div class="flex items-center justify-between mb-space-xs"><span class="font-label-badge text-label-badge uppercase tracking-wider text-on-surface-variant">Virtual Wallet</span><div class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-primary"></span><span class="font-label-code text-label-code text-primary">API Connected</span></div></div><div class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-semibold tracking-tight">฿124,500.00</div><div class="mt-space-xs flex items-center justify-between"><span class="font-label-code text-label-code text-outline">Sandbox Protocol</span><span class="font-label-badge text-label-badge text-on-surface-variant">Finora v2.4 SaaS</span></div></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.2)] z-40 flex items-center justify-between px-space-lg"><div class="flex items-center gap-space-sm"><h1 class="font-headline-sm text-headline-sm text-on-surface font-semibold m-0 inline">แดชบอร์ดการเงิน</h1><span class="text-outline font-body-sm text-body-sm">/</span><span class="text-on-surface-variant font-body-sm text-body-sm">ภาพรวมสินทรัพย์ส่วนบุคคล</span></div><div class="flex-1 max-w-lg mx-space-lg"><div class="relative flex items-center"><span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span><input class="w-full bg-surface-container-low text-on-surface font-body-sm text-body-sm placeholder:text-outline pl-9 pr-12 py-2 rounded-lg focus:outline-none focus:bg-surface-container focus:text-on-surface" placeholder="ค้นหาธุรกรรม, หมวดหมู่, หรือถาม AI... (Ctrl+K)" readonly="" type="text"/><span class="material-symbols-outlined absolute right-3 text-outline text-[18px]">keyboard_command_key</span></div></div><div class="flex items-center gap-space-md"><div class="flex items-center px-space-sm py-1 rounded bg-surface-container font-label-code text-label-code text-primary-fixed-dim"><span class="font-semibold">THB (฿)</span></div><button class="flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary-container font-body-md text-body-md font-semibold hover:bg-primary-fixed transition-colors shadow-sm"><span class="material-symbols-outlined text-[18px]">add_circle</span><span>บันทึกธุรกรรม</span></button><button class="relative p-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 w-4 h-4 bg-error text-on-error font-label-badge text-[10px] font-bold rounded-full flex items-center justify-center leading-none">3</span></button><div class="flex items-center gap-space-sm pl-space-xs"><div class="relative"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrFL3g_hlHL3ko0fh_QAIeXBw5FKzhYnT2egDX2s3GfVQfMATsnwBxBmtqxMZ_3CtGVYMfpg2iqDFq2tnZeXlbmb4FtdqYMEK7pNhSYMI2cHfMTHG2-GquQGqbhPInshm7TDV-cIjUyBmxEAk4-DOGZHxuTKN5luphoViBwGNSaXjymIhvFwZkHlnvmHoj5K3ozO5QzvFllJcH2PUgDFyAHt_LEpzl5_wxxZa0nFxL"/><span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-primary"></span></div><div class="flex flex-col text-left"><span class="font-body-md text-body-md text-on-surface font-semibold leading-tight">คุณธนภัทร วงศ์เจริญ</span><span class="font-label-badge text-label-badge text-primary-fixed-dim leading-tight">Finora Pro Member</span></div></div></div></header><main class="relative pt-16 w-full min-h-screen bg-background"><div class="flex flex-col w-full">
+<div class="px-space-lg py-space-lg flex flex-col gap-space-lg max-w-[1600px] mx-auto w-full">
+<!-- Section 1: Dashboard Top Control & Welcome Bar -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md pb-space-xs">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-space-xs">
+<h2 class="font-headline-md text-headline-md text-on-surface font-semibold tracking-tight m-0 inline">สวัสดีคุณธนภัทร</h2>
+<span class="text-xl">👋</span>
+<span class="font-label-badge text-label-badge px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-fixed-dim uppercase">Live Portfolio</span>
+</div>
+<div class="flex flex-wrap items-center gap-space-sm font-body-sm text-body-sm text-on-surface-variant">
+<span>ยินดีต้อนรับสู่แดชบอร์ดการเงินและการจัดสรรสินทรัพย์อัจฉริยะ</span>
+<span class="inline-block w-1 h-1 rounded-full bg-outline"></span>
+<div class="flex items-center gap-1.5 text-primary-fixed-dim">
+<span class="inline-block h-2 w-2 rounded-full bg-primary"></span>
+<span class="font-label-code text-label-code">สถานะกระเป๋าจำลอง: ซิงค์แล้ว (ล่าสุด 2 นาทีที่แล้ว)</span>
+</div>
+</div>
+</div>
+<!-- Actions & Filter Controls -->
+<div class="flex flex-wrap items-center gap-space-sm">
+<div class="relative flex items-center bg-surface-container-high rounded-lg px-space-md py-2 shadow-sm text-on-surface">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant mr-2">calendar_today</span>
+<span class="font-body-sm text-body-sm font-medium">เดือนนี้ (มีนาคม 2025)</span>
+<span class="material-symbols-outlined text-[18px] text-outline ml-2">expand_more</span>
+</div>
+<button class="flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-surface-container-high hover:bg-surface-bright text-on-surface font-body-sm text-body-sm font-medium transition-colors shadow-sm">
+<span class="material-symbols-outlined text-[18px] text-primary-fixed-dim">file_download</span>
+<span>ส่งออกรายงาน (PDF/Excel)</span>
+</button>
+<button class="flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-gradient-to-r from-tertiary-container to-primary-container text-on-primary font-body-sm text-body-sm font-semibold hover:opacity-90 transition-opacity shadow-[0_4px_20px_rgba(78,222,163,0.25)]">
+<span class="material-symbols-outlined text-[18px]">bolt</span>
+<span>ปรับสมดุลพอร์ต</span>
+</button>
+</div>
+</div>
+<!-- Section 2: 4 Metric Summary Cards with High-Contrast Layout & Data Sparks -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-space-md">
+<!-- Card 1: Total Balance -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container/75 p-space-md backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] flex flex-col justify-between group hover:bg-surface-container-high/70 transition-all duration-300">
+<div class="flex items-start justify-between">
+<div class="flex flex-col gap-1">
+<span class="font-label-badge text-label-badge text-on-surface-variant uppercase tracking-wider">ยอดเงินคงเหลือรวม (Total Balance)</span>
+<div class="font-numeric-metric-lg text-numeric-metric-lg text-on-surface font-bold tracking-tight mt-1">฿248,650.00</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">account_balance_wallet</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center justify-between">
+<div class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-container/15 text-primary-fixed-dim font-label-code text-label-code font-semibold">
+<span class="material-symbols-outlined text-[14px]">trending_up</span>
+<span>+12.4%</span>
+<span class="text-outline font-normal ml-0.5">จากเดือนก่อน</span>
+</div>
+<!-- Micro Sparkline SVG -->
+<div class="w-24 h-7">
+<svg class="w-full h-full text-primary" fill="none" preserveaspectratio="none" viewbox="0 0 100 28">
+<path d="M0 24 Q 20 22, 35 15 T 70 12 T 100 4" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+<path d="M0 24 Q 20 22, 35 15 T 70 12 T 100 4 L 100 28 L 0 28 Z" fill="currentColor" fill-opacity="0.08"></path>
+</svg>
+</div>
+</div>
+</div>
+<!-- Card 2: Total Income -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container/75 p-space-md backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] flex flex-col justify-between group hover:bg-surface-container-high/70 transition-all duration-300">
+<div class="flex items-start justify-between">
+<div class="flex flex-col gap-1">
+<span class="font-label-badge text-label-badge text-on-surface-variant uppercase tracking-wider">รายรับทั้งหมดเดือนนี้ (Income)</span>
+<div class="font-numeric-metric-lg text-numeric-metric-lg text-primary-fixed font-bold tracking-tight mt-1">฿85,000.00</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-primary-container/15 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">arrow_downward</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex flex-col gap-2">
+<div class="flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+<span>เป้าหมาย ฿80,000</span>
+<span class="font-label-code text-label-code text-primary font-bold">106.2% 达成</span>
+</div>
+<div class="w-full bg-surface-container-lowest h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full transition-all duration-500" style="width: 100%"></div>
+</div>
+<div class="flex items-center gap-1 font-label-code text-label-code text-primary-fixed-dim">
+<span class="material-symbols-outlined text-[13px]">arrow_upward</span>
+<span>+8.2% เทียบกับเดือนก่อน</span>
+</div>
+</div>
+</div>
+<!-- Card 3: Total Expenses -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container/75 p-space-md backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] flex flex-col justify-between group hover:bg-surface-container-high/70 transition-all duration-300">
+<div class="flex items-start justify-between">
+<div class="flex flex-col gap-1">
+<span class="font-label-badge text-label-badge text-on-surface-variant uppercase tracking-wider">รายจ่ายทั้งหมดเดือนนี้ (Expenses)</span>
+<div class="font-numeric-metric-lg text-numeric-metric-lg text-secondary font-bold tracking-tight mt-1">฿32,450.00</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-secondary-container/20 text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">arrow_upward</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex flex-col gap-2">
+<div class="flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+<span>งบประมาณ ฿70,000</span>
+<span class="font-label-code text-label-code text-on-surface font-semibold">ใช้ไป 46%</span>
+</div>
+<div class="w-full bg-surface-container-lowest h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full transition-all duration-500" style="width: 46%"></div>
+</div>
+<div class="flex items-center justify-between">
+<span class="font-label-code text-label-code px-2 py-0.5 rounded bg-primary-container/15 text-primary-fixed-dim font-medium">-5.1% ประหยัดขึ้น</span>
+<span class="font-label-code text-label-code text-outline">เหลือ ฿37,550</span>
+</div>
+</div>
+</div>
+<!-- Card 4: Monthly Savings -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container/75 p-space-md backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] flex flex-col justify-between group hover:bg-surface-container-high/70 transition-all duration-300">
+<div class="flex items-start justify-between">
+<div class="flex flex-col gap-1">
+<span class="font-label-badge text-label-badge text-on-surface-variant uppercase tracking-wider">เงินคงเหลือสุทธิ (Net Savings)</span>
+<div class="font-numeric-metric-lg text-numeric-metric-lg text-primary font-bold tracking-tight mt-1">฿52,550.00</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-tertiary-container/20 text-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined text-[22px]">savings</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-badge text-label-badge px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-fixed-dim font-semibold">อัตราการออม 61.8% 🎯</span>
+<span class="material-symbols-outlined text-[18px] text-tertiary">check_circle</span>
+</div>
+<div class="flex items-center justify-between font-label-code text-label-code text-on-surface-variant">
+<span>เพิ่มขึ้น ฿14,200 จากเดือนก่อน</span>
+<span class="text-primary font-semibold">เกณฑ์ดีเยี่ยม</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 3: AI Financial Insights & Intelligence Banner -->
+<div class="relative overflow-hidden rounded-2xl bg-surface-container p-space-lg shadow-[0_12px_40px_rgba(0,0,0,0.4)]">
+<div class="absolute -right-24 -top-24 w-80 h-80 rounded-full bg-tertiary-container/10 blur-3xl pointer-events-none"></div>
+<div class="absolute -left-20 -bottom-20 w-80 h-80 rounded-full bg-primary-container/10 blur-3xl pointer-events-none"></div>
+<div class="relative z-10 flex flex-col gap-space-md">
+<!-- Banner Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm pb-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-tertiary to-primary-container flex items-center justify-center text-surface-container-lowest">
+<span class="material-symbols-outlined text-[20px]">auto_awesome</span>
+</div>
+<div class="flex flex-col">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight m-0">Finora AI Insights &amp; Intelligence</h3>
+<span class="font-label-badge text-label-badge text-tertiary uppercase tracking-wider">Gemini Pro 1.5 FinTech Model • อัปเดตแบบเรียลไทม์</span>
+</div>
+</div>
+<a class="inline-flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-surface-container-highest hover:bg-surface-bright text-tertiary-fixed font-body-sm text-body-sm font-semibold transition-all" href="#">
+<span>ปรึกษาและถาม AI Assistant เพิ่มเติม</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+<!-- 3 Insight Cards Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-outline-variant/30 pt-space-xs border-t border-outline-variant/30">
+<!-- Insight 1 -->
+<div class="p-space-md flex flex-col justify-between gap-space-sm">
+<div class="flex items-start gap-space-sm">
+<span class="p-1.5 rounded-md bg-secondary-container/20 text-secondary material-symbols-outlined text-[18px]">restaurant</span>
+<div class="flex flex-col gap-1">
+<span class="font-label-badge text-label-badge text-secondary font-bold uppercase tracking-wider">เตือนสัดส่วนค่าอาหาร</span>
+<p class="font-body-sm text-body-sm text-on-surface leading-relaxed">
+                  คุณใช้จ่ายกับหมวดหมู่ <span class="font-semibold text-on-surface underline decoration-secondary">อาหารและเครื่องดื่ม</span> เพิ่มขึ้น 15% เมื่อเทียบกับสัปดาห์ที่ผ่านมา (เฉลี่ย ฿450/วัน)
+                </p>
+</div>
+</div>
+<div class="pt-space-xs flex items-center justify-between font-label-code text-label-code text-outline">
+<span>ผลกระทบ: ฿3,150/สัปดาห์</span>
+<span class="text-tertiary cursor-pointer hover:underline">ตั้งลิมิต</span>
+</div>
+</div>
+<!-- Insight 2 -->
+<div class="p-space-md flex flex-col justify-between gap-space-sm">
+<div class="flex items-start gap-space-sm">
+<span class="p-1.5 rounded-md bg-tertiary-container/20 text-tertiary material-symbols-outlined text-[18px]">shopping_bag</span>
+<div class="flex flex-col gap-1">
+<span class="font-label-badge text-label-badge text-tertiary font-bold uppercase tracking-wider">รายการสูงสุดประจำเดือน</span>
+<p class="font-body-sm text-body-sm text-on-surface leading-relaxed">
+                  ค่าใช้จ่ายสูงสุดในเดือนนี้คือ <span class="font-semibold text-on-surface">Shopping (฿12,400)</span> จากการซื้ออุปกรณ์ไอที ณ Apple Store Central World
+                </p>
+</div>
+</div>
+<div class="pt-space-xs flex items-center justify-between font-label-code text-label-code text-outline">
+<span>หมวดสินค้าคงทน</span>
+<span class="text-primary cursor-pointer hover:underline">ดูสลิป</span>
+</div>
+</div>
+<!-- Insight 3 -->
+<div class="p-space-md flex flex-col justify-between gap-space-sm">
+<div class="flex items-start gap-space-sm">
+<span class="p-1.5 rounded-md bg-primary-container/20 text-primary material-symbols-outlined text-[18px]">trending_up</span>
+<div class="flex flex-col gap-1">
+<span class="font-label-badge text-label-badge text-primary font-bold uppercase tracking-wider">พยากรณ์เงินออมสิ้นเดือน</span>
+<p class="font-body-sm text-body-sm text-on-surface leading-relaxed">
+                  หากรักษาระดับการใช้จ่ายปัจจุบัน คาดการณ์จะมีเงินเก็บเพิ่ม <span class="font-bold text-primary font-label-code">฿54,200</span> ณ สิ้นเดือนมีนาคม เร็วกว่าเป้าหมาย 6 วัน
+                </p>
+</div>
+</div>
+<div class="pt-space-xs flex items-center justify-between font-label-code text-label-code text-outline">
+<span>ความน่าจะเป็น: 94%</span>
+<span class="text-primary-fixed-dim cursor-pointer hover:underline">ล็อกการออม</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 4: Dual Analytics Grid (Income/Expense Chart & Category Donut Breakdown) -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg">
+<!-- Left Column: 6-Month Income vs Expense Bar Chart (8 Columns) -->
+<div class="lg:col-span-7 rounded-2xl bg-surface-container/70 p-space-lg backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] flex flex-col justify-between">
+<div>
+<!-- Chart Header & Control -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm mb-space-lg">
+<div class="flex flex-col">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold m-0">เปรียบเทียบรายรับและรายจ่าย</h3>
+<span class="font-body-sm text-body-sm text-on-surface-variant">แนวโน้มย้อนหลัง 6 เดือน (ต.ค. 2024 - มี.ค. 2025)</span>
+</div>
+<div class="flex items-center p-1 rounded-lg bg-surface-container-lowest">
+<button class="px-space-sm py-1 rounded bg-surface-container-high font-label-code text-label-code text-on-surface font-medium shadow-xs">ราย 6 เดือน</button>
+<button class="px-space-sm py-1 rounded text-outline hover:text-on-surface font-label-code text-label-code transition-colors">รายปี</button>
+</div>
+</div>
+<!-- Legend -->
+<div class="flex items-center gap-space-lg mb-space-md">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded bg-primary"></span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายรับเฉลี่ย: <span class="text-on-surface font-semibold">฿82,500</span></span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded bg-secondary"></span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายจ่ายเฉลี่ย: <span class="text-on-surface font-semibold">฿34,100</span></span>
+</div>
+</div>
+<!-- SVG Bar Visualizer Chart -->
+<div class="relative w-full h-64 flex items-end pt-4 pb-2">
+<!-- Grid Lines Background -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+<div class="w-full border-b border-outline"></div>
+<div class="w-full border-b border-outline"></div>
+<div class="w-full border-b border-outline"></div>
+<div class="w-full border-b border-outline"></div>
+</div>
+<!-- Chart Bars Container -->
+<div class="relative z-10 w-full h-full flex items-end justify-between px-2 sm:px-6">
+<!-- Oct -->
+<div class="flex flex-col items-center gap-2 h-full justify-end group">
+<div class="flex items-end gap-1.5 h-full">
+<div class="w-4 sm:w-6 bg-primary rounded-t transition-all group-hover:brightness-110" style="height: 72%;"></div>
+<div class="w-4 sm:w-6 bg-secondary rounded-t transition-all group-hover:brightness-110" style="height: 38%;"></div>
+</div>
+<span class="font-label-code text-label-code text-outline group-hover:text-on-surface">ต.ค.</span>
+</div>
+<!-- Nov -->
+<div class="flex flex-col items-center gap-2 h-full justify-end group">
+<div class="flex items-end gap-1.5 h-full">
+<div class="w-4 sm:w-6 bg-primary rounded-t transition-all group-hover:brightness-110" style="height: 78%;"></div>
+<div class="w-4 sm:w-6 bg-secondary rounded-t transition-all group-hover:brightness-110" style="height: 44%;"></div>
+</div>
+<span class="font-label-code text-label-code text-outline group-hover:text-on-surface">พ.ย.</span>
+</div>
+<!-- Dec -->
+<div class="flex flex-col items-center gap-2 h-full justify-end group">
+<div class="flex items-end gap-1.5 h-full">
+<div class="w-4 sm:w-6 bg-primary rounded-t transition-all group-hover:brightness-110" style="height: 92%;"></div>
+<div class="w-4 sm:w-6 bg-secondary rounded-t transition-all group-hover:brightness-110" style="height: 60%;"></div>
+</div>
+<span class="font-label-code text-label-code text-outline group-hover:text-on-surface">ธ.ค.</span>
+</div>
+<!-- Jan -->
+<div class="flex flex-col items-center gap-2 h-full justify-end group">
+<div class="flex items-end gap-1.5 h-full">
+<div class="w-4 sm:w-6 bg-primary rounded-t transition-all group-hover:brightness-110" style="height: 75%;"></div>
+<div class="w-4 sm:w-6 bg-secondary rounded-t transition-all group-hover:brightness-110" style="height: 36%;"></div>
+</div>
+<span class="font-label-code text-label-code text-outline group-hover:text-on-surface">ม.ค.</span>
+</div>
+<!-- Feb -->
+<div class="flex flex-col items-center gap-2 h-full justify-end group">
+<div class="flex items-end gap-1.5 h-full">
+<div class="w-4 sm:w-6 bg-primary rounded-t transition-all group-hover:brightness-110" style="height: 80%;"></div>
+<div class="w-4 sm:w-6 bg-secondary rounded-t transition-all group-hover:brightness-110" style="height: 40%;"></div>
+</div>
+<span class="font-label-code text-label-code text-outline group-hover:text-on-surface">ก.พ.</span>
+</div>
+<!-- Mar (Active) -->
+<div class="flex flex-col items-center gap-2 h-full justify-end group">
+<div class="flex items-end gap-1.5 h-full relative">
+<!-- Highlight Glow behind current month -->
+<div class="absolute -inset-1 bg-primary/10 rounded-t blur-xs"></div>
+<div class="relative w-4 sm:w-6 bg-primary rounded-t shadow-[0_0_12px_rgba(78,222,163,0.5)] transition-all group-hover:brightness-110" style="height: 85%;"></div>
+<div class="relative w-4 sm:w-6 bg-secondary rounded-t transition-all group-hover:brightness-110" style="height: 34%;"></div>
+</div>
+<span class="font-label-code text-label-code text-primary font-bold">มี.ค.*</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Metric Footer Summary -->
+<div class="mt-space-md pt-space-sm border-t border-outline-variant/30 flex flex-wrap items-center justify-between gap-space-sm">
+<div class="flex items-center gap-space-xs font-body-sm text-body-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">verified</span>
+<span>กระแสเงินสดสุทธิเฉลี่ย (Net Cash Flow): <strong class="text-on-surface font-label-code">฿48,400/เดือน</strong></span>
+</div>
+<span class="font-label-badge text-label-badge text-primary-fixed-dim">อัตราการเติบโต +18.6% YoY</span>
+</div>
+</div>
+<!-- Right Column: Expense Category Donut Breakdown (5 Columns) -->
+<div class="lg:col-span-5 rounded-2xl bg-surface-container/70 p-space-lg backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between mb-space-md">
+<div class="flex flex-col">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold m-0">สัดส่วนรายจ่ายแยกตามหมวดหมู่</h3>
+<span class="font-body-sm text-body-sm text-on-surface-variant">เดือนมีนาคม 2025 (รวม ฿32,450)</span>
+</div>
+<button class="p-1 rounded bg-surface-container-high text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-[20px]">filter_list</span>
+</button>
+</div>
+<!-- Donut SVG Visualization -->
+<div class="flex flex-col sm:flex-row items-center justify-center gap-space-lg my-space-sm">
+<div class="relative w-44 h-44 flex items-center justify-center flex-shrink-0">
+<svg class="w-full h-full -rotate-90" viewbox="0 0 100 100">
+<!-- Donut Segments (Circumference ~ 251.2) -->
+<!-- Food: 32% = 80.38 -->
+<circle cx="50" cy="50" fill="transparent" r="40" stroke="#ffb3ad" stroke-dasharray="80.38 251.2" stroke-dashoffset="0" stroke-width="14"></circle>
+<!-- Shopping: 24% = 60.28 -->
+<circle cx="50" cy="50" fill="transparent" r="40" stroke="#b090ff" stroke-dasharray="60.28 251.2" stroke-dashoffset="-80.38" stroke-width="14"></circle>
+<!-- Housing: 20% = 50.24 -->
+<circle cx="50" cy="50" fill="transparent" r="40" stroke="#4edea3" stroke-dasharray="50.24 251.2" stroke-dashoffset="-140.66" stroke-width="14"></circle>
+<!-- Transport: 14% = 35.16 -->
+<circle cx="50" cy="50" fill="transparent" r="40" stroke="#6ffbbe" stroke-dasharray="35.16 251.2" stroke-dashoffset="-190.9" stroke-width="14"></circle>
+<!-- Entertainment: 10% = 25.12 -->
+<circle cx="50" cy="50" fill="transparent" r="40" stroke="#bbcabf" stroke-dasharray="25.12 251.2" stroke-dashoffset="-226.06" stroke-width="14"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+<span class="font-label-badge text-label-badge text-outline uppercase">ยอดจ่ายรวม</span>
+<span class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-bold tracking-tight">฿32,450</span>
+</div>
+</div>
+<!-- Donut Legend & Stats -->
+<div class="flex flex-col gap-2 w-full">
+<div class="flex items-center justify-between p-1.5 rounded-lg hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+<span class="font-body-sm text-body-sm text-on-surface">อาหาร &amp; เครื่องดื่ม</span>
+</div>
+<div class="flex items-center gap-2 font-label-code text-label-code">
+<span class="text-on-surface font-semibold">32%</span>
+<span class="text-outline">฿10,384</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-1.5 rounded-lg hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-tertiary-container"></span>
+<span class="font-body-sm text-body-sm text-on-surface">ช้อปปิ้ง &amp; ไลฟ์สไตล์</span>
+</div>
+<div class="flex items-center gap-2 font-label-code text-label-code">
+<span class="text-on-surface font-semibold">24%</span>
+<span class="text-outline">฿7,788</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-1.5 rounded-lg hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+<span class="font-body-sm text-body-sm text-on-surface">ที่อยู่อาศัย &amp; บิล</span>
+</div>
+<div class="flex items-center gap-2 font-label-code text-label-code">
+<span class="text-on-surface font-semibold">20%</span>
+<span class="text-outline">฿6,490</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-1.5 rounded-lg hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary-fixed"></span>
+<span class="font-body-sm text-body-sm text-on-surface">การเดินทาง &amp; น้ำมัน</span>
+</div>
+<div class="flex items-center gap-2 font-label-code text-label-code">
+<span class="text-on-surface font-semibold">14%</span>
+<span class="text-outline">฿4,543</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-1.5 rounded-lg hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-on-surface-variant"></span>
+<span class="font-body-sm text-body-sm text-on-surface">ความบันเทิง &amp; สมาชิก</span>
+</div>
+<div class="flex items-center gap-2 font-label-code text-label-code">
+<span class="text-on-surface font-semibold">10%</span>
+<span class="text-outline">฿3,245</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-space-sm text-center">
+<a class="font-body-sm text-body-sm text-primary-fixed-dim hover:underline inline-flex items-center gap-1" href="#">
+<span>ปรับแต่งและจัดหมวดหมู่ค่าใช้จ่าย</span>
+<span class="material-symbols-outlined text-[16px]">tune</span>
+</a>
+</div>
+</div>
+</div>
+<!-- Section 5: Recent Transactions Table -->
+<div class="rounded-2xl bg-surface-container/70 p-space-lg backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] flex flex-col gap-space-md">
+<!-- Table Header & Action Link -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold m-0">รายการธุรกรรมล่าสุด</h3>
+<span class="font-label-badge text-label-badge px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">5 รายการล่าสุด</span>
+</div>
+<div class="flex items-center gap-space-md">
+<div class="hidden sm:flex items-center gap-space-xs font-label-code text-label-code text-outline">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span>Real-time Ledger</span>
+</div>
+<a class="font-body-sm text-body-sm text-primary font-semibold hover:underline inline-flex items-center gap-1" href="#">
+<span>ดูทั้งหมด</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</div>
+<!-- Tabular Data -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-on-surface-variant font-label-badge text-label-badge uppercase tracking-wider bg-surface-container-lowest/60">
+<th class="py-3 px-space-md rounded-l-lg">รายการธุรกรรม</th>
+<th class="py-3 px-space-md">หมวดหมู่</th>
+<th class="py-3 px-space-md">ช่องทาง / บัญชี</th>
+<th class="py-3 px-space-md">วันที่และเวลา</th>
+<th class="py-3 px-space-md">สถานะ</th>
+<th class="py-3 px-space-md text-right rounded-r-lg">จำนวนเงิน (THB)</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-high/40 font-body-sm text-body-sm">
+<!-- Row 1: Salary Income -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-space-md px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-xl bg-primary-container/20 text-primary flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">เงินเดือนประจำ (บริษัท เทค อินโนเวชั่น จำกัด)</span>
+<span class="font-label-code text-label-code text-outline">Ref: TXN-20250228-9842</span>
+</div>
+</div>
+</td>
+<td class="py-space-md px-space-md">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-primary-container/15 text-primary-fixed-dim font-label-badge text-label-badge font-semibold">รายรับ: เงินเดือน</span>
+</td>
+<td class="py-space-md px-space-md text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-tertiary">account_balance_wallet</span>
+<span>Virtual Bank Wallet</span>
+</div>
+</td>
+<td class="py-space-md px-space-md text-on-surface-variant font-label-code text-label-code">
+                28 ก.พ. 2025, 09:00
+              </td>
+<td class="py-space-md px-space-md">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-badge text-label-badge">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>สำเร็จ</span>
+</span>
+</td>
+<td class="py-space-md px-space-md text-right font-numeric-metric-md text-numeric-metric-md text-primary font-bold">
+                +฿85,000.00
+              </td>
+</tr>
+<!-- Row 2: Gourmet Market -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-space-md px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">shopping_cart</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">Gourmet Market Paragon</span>
+<span class="font-label-code text-label-code text-outline">Ref: TXN-20250302-1102</span>
+</div>
+</div>
+</td>
+<td class="py-space-md px-space-md">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary font-label-badge text-label-badge font-semibold">อาหาร &amp; วัตถุดิบ</span>
+</td>
+<td class="py-space-md px-space-md text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">qr_code_scanner</span>
+<span>สแกน PromptPay QR</span>
+</div>
+</td>
+<td class="py-space-md px-space-md text-on-surface-variant font-label-code text-label-code">
+                2 มี.ค. 2025, 18:30
+              </td>
+<td class="py-space-md px-space-md">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-badge text-label-badge">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>สำเร็จ</span>
+</span>
+</td>
+<td class="py-space-md px-space-md text-right font-numeric-metric-md text-numeric-metric-md text-secondary font-bold">
+                -฿2,450.00
+              </td>
+</tr>
+<!-- Row 3: Netflix -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-space-md px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest text-tertiary flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">subscriptions</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">Netflix Subscription</span>
+<span class="font-label-code text-label-code text-outline">Ref: REC-20250301-4431</span>
+</div>
+</div>
+</td>
+<td class="py-space-md px-space-md">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-tertiary-container/20 text-tertiary font-label-badge text-label-badge font-semibold">ความบันเทิง (Recurring)</span>
+</td>
+<td class="py-space-md px-space-md text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-tertiary">autorenew</span>
+<span>Virtual Bank Auto-Debit</span>
+</div>
+</td>
+<td class="py-space-md px-space-md text-on-surface-variant font-label-code text-label-code">
+                1 มี.ค. 2025, 00:01
+              </td>
+<td class="py-space-md px-space-md">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-badge text-label-badge">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>สำเร็จ</span>
+</span>
+</td>
+<td class="py-space-md px-space-md text-right font-numeric-metric-md text-numeric-metric-md text-secondary font-bold">
+                -฿419.00
+              </td>
+</tr>
+<!-- Row 4: Apple Store -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-space-md px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-xl bg-tertiary-container/20 text-tertiary-fixed-dim flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">devices</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">Apple Store Central World</span>
+<span class="font-label-code text-label-code text-outline">Ref: TXN-20250227-7729</span>
+</div>
+</div>
+</td>
+<td class="py-space-md px-space-md">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant font-label-badge text-label-badge font-semibold">ช้อปปิ้ง &amp; ไอที</span>
+</td>
+<td class="py-space-md px-space-md text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">credit_card</span>
+<span>บัตรเครดิตเสมือน (Virtual Card)</span>
+</div>
+</td>
+<td class="py-space-md px-space-md text-on-surface-variant font-label-code text-label-code">
+                27 ก.พ. 2025, 14:15
+              </td>
+<td class="py-space-md px-space-md">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-badge text-label-badge">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>สำเร็จ</span>
+</span>
+</td>
+<td class="py-space-md px-space-md text-right font-numeric-metric-md text-numeric-metric-md text-secondary font-bold">
+                -฿8,900.00
+              </td>
+</tr>
+<!-- Row 5: Dividend Income -->
+<tr class="hover:bg-surface-container-high/40 transition-colors group">
+<td class="py-space-md px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-xl bg-primary-container/20 text-primary flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[20px]">show_chart</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">เงินปันผลกองทุนรวม K-USXNDQ</span>
+<span class="font-label-code text-label-code text-outline">Ref: DIV-20250225-0193</span>
+</div>
+</div>
+</td>
+<td class="py-space-md px-space-md">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-primary-container/15 text-primary-fixed-dim font-label-badge text-label-badge font-semibold">รายรับ: การลงทุน</span>
+</td>
+<td class="py-space-md px-space-md text-on-surface-variant">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">account_balance</span>
+<span>โอนเข้าบัญชีจำลอง</span>
+</div>
+</td>
+<td class="py-space-md px-space-md text-on-surface-variant font-label-code text-label-code">
+                25 ก.พ. 2025, 11:20
+              </td>
+<td class="py-space-md px-space-md">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary-container/20 text-primary font-label-badge text-label-badge">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+<span>สำเร็จ</span>
+</span>
+</td>
+<td class="py-space-md px-space-md text-right font-numeric-metric-md text-numeric-metric-md text-primary font-bold">
+                +฿4,320.00
+              </td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div></main></div></body></html>
