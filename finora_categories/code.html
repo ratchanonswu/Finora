@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html class="dark" lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Finora — จัดการหมวดหมู่ (Categories)</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <style>
+    @layer base {
+      html, body { margin: 0; padding: 0; font-size: 14px; }
+      body { overscroll-behavior: none; }
+      h1 { font-size: 28px; line-height: 36px; }
+      h2 { font-size: 22px; line-height: 28px; }
+      h3 { font-size: 18px; line-height: 24px; }
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.2); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.4); }
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            background: "#051424",
+            surface: "#091b2e",
+            "surface-low": "#0d2238",
+            "surface-container": "#122a44",
+            "surface-high": "#193757",
+            "surface-highest": "#22466e",
+            "on-surface": "#e2e8f0",
+            "on-surface-variant": "#94a3b8",
+            outline: "#475569",
+            primary: "#10b981",
+            "primary-hover": "#059669",
+            "primary-container": "#064e3b",
+            "on-primary": "#ffffff",
+            secondary: "#ef4444",
+            "secondary-container": "#450a0a",
+            "on-secondary": "#ffffff",
+            tertiary: "#8b5cf6",
+            "tertiary-container": "#2e1065",
+            warning: "#f59e0b"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-background font-sans text-on-surface antialiased min-h-screen">
+
+  <!-- Persistent Left Sidebar -->
+  <aside class="fixed left-0 top-0 h-full w-72 bg-surface-low border-r border-surface-high z-50 flex flex-col justify-between">
+    <div class="flex flex-col">
+      <div class="h-16 px-6 flex items-center justify-between border-b border-surface-high">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+            F
+          </div>
+          <div class="flex flex-col">
+            <span class="text-base text-on-surface font-bold tracking-tight">Finora</span>
+            <span class="text-[11px] text-primary font-medium">Smart Finance</span>
+          </div>
+        </div>
+        <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-surface-high text-on-surface-variant">v2.4</span>
+      </div>
+
+      <div class="px-5 pt-5 pb-2">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-outline">เมนูหลัก</span>
+      </div>
+
+      <nav class="flex flex-col gap-1 px-3">
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora/code.html">
+          <span class="material-symbols-outlined text-[20px]">space_dashboard</span>
+          <span class="text-sm font-medium">ภาพรวมการเงิน</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_transactions/code.html">
+          <span class="material-symbols-outlined text-[20px]">receipt_long</span>
+          <span class="text-sm font-medium">รายรับรายจ่าย</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_recurring_payments/code.html">
+          <span class="material-symbols-outlined text-[20px]">autorenew</span>
+          <span class="text-sm font-medium">ตัดเงินอัตโนมัติ</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_qr_code_qr_scanner/code.html">
+          <span class="material-symbols-outlined text-[20px]">qr_code_scanner</span>
+          <span class="text-sm font-medium">สแกน QR Code</span>
+        </a>
+        <a aria-current="page" class="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-primary text-on-primary font-semibold shadow-sm" href="../finora_categories/code.html">
+          <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px]">category</span>
+            <span class="text-sm">จัดการหมวดหมู่</span>
+          </div>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-black/20 text-white font-mono">13</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_virtual_bank/code.html">
+          <span class="material-symbols-outlined text-[20px]">account_balance</span>
+          <span class="text-sm font-medium">ธนาคารจำลอง</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_ai_ai_assistant/code.html">
+          <span class="material-symbols-outlined text-[20px] text-tertiary">auto_awesome</span>
+          <span class="text-sm font-medium">ผู้ช่วย AI</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" href="../finora_settings/code.html">
+          <span class="material-symbols-outlined text-[20px]">settings</span>
+          <span class="text-sm font-medium">ตั้งค่าระบบ</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="p-4 border-t border-surface-high">
+      <div class="flex flex-col gap-1 text-xs">
+        <span class="text-on-surface-variant">กระเป๋าเงินจำลอง</span>
+        <span class="text-lg font-bold text-on-surface font-mono">฿124,500.00</span>
+        <span class="text-[11px] text-outline font-mono">ID: VB-882104-9901</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="pl-72">
+    <!-- Top Navigation Header -->
+    <header class="fixed top-0 left-72 right-0 h-16 bg-surface-low/90 backdrop-blur-md border-b border-surface-high z-40 flex items-center justify-between px-8">
+      <div class="flex items-center gap-2 text-sm">
+        <span class="text-on-surface-variant">หน้าหลัก</span>
+        <span class="text-outline">/</span>
+        <span class="text-on-surface font-medium">จัดการหมวดหมู่ (Categories)</span>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="p-2 rounded-lg bg-surface-container border border-surface-high text-on-surface-variant hover:text-on-surface transition-colors" title="สลับธีม สว่าง / มืด" type="button">
+          <span class="material-symbols-outlined text-[18px]">light_mode</span>
+        </button>
+
+        <div class="h-6 w-px bg-surface-high"></div>
+
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-xs">
+            ธภ
+          </div>
+          <div class="flex flex-col text-left">
+            <span class="text-sm font-semibold text-on-surface leading-tight">คุณธนภัทร วงศ์เจริญ</span>
+            <span class="text-xs text-on-surface-variant">Finora Pro</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Body -->
+    <main class="pt-20 px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-6">
+
+      <!-- Header Section -->
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-on-surface tracking-tight">จัดการหมวดหมู่รายรับ-รายจ่าย</h1>
+          <p class="text-sm text-on-surface-variant mt-1">จัดหมวดหมู่การเงิน ปรับแต่งสีและไอคอน พร้อมตั้งค่าการจำแนกหมวดหมู่อัตโนมัติด้วย AI</p>
+        </div>
+
+        <div class="flex items-center gap-2 self-start md:self-auto">
+          <button onclick="openCategoryModal()" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-on-primary font-semibold text-xs transition-colors flex items-center gap-1.5" type="button">
+            <span class="material-symbols-outlined text-[18px]">add_circle</span>
+            <span>เพิ่มหมวดหมู่ใหม่</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- AI Status Banner -->
+      <div class="rounded-xl bg-surface-container border border-surface-high p-4 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-tertiary text-[22px]">smart_toy</span>
+          <div>
+            <span class="text-sm font-semibold text-on-surface">ระบบ AI จัดหมวดหมู่อัตโนมัติเปิดใช้งานอยู่</span>
+            <p class="text-xs text-on-surface-variant">ช่วยระบุหมวดหมู่เมื่อบันทึกรายการหรือสแกนสลิปด้วยความแม่นยำเฉลี่ย 96.4%</p>
+          </div>
+        </div>
+        <button onclick="switchTab('ai')" class="px-3 py-1.5 rounded-lg bg-surface-high hover:bg-surface-highest text-xs font-semibold text-on-surface transition-colors" type="button">
+          ตั้งค่ากฎ AI
+        </button>
+      </div>
+
+      <!-- 3 Summary Metrics -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-semibold">หมวดหมู่ทั้งหมด</span>
+            <span class="material-symbols-outlined text-primary text-[20px]">folder</span>
+          </div>
+          <div class="my-3">
+            <div class="text-3xl font-bold text-on-surface font-mono">13 หมวด</div>
+            <div class="text-xs text-on-surface-variant mt-1">รายจ่าย 9 หมวด • รายรับ 4 หมวด</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-semibold">ยอดใช้จ่ายเดือนนี้</span>
+            <span class="material-symbols-outlined text-secondary text-[20px]">receipt_long</span>
+          </div>
+          <div class="my-3">
+            <div class="text-3xl font-bold text-on-surface font-mono">฿32,450.00</div>
+            <div class="text-xs text-primary font-medium mt-1">-4.2% เทียบกับเดือนก่อน</div>
+          </div>
+        </div>
+
+        <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-semibold">หมวดที่ใช้จ่ายสูงสุด</span>
+            <span class="material-symbols-outlined text-warning text-[20px]">donut_large</span>
+          </div>
+          <div class="my-3">
+            <div class="text-xl font-bold text-on-surface truncate">🍔 อาหาร &amp; เครื่องดื่ม</div>
+            <div class="text-xs text-on-surface-variant mt-1">฿10,384.00 (32.0% ของงบรวม)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="flex items-center gap-1 self-start">
+        <button id="tab-expense" class="px-3.5 py-2 rounded-lg text-xs font-semibold bg-primary text-on-primary transition-colors flex items-center gap-1.5" onclick="switchTab('expense')" type="button">
+          <span class="material-symbols-outlined text-[16px]">payments</span>
+          <span>หมวดหมู่รายจ่าย (9)</span>
+        </button>
+        <button id="tab-income" class="px-3.5 py-2 rounded-lg text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-high transition-colors flex items-center gap-1.5" onclick="switchTab('income')" type="button">
+          <span class="material-symbols-outlined text-[16px]">account_balance</span>
+          <span>หมวดหมู่รายรับ (4)</span>
+        </button>
+        <button id="tab-ai" class="px-3.5 py-2 rounded-lg text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-high transition-colors flex items-center gap-1.5" onclick="switchTab('ai')" type="button">
+          <span class="material-symbols-outlined text-[16px] text-tertiary">psychology</span>
+          <span>การตั้งค่า AI Categorization</span>
+        </button>
+      </div>
+
+      <!-- VIEW 1: EXPENSE CATEGORIES -->
+      <div id="view-expense" class="flex flex-col gap-4">
+        <h2 class="text-lg font-bold text-on-surface">หมวดหมู่รายจ่ายมาตรฐาน</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+          <!-- Cat 1 -->
+          <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between gap-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">🍔</span>
+                <div>
+                  <h3 class="text-base font-bold text-on-surface">อาหาร &amp; เครื่องดื่ม</h3>
+                  <span class="text-xs text-on-surface-variant">Food &amp; Dining</span>
+                </div>
+              </div>
+              <span class="w-3 h-3 rounded-full bg-[#f97316]"></span>
+            </div>
+            <div>
+              <div class="flex justify-between items-baseline mb-1">
+                <span class="text-lg font-bold font-mono text-on-surface">฿10,384.00</span>
+                <span class="text-xs font-medium text-on-surface-variant">32.0%</span>
+              </div>
+              <div class="w-full bg-surface-high h-2 rounded-full overflow-hidden">
+                <div class="bg-[#f97316] h-full rounded-full" style="width: 32%"></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-surface-high flex items-center justify-between text-xs text-on-surface-variant">
+              <span>24 รายการเดือนนี้</span>
+              <span class="text-primary font-medium">AI Mapped 98%</span>
+            </div>
+          </div>
+
+          <!-- Cat 2 -->
+          <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between gap-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">🛍️</span>
+                <div>
+                  <h3 class="text-base font-bold text-on-surface">ช้อปปิ้ง &amp; ของใช้</h3>
+                  <span class="text-xs text-on-surface-variant">Shopping &amp; Retail</span>
+                </div>
+              </div>
+              <span class="w-3 h-3 rounded-full bg-[#ec4899]"></span>
+            </div>
+            <div>
+              <div class="flex justify-between items-baseline mb-1">
+                <span class="text-lg font-bold font-mono text-on-surface">฿7,788.00</span>
+                <span class="text-xs font-medium text-on-surface-variant">24.0%</span>
+              </div>
+              <div class="w-full bg-surface-high h-2 rounded-full overflow-hidden">
+                <div class="bg-[#ec4899] h-full rounded-full" style="width: 24%"></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-surface-high flex items-center justify-between text-xs text-on-surface-variant">
+              <span>8 รายการเดือนนี้</span>
+              <span class="text-primary font-medium">AI Mapped 92%</span>
+            </div>
+          </div>
+
+          <!-- Cat 3 -->
+          <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between gap-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">🏠</span>
+                <div>
+                  <h3 class="text-base font-bold text-on-surface">ที่อยู่อาศัย &amp; บิล</h3>
+                  <span class="text-xs text-on-surface-variant">Housing &amp; Utilities</span>
+                </div>
+              </div>
+              <span class="w-3 h-3 rounded-full bg-[#3b82f6]"></span>
+            </div>
+            <div>
+              <div class="flex justify-between items-baseline mb-1">
+                <span class="text-lg font-bold font-mono text-on-surface">฿6,490.00</span>
+                <span class="text-xs font-medium text-on-surface-variant">20.0%</span>
+              </div>
+              <div class="w-full bg-surface-high h-2 rounded-full overflow-hidden">
+                <div class="bg-[#3b82f6] h-full rounded-full" style="width: 20%"></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-surface-high flex items-center justify-between text-xs text-on-surface-variant">
+              <span>3 รายการเดือนนี้</span>
+              <span class="text-primary font-medium">Auto-Debit Synced</span>
+            </div>
+          </div>
+
+          <!-- Cat 4 -->
+          <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between gap-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">🚗</span>
+                <div>
+                  <h3 class="text-base font-bold text-on-surface">การเดินทาง &amp; น้ำมัน</h3>
+                  <span class="text-xs text-on-surface-variant">Transportation</span>
+                </div>
+              </div>
+              <span class="w-3 h-3 rounded-full bg-[#06b6d4]"></span>
+            </div>
+            <div>
+              <div class="flex justify-between items-baseline mb-1">
+                <span class="text-lg font-bold font-mono text-on-surface">฿4,543.00</span>
+                <span class="text-xs font-medium text-on-surface-variant">14.0%</span>
+              </div>
+              <div class="w-full bg-surface-high h-2 rounded-full overflow-hidden">
+                <div class="bg-[#06b6d4] h-full rounded-full" style="width: 14%"></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-surface-high flex items-center justify-between text-xs text-on-surface-variant">
+              <span>11 รายการเดือนนี้</span>
+              <span class="text-primary font-medium">AI Mapped 99%</span>
+            </div>
+          </div>
+
+          <!-- Cat 5 -->
+          <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between gap-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">🎬</span>
+                <div>
+                  <h3 class="text-base font-bold text-on-surface">ความบันเทิง &amp; สมาชิก</h3>
+                  <span class="text-xs text-on-surface-variant">Entertainment</span>
+                </div>
+              </div>
+              <span class="w-3 h-3 rounded-full bg-[#8b5cf6]"></span>
+            </div>
+            <div>
+              <div class="flex justify-between items-baseline mb-1">
+                <span class="text-lg font-bold font-mono text-on-surface">฿3,245.00</span>
+                <span class="text-xs font-medium text-on-surface-variant">10.0%</span>
+              </div>
+              <div class="w-full bg-surface-high h-2 rounded-full overflow-hidden">
+                <div class="bg-[#8b5cf6] h-full rounded-full" style="width: 10%"></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-surface-high flex items-center justify-between text-xs text-on-surface-variant">
+              <span>5 รายการเดือนนี้</span>
+              <span class="text-primary font-medium">Recurring Subscriptions</span>
+            </div>
+          </div>
+
+          <!-- Cat 6 -->
+          <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between gap-4">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-3">
+                <span class="text-2xl">📦</span>
+                <div>
+                  <h3 class="text-base font-bold text-on-surface">รายจ่ายอื่นๆ</h3>
+                  <span class="text-xs text-on-surface-variant">Other Expenses</span>
+                </div>
+              </div>
+              <span class="w-3 h-3 rounded-full bg-[#94a3b8]"></span>
+            </div>
+            <div>
+              <div class="flex justify-between items-baseline mb-1">
+                <span class="text-lg font-bold font-mono text-on-surface">฿0.00</span>
+                <span class="text-xs font-medium text-on-surface-variant">0.0%</span>
+              </div>
+              <div class="w-full bg-surface-high h-2 rounded-full overflow-hidden">
+                <div class="bg-[#94a3b8] h-full rounded-full" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="pt-3 border-t border-surface-high flex items-center justify-between text-xs text-on-surface-variant">
+              <span>0 รายการเดือนนี้</span>
+              <span>เบ็ดเตล็ด</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- VIEW 2: INCOME CATEGORIES (Hidden by default) -->
+      <div id="view-income" class="hidden flex flex-col gap-4">
+        <h2 class="text-lg font-bold text-on-surface">หมวดหมู่รายรับมาตรฐาน</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+
+          <!-- Income 1 -->
+          <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between gap-4">
+            <div class="flex items-center justify-between">
+              <span class="text-2xl">💼</span>
+              <span class="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">หมวดหลัก</span>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-on-surface">เงินเดือนประจำ</h3>
+              <span class="text-xs text-on-surface-variant">Salary &amp; Primary</span>
+            </div>
+            <div class="pt-3 border-t border-surface-high">
+              <div class="text-xl font-bold font-mono text-primary">+฿85,000.00</div>
+              <span class="text-xs text-on-surface-variant mt-0.5 block">1 รายการในเดือนนี้</span>
+            </div>
+          </div>
+
+          <!-- Income 2 -->
+          <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between gap-4">
+            <div class="flex items-center justify-between">
+              <span class="text-2xl">💻</span>
+              <span class="text-xs px-2 py-0.5 rounded bg-surface-high text-on-surface-variant">สแตนด์บาย</span>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-on-surface">งานฟรีแลนซ์</h3>
+              <span class="text-xs text-on-surface-variant">Freelance Projects</span>
+            </div>
+            <div class="pt-3 border-t border-surface-high">
+              <div class="text-xl font-bold font-mono text-on-surface-variant">฿0.00</div>
+              <span class="text-xs text-outline mt-0.5 block">0 รายการในเดือนนี้</span>
+            </div>
+          </div>
+
+          <!-- Income 3 -->
+          <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between gap-4">
+            <div class="flex items-center justify-between">
+              <span class="text-2xl">📈</span>
+              <span class="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">ปันผลต่อเนื่อง</span>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-on-surface">เงินปันผล &amp; ลงทุน</h3>
+              <span class="text-xs text-on-surface-variant">Investment &amp; Dividend</span>
+            </div>
+            <div class="pt-3 border-t border-surface-high">
+              <div class="text-xl font-bold font-mono text-primary">+฿4,320.00</div>
+              <span class="text-xs text-on-surface-variant mt-0.5 block">2 รายการในเดือนนี้</span>
+            </div>
+          </div>
+
+          <!-- Income 4 -->
+          <div class="rounded-xl bg-surface-container border border-surface-high p-5 flex flex-col justify-between gap-4">
+            <div class="flex items-center justify-between">
+              <span class="text-2xl">💵</span>
+              <span class="text-xs px-2 py-0.5 rounded bg-surface-high text-on-surface-variant">ทั่วไป</span>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-on-surface">รายรับอื่นๆ</h3>
+              <span class="text-xs text-on-surface-variant">Other Income</span>
+            </div>
+            <div class="pt-3 border-t border-surface-high">
+              <div class="text-xl font-bold font-mono text-on-surface-variant">฿0.00</div>
+              <span class="text-xs text-outline mt-0.5 block">0 รายการในเดือนนี้</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- VIEW 3: AI CATEGORIZATION RULES (Hidden by default) -->
+      <div id="view-ai" class="hidden flex flex-col gap-5">
+        <div class="rounded-xl bg-surface-container border border-surface-high p-6 flex flex-col gap-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-surface-high">
+            <div>
+              <h2 class="text-lg font-bold text-on-surface">กฎเกณฑ์การจำแนกหมวดหมู่อัตโนมัติ (AI Rules)</h2>
+              <p class="text-xs text-on-surface-variant">ตั้งค่าคำค้นหาและคีย์เวิร์ดเพื่อช่วย AI จับคู่รายการให้อัตโนมัติ</p>
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked class="text-primary accent-primary w-4 h-4 rounded"/>
+              <span class="text-xs font-semibold text-on-surface">เปิดใช้งานระบบอัตโนมัติ</span>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- Rule 1 -->
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-on-surface flex items-center gap-2">
+                  <span>🍔</span> อาหาร &amp; เครื่องดื่ม
+                </span>
+                <span class="text-xs text-primary font-medium">9 คำค้นพบ</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">grabfood</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">lineman</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">starbucks</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">7-eleven</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">cafe amazon</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">mk restaurant</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">shopeefood</span>
+              </div>
+            </div>
+
+            <!-- Rule 2 -->
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-on-surface flex items-center gap-2">
+                  <span>🚗</span> การเดินทาง &amp; น้ำมัน
+                </span>
+                <span class="text-xs text-primary font-medium">6 คำค้นพบ</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">bts</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">mrt</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">ptt station</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">bangchak</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">shell</span>
+                <span class="px-2 py-1 rounded bg-surface-high text-xs text-on-surface-variant">m-flow toll</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Accessible Modal -->
+  <div id="category-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cat-modal-title">
+    <div class="w-full max-w-md rounded-2xl bg-surface-container border border-surface-high p-6 flex flex-col gap-5 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 id="cat-modal-title" class="text-lg font-bold text-on-surface">เพิ่มหมวดหมู่ใหม่</h3>
+        <button onclick="closeCategoryModal()" class="text-on-surface-variant hover:text-on-surface p-1 rounded-lg" type="button" aria-label="Close">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider" for="cat-name">ชื่อหมวดหมู่</label>
+          <input class="w-full bg-surface-low border border-surface-high text-on-surface text-sm px-3.5 py-2.5 rounded-lg focus:outline-none focus:border-primary" id="cat-name" placeholder="เช่น ค่าฟิตเนส หรือท่องเที่ยว" type="text"/>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">ประเภทหมวดหมู่</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="p-2.5 rounded-lg border border-primary bg-primary/10 flex items-center justify-between cursor-pointer text-xs font-semibold text-primary">
+              <span>รายจ่าย (Expense)</span>
+              <input type="radio" name="cat-type" checked class="text-primary accent-primary"/>
+            </label>
+            <label class="p-2.5 rounded-lg border border-surface-high bg-surface-low flex items-center justify-between cursor-pointer text-xs font-semibold text-on-surface">
+              <span>รายรับ (Income)</span>
+              <input type="radio" name="cat-type" class="text-primary accent-primary"/>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider" for="cat-icon">ไอคอน Emoji</label>
+          <input class="w-full bg-surface-low border border-surface-high text-on-surface text-sm px-3.5 py-2.5 rounded-lg focus:outline-none focus:border-primary" id="cat-icon" placeholder="เช่น 🏋️ หรือ ✈️" type="text" value="🏷️"/>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button onclick="closeCategoryModal()" class="flex-1 py-2.5 rounded-lg bg-surface-high hover:bg-surface-highest text-sm font-semibold text-on-surface transition-colors" type="button">
+          ยกเลิก
+        </button>
+        <button onclick="saveCategory()" class="flex-1 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-sm font-semibold text-on-primary transition-colors" type="button">
+          บันทึกหมวดหมู่
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="hidden fixed bottom-6 right-6 z-50 max-w-sm rounded-xl bg-surface-container border border-primary/30 p-4 shadow-xl flex items-center gap-3 transition-transform">
+    <span class="material-symbols-outlined text-primary text-[22px]">check_circle</span>
+    <div class="flex flex-col text-xs">
+      <span class="font-semibold text-on-surface" id="toast-title">สำเร็จ</span>
+      <span class="text-on-surface-variant" id="toast-desc">บันทึกเรียบร้อย</span>
+    </div>
+  </div>
+
+  <script>
+    function switchTab(tab) {
+      const tabExpense = document.getElementById('tab-expense');
+      const tabIncome = document.getElementById('tab-income');
+      const tabAi = document.getElementById('tab-ai');
+      const viewExpense = document.getElementById('view-expense');
+      const viewIncome = document.getElementById('view-income');
+      const viewAi = document.getElementById('view-ai');
+
+      const allTabs = [tabExpense, tabIncome, tabAi];
+      allTabs.forEach(t => {
+        t.className = 'px-3.5 py-2 rounded-lg text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-high transition-colors flex items-center gap-1.5';
+      });
+
+      viewExpense.classList.add('hidden');
+      viewIncome.classList.add('hidden');
+      viewAi.classList.add('hidden');
+
+      if (tab === 'expense') {
+        tabExpense.className = 'px-3.5 py-2 rounded-lg text-xs font-semibold bg-primary text-on-primary transition-colors flex items-center gap-1.5';
+        viewExpense.classList.remove('hidden');
+      } else if (tab === 'income') {
+        tabIncome.className = 'px-3.5 py-2 rounded-lg text-xs font-semibold bg-primary text-on-primary transition-colors flex items-center gap-1.5';
+        viewIncome.classList.remove('hidden');
+      } else {
+        tabAi.className = 'px-3.5 py-2 rounded-lg text-xs font-semibold bg-primary text-on-primary transition-colors flex items-center gap-1.5';
+        viewAi.classList.remove('hidden');
+      }
+    }
+
+    function openCategoryModal() {
+      document.getElementById('category-modal').classList.remove('hidden');
+    }
+
+    function closeCategoryModal() {
+      document.getElementById('category-modal').classList.add('hidden');
+    }
+
+    function saveCategory() {
+      const name = document.getElementById('cat-name').value.trim();
+      if (!name) {
+        showToast('กรุณาระบุชื่อ', 'กรุณาระบุชื่อหมวดหมู่ที่ต้องการเพิ่ม');
+        return;
+      }
+      closeCategoryModal();
+      showToast('เพิ่มหมวดหมู่สำเร็จ', `เพิ่มหมวดหมู่ "${name}" เรียบร้อยแล้ว`);
+    }
+
+    function showToast(title, desc) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-title').innerText = title;
+      document.getElementById('toast-desc').innerText = desc;
+      toast.classList.remove('hidden');
+      setTimeout(() => { toast.classList.add('hidden'); }, 3500);
+    }
+
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+    });
+  </script>
+</body>
+</html>
