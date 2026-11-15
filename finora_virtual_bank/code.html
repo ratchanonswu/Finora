@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html class="dark" lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Finora — ธนาคารจำลอง (Virtual Bank)</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+  <style>
+    @layer base {
+      html, body { margin: 0; padding: 0; font-size: 14px; }
+      body { overscroll-behavior: none; }
+      h1 { font-size: 28px; line-height: 36px; }
+      h2 { font-size: 22px; line-height: 28px; }
+      h3 { font-size: 18px; line-height: 24px; }
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.2); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.4); }
+  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            background: "#051424",
+            surface: "#091b2e",
+            "surface-low": "#0d2238",
+            "surface-card": "#122a44",
+            "surface-high": "#193757",
+            "surface-highest": "#22466e",
+            "on-surface": "#e2e8f0",
+            "on-surface-variant": "#94a3b8",
+            outline: "#475569",
+            primary: "#10b981",
+            "primary-hover": "#059669",
+            "primary-container": "#064e3b",
+            "on-primary": "#ffffff",
+            secondary: "#ef4444",
+            "secondary-container": "#450a0a",
+            "on-secondary": "#ffffff",
+            tertiary: "#8b5cf6",
+            "tertiary-container": "#2e1065",
+            warning: "#f59e0b"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-background font-sans text-on-surface antialiased min-h-screen">
+
+  <!-- Persistent Left Sidebar -->
+  <aside class="fixed left-0 top-0 h-full w-72 bg-surface-low border-r border-surface-high z-50 flex flex-col justify-between">
+    <div class="flex flex-col">
+      <div class="h-16 px-6 flex items-center justify-between border-b border-surface-high">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+            F
+          </div>
+          <div class="flex flex-col">
+            <span class="text-base text-on-surface font-bold tracking-tight">Finora</span>
+            <span class="text-[11px] text-primary font-medium">Smart Finance</span>
+          </div>
+        </div>
+        <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-surface-high text-on-surface-variant">v2.4</span>
+      </div>
+
+      <div class="px-5 pt-5 pb-2">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-outline">เมนูหลัก</span>
+      </div>
+
+      <nav class="flex flex-col gap-1 px-3">
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-card hover:text-on-surface transition-colors" href="../finora/code.html">
+          <span class="material-symbols-outlined text-[20px]">space_dashboard</span>
+          <span class="text-sm font-medium">ภาพรวมการเงิน</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-card hover:text-on-surface transition-colors" href="../finora_transactions/code.html">
+          <span class="material-symbols-outlined text-[20px]">receipt_long</span>
+          <span class="text-sm font-medium">รายรับรายจ่าย</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-card hover:text-on-surface transition-colors" href="../finora_recurring_payments/code.html">
+          <span class="material-symbols-outlined text-[20px]">autorenew</span>
+          <span class="text-sm font-medium">ตัดเงินอัตโนมัติ</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-card hover:text-on-surface transition-colors" href="../finora_qr_code_qr_scanner/code.html">
+          <span class="material-symbols-outlined text-[20px]">qr_code_scanner</span>
+          <span class="text-sm font-medium">สแกน QR Code</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-card hover:text-on-surface transition-colors" href="../finora_categories/code.html">
+          <span class="material-symbols-outlined text-[20px]">category</span>
+          <span class="text-sm font-medium">จัดการหมวดหมู่</span>
+        </a>
+        <a aria-current="page" class="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-primary text-on-primary font-semibold shadow-sm" href="../finora_virtual_bank/code.html">
+          <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-[20px]">account_balance</span>
+            <span class="text-sm">ธนาคารจำลอง</span>
+          </div>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-black/20 text-white font-mono">Sandbox</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-card hover:text-on-surface transition-colors" href="../finora_ai_ai_assistant/code.html">
+          <span class="material-symbols-outlined text-[20px] text-tertiary">auto_awesome</span>
+          <span class="text-sm font-medium">ผู้ช่วย AI</span>
+        </a>
+        <a class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-card hover:text-on-surface transition-colors" href="../finora_settings/code.html">
+          <span class="material-symbols-outlined text-[20px]">settings</span>
+          <span class="text-sm font-medium">ตั้งค่าระบบ</span>
+        </a>
+      </nav>
+    </div>
+
+    <!-- Sidebar Footer Balance -->
+    <div class="p-4 border-t border-surface-high">
+      <div class="rounded-lg bg-surface-card p-3.5 border border-surface-high flex flex-col gap-1.5">
+        <div class="flex items-center justify-between text-xs text-on-surface-variant">
+          <span>กระเป๋าเงินจำลอง</span>
+          <span class="text-[11px] text-primary font-medium">พร้อมใช้งาน</span>
+        </div>
+        <div class="text-xl font-bold text-on-surface font-mono" id="sidebar-balance">฿124,500.00</div>
+        <div class="text-[11px] text-outline font-mono">ID: VB-882104-9901</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="pl-72">
+    <!-- Top Navigation Header -->
+    <header class="fixed top-0 left-72 right-0 h-16 bg-surface-low/90 backdrop-blur-md border-b border-surface-high z-40 flex items-center justify-between px-8">
+      <div class="flex items-center gap-2 text-sm">
+        <span class="text-on-surface-variant">หน้าหลัก</span>
+        <span class="text-outline">/</span>
+        <span class="text-on-surface font-medium">ธนาคารจำลอง (Virtual Bank)</span>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="p-2 rounded-lg bg-surface-card border border-surface-high text-on-surface-variant hover:text-on-surface transition-colors" title="สลับธีม สว่าง / มืด" type="button">
+          <span class="material-symbols-outlined text-[18px]">light_mode</span>
+        </button>
+
+        <div class="h-6 w-px bg-surface-high"></div>
+
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary font-bold text-xs">
+            ธภ
+          </div>
+          <div class="flex flex-col text-left">
+            <span class="text-sm font-semibold text-on-surface leading-tight">คุณธนภัทร วงศ์เจริญ</span>
+            <span class="text-xs text-on-surface-variant">บัญชีมาตรฐาน</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Body Area -->
+    <main class="pt-20 px-8 pb-16 max-w-7xl mx-auto flex flex-col gap-6">
+
+      <!-- Page Header & Friendly Explanation Banner -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-on-surface tracking-tight">ธนาคารจำลอง (Virtual Bank)</h1>
+          <p class="text-sm text-on-surface-variant mt-1">กระเป๋าเงินและบัญชีจำลองสำหรับทดสอบกระแสเงินสดและระบบตัดเงินอัตโนมัติอย่างปลอดภัย</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-primary"></span>
+            ระบบจำลองพร้อมทำงาน
+          </span>
+        </div>
+      </div>
+
+      <!-- Trust & Clarity Notice -->
+      <div class="rounded-xl bg-surface-card border border-surface-high p-4 flex items-start gap-3">
+        <span class="material-symbols-outlined text-primary text-[22px] shrink-0 mt-0.5">info</span>
+        <div class="flex flex-col gap-0.5 text-sm">
+          <span class="font-semibold text-on-surface">ข้อชี้แจงเกี่ยวกับบัญชีจำลอง</span>
+          <p class="text-on-surface-variant leading-relaxed">
+            ยอดเงินในหน้านี้เป็นข้อมูลตัวเลขจำลองภายในระบบ Finora ไม่มีการเชื่อมต่อไปยังธนาคารจริงและไม่สามารถถอนเป็นเงินจริงได้ การเปลี่ยนแปลงยอดเงินที่นี่จะส่งผลต่อการจำลองตัดบิลในระบบ Recurring Payments เพื่อให้คุณวางแผนสภาพคล่องได้อย่างมั่นใจ
+          </p>
+        </div>
+      </div>
+
+      <!-- 3 Summary Metrics -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- Balance Card -->
+        <div class="rounded-xl bg-surface-card border border-surface-high p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-semibold">ยอดเงินคงเหลือจำลอง</span>
+            <span class="material-symbols-outlined text-primary text-[20px]">account_balance_wallet</span>
+          </div>
+          <div class="my-4">
+            <div class="text-3xl font-bold text-on-surface font-mono" id="hero-balance">฿124,500.00</div>
+            <div class="text-xs text-on-surface-variant mt-1">สกุลเงิน: บาทไทย (THB)</div>
+          </div>
+          <div class="pt-3 border-t border-surface-high flex items-center justify-between text-xs">
+            <span class="text-outline">เลขบัญชีจำลอง:</span>
+            <button class="font-mono text-primary hover:underline flex items-center gap-1" onclick="copyAccountId()" type="button">
+              <span>VB-882104-9901</span>
+              <span class="material-symbols-outlined text-[13px]">content_copy</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Total Inflow Card -->
+        <div class="rounded-xl bg-surface-card border border-surface-high p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-semibold">ยอดเงินเติมเข้าสะสม</span>
+            <span class="material-symbols-outlined text-primary text-[20px]">arrow_downward</span>
+          </div>
+          <div class="my-4">
+            <div class="text-3xl font-bold text-primary font-mono">+฿185,000.00</div>
+            <div class="text-xs text-on-surface-variant mt-1">จากการจำลองเติมเงินทั้งหมด</div>
+          </div>
+          <div class="pt-3 border-t border-surface-high flex items-center justify-between text-xs">
+            <span class="text-outline">รายการที่สำเร็จ:</span>
+            <span class="text-on-surface font-medium">6 รายการ</span>
+          </div>
+        </div>
+
+        <!-- Total Outflow Card -->
+        <div class="rounded-xl bg-surface-card border border-surface-high p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs uppercase tracking-wider text-outline font-semibold">ยอดเงินหักออกสะสม</span>
+            <span class="material-symbols-outlined text-secondary text-[20px]">arrow_upward</span>
+          </div>
+          <div class="my-4">
+            <div class="text-3xl font-bold text-secondary font-mono">-฿60,500.00</div>
+            <div class="text-xs text-on-surface-variant mt-1">จากการจำลองตัดบิลและค่าใช้จ่าย</div>
+          </div>
+          <div class="pt-3 border-t border-surface-high flex items-center justify-between text-xs">
+            <span class="text-outline">รายการที่สำเร็จ:</span>
+            <span class="text-on-surface font-medium">19 รายการ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Operations Panels: Add Money / Withdraw Money -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Panel 1: Add Money -->
+        <div class="rounded-xl bg-surface-card border border-surface-high p-6 flex flex-col justify-between">
+          <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                <span class="material-symbols-outlined text-[22px]">add_circle</span>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold text-on-surface">เติมเงินเข้าบัญชีจำลอง (Credit)</h2>
+                <p class="text-xs text-on-surface-variant">เพิ่มสภาพคล่องจำลองสำหรับทดสอบวางแผนรายรับ</p>
+              </div>
+            </div>
+
+            <!-- Preset Amount Chips -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">เลือกจำนวนเงินด่วน</label>
+              <div class="grid grid-cols-4 gap-2">
+                <button class="py-2 rounded-lg bg-surface-high hover:bg-primary/20 hover:text-primary text-xs font-semibold font-mono text-on-surface transition-colors" onclick="setCredit(1000)" type="button">+฿1,000</button>
+                <button class="py-2 rounded-lg bg-surface-high hover:bg-primary/20 hover:text-primary text-xs font-semibold font-mono text-on-surface transition-colors" onclick="setCredit(5000)" type="button">+฿5,000</button>
+                <button class="py-2 rounded-lg bg-surface-high hover:bg-primary/20 hover:text-primary text-xs font-semibold font-mono text-on-surface transition-colors" onclick="setCredit(10000)" type="button">+฿10,000</button>
+                <button class="py-2 rounded-lg bg-surface-high hover:bg-primary/20 hover:text-primary text-xs font-semibold font-mono text-on-surface transition-colors" onclick="setCredit(50000)" type="button">+฿50,000</button>
+              </div>
+            </div>
+
+            <!-- Amount Input -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider" for="credit-amount">ระบุจำนวนเงิน (บาท)</label>
+              <div class="relative flex items-center">
+                <span class="absolute left-3 text-xs font-mono font-bold text-outline">THB ฿</span>
+                <input class="w-full bg-surface-low border border-surface-high text-on-surface font-mono text-lg font-bold pl-20 pr-4 py-2.5 rounded-lg focus:outline-none focus:border-primary transition-colors" id="credit-amount" placeholder="0.00" type="number" value="10000"/>
+              </div>
+            </div>
+
+            <!-- Note Input -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider" for="credit-note">บันทึกช่วยจำ</label>
+              <input class="w-full bg-surface-low border border-surface-high text-on-surface text-sm px-3.5 py-2.5 rounded-lg focus:outline-none focus:border-primary transition-colors" id="credit-note" placeholder="เช่น จำลองเงินเดือนเข้า หรือโบนัสพิเศษ" type="text" value="จำลองเงินเดือนประจำงวด"/>
+            </div>
+          </div>
+
+          <button class="w-full mt-6 py-3 px-4 rounded-lg bg-primary hover:bg-primary-hover text-on-primary font-semibold text-sm transition-colors flex items-center justify-center gap-2" onclick="openConfirmModal('CREDIT')" type="button">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            <span>ยืนยันการเติมเงินจำลอง</span>
+          </button>
+        </div>
+
+        <!-- Panel 2: Withdraw Money -->
+        <div class="rounded-xl bg-surface-card border border-surface-high p-6 flex flex-col justify-between">
+          <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center">
+                <span class="material-symbols-outlined text-[22px]">remove_circle</span>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold text-on-surface">ถอนหรือตัดเงินจำลอง (Debit)</h2>
+                <p class="text-xs text-on-surface-variant">จำลองการตัดค่าใช้จ่ายหรือถอนเงินเพื่อทดสอบระบบ</p>
+              </div>
+            </div>
+
+            <!-- Preset Amount Chips -->
+            <div class="flex flex-col gap-2">
+              <label class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">เลือกจำนวนเงินด่วน</label>
+              <div class="grid grid-cols-4 gap-2">
+                <button class="py-2 rounded-lg bg-surface-high hover:bg-secondary/20 hover:text-secondary text-xs font-semibold font-mono text-on-surface transition-colors" onclick="setDebit(500)" type="button">-฿500</button>
+                <button class="py-2 rounded-lg bg-surface-high hover:bg-secondary/20 hover:text-secondary text-xs font-semibold font-mono text-on-surface transition-colors" onclick="setDebit(1000)" type="button">-฿1,000</button>
+                <button class="py-2 rounded-lg bg-surface-high hover:bg-secondary/20 hover:text-secondary text-xs font-semibold font-mono text-on-surface transition-colors" onclick="setDebit(5000)" type="button">-฿5,000</button>
+                <button class="py-2 rounded-lg bg-surface-high hover:bg-secondary/20 hover:text-secondary text-xs font-semibold font-mono text-on-surface transition-colors" onclick="setDebit(20000)" type="button">-฿20,000</button>
+              </div>
+            </div>
+
+            <!-- Amount Input -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider" for="debit-amount">ระบุจำนวนเงิน (บาท)</label>
+              <div class="relative flex items-center">
+                <span class="absolute left-3 text-xs font-mono font-bold text-outline">THB ฿</span>
+                <input class="w-full bg-surface-low border border-surface-high text-on-surface font-mono text-lg font-bold pl-20 pr-4 py-2.5 rounded-lg focus:outline-none focus:border-secondary transition-colors" id="debit-amount" placeholder="0.00" type="number" value="1250"/>
+              </div>
+            </div>
+
+            <!-- Note Input -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider" for="debit-note">บันทึกช่วยจำ</label>
+              <input class="w-full bg-surface-low border border-surface-high text-on-surface text-sm px-3.5 py-2.5 rounded-lg focus:outline-none focus:border-secondary transition-colors" id="debit-note" placeholder="เช่น ค่าเช่าห้อง หรือค่าช้อปปิ้ง" type="text" value="จำลองชำระค่าบริการรายเดือน"/>
+            </div>
+          </div>
+
+          <button class="w-full mt-6 py-3 px-4 rounded-lg bg-surface-highest hover:bg-secondary hover:text-white text-secondary font-semibold text-sm transition-colors flex items-center justify-center gap-2" onclick="openConfirmModal('DEBIT')" type="button">
+            <span class="material-symbols-outlined text-[18px]">remove</span>
+            <span>ยืนยันการหักเงินจำลอง</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Historical Ledger Table -->
+      <div class="rounded-xl bg-surface-card border border-surface-high p-6 flex flex-col gap-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-on-surface">ประวัติการทำรายการในบัญชีจำลอง</h2>
+            <p class="text-xs text-on-surface-variant">บันทึกความเคลื่อนไหวยอดเงินจำลองย้อนหลัง</p>
+          </div>
+
+          <!-- Filter Tabs -->
+          <div class="flex items-center gap-1 self-start sm:self-auto">
+            <button class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-on-primary transition-colors" onclick="filterTable('all', this)" type="button">ทั้งหมด</button>
+            <button class="px-3 py-1.5 rounded-lg text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-high transition-colors" onclick="filterTable('credit', this)" type="button">เงินเข้า</button>
+            <button class="px-3 py-1.5 rounded-lg text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-high transition-colors" onclick="filterTable('debit', this)" type="button">เงินออก</button>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-surface-high text-xs uppercase tracking-wider text-outline">
+                <th class="py-3 px-3">รหัสรายการ</th>
+                <th class="py-3 px-3">ประเภท</th>
+                <th class="py-3 px-3">คำอธิบาย</th>
+                <th class="py-3 px-3 text-right">จำนวนเงิน</th>
+                <th class="py-3 px-3 text-right">ยอดคงเหลือ</th>
+                <th class="py-3 px-3">วัน-เวลา</th>
+                <th class="py-3 px-3 text-center">สถานะ</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-surface-high/60 text-on-surface font-medium" id="ledger-rows">
+              <tr class="hover:bg-surface-high/30 transition-colors" data-type="debit">
+                <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">TXN-VB-0303-01</td>
+                <td class="py-3.5 px-3">
+                  <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-secondary/10 text-secondary">
+                    ตัดเงิน
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 text-on-surface">จำลองชำระค่าบริการอินเทอร์เน็ต</td>
+                <td class="py-3.5 px-3 text-right font-mono font-bold text-secondary">-฿1,250.00</td>
+                <td class="py-3.5 px-3 text-right font-mono text-on-surface">฿124,500.00</td>
+                <td class="py-3.5 px-3 text-xs text-on-surface-variant">3 มี.ค. 2025, 14:30</td>
+                <td class="py-3.5 px-3 text-center">
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">สำเร็จ</span>
+                </td>
+              </tr>
+              <tr class="hover:bg-surface-high/30 transition-colors" data-type="debit">
+                <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">TXN-VB-0302-09</td>
+                <td class="py-3.5 px-3">
+                  <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-secondary/10 text-secondary">
+                    ตัดเงิน
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 text-on-surface">จำลองช้อปปิ้งออนไลน์</td>
+                <td class="py-3.5 px-3 text-right font-mono font-bold text-secondary">-฿2,450.00</td>
+                <td class="py-3.5 px-3 text-right font-mono text-on-surface">฿125,750.00</td>
+                <td class="py-3.5 px-3 text-xs text-on-surface-variant">2 มี.ค. 2025, 18:45</td>
+                <td class="py-3.5 px-3 text-center">
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">สำเร็จ</span>
+                </td>
+              </tr>
+              <tr class="hover:bg-surface-high/30 transition-colors" data-type="credit">
+                <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">TXN-VB-0301-01</td>
+                <td class="py-3.5 px-3">
+                  <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
+                    เติมเงิน
+                  </span>
+                </td>
+                <td class="py-3.5 px-3 text-on-surface">จำลองโอนเงินเข้าจากเงินเดือน</td>
+                <td class="py-3.5 px-3 text-right font-mono font-bold text-primary">+฿50,000.00</td>
+                <td class="py-3.5 px-3 text-right font-mono text-on-surface">฿128,200.00</td>
+                <td class="py-3.5 px-3 text-xs text-on-surface-variant">1 มี.ค. 2025, 08:30</td>
+                <td class="py-3.5 px-3 text-center">
+                  <span class="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">สำเร็จ</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Accessible Confirmation Modal -->
+  <div id="confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="w-full max-w-md rounded-2xl bg-surface-card border border-surface-high p-6 flex flex-col gap-5 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 id="modal-title" class="text-lg font-bold text-on-surface">ยืนยันรายการในบัญชีจำลอง</h3>
+        <button onclick="closeConfirmModal()" class="text-on-surface-variant hover:text-on-surface p-1 rounded-lg" type="button" aria-label="Close">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <div class="py-3 border-y border-surface-high flex flex-col gap-2">
+        <div class="flex justify-between text-xs text-on-surface-variant">
+          <span>ประเภทคำขอ</span>
+          <span id="modal-type-text" class="font-semibold text-primary">เติมเงินเข้าบัญชี</span>
+        </div>
+        <div class="flex justify-between items-baseline pt-1">
+          <span class="text-sm text-on-surface">จำนวนเงิน</span>
+          <span id="modal-amount-text" class="text-2xl font-bold font-mono text-on-surface">฿10,000.00</span>
+        </div>
+        <div class="flex justify-between text-xs text-on-surface-variant pt-1">
+          <span>บันทึกช่วยจำ</span>
+          <span id="modal-note-text" class="text-on-surface truncate max-w-[200px]">จำลองเงินเดือนประจำงวด</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="closeConfirmModal()" class="flex-1 py-2.5 rounded-lg bg-surface-high hover:bg-surface-highest text-sm font-semibold text-on-surface transition-colors" type="button">
+          ยกเลิก
+        </button>
+        <button id="modal-submit-btn" onclick="executeConfirmedTransaction()" class="flex-1 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-sm font-semibold text-on-primary transition-colors" type="button">
+          ยืนยันทำรายการ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="hidden fixed bottom-6 right-6 z-50 max-w-sm rounded-xl bg-surface-card border border-primary/30 p-4 shadow-xl flex items-center gap-3 transition-transform">
+    <span class="material-symbols-outlined text-primary text-[22px]">check_circle</span>
+    <div class="flex flex-col text-xs">
+      <span class="font-semibold text-on-surface" id="toast-title">สำเร็จ</span>
+      <span class="text-on-surface-variant" id="toast-desc">ทำรายการในบัญชีจำลองเรียบร้อยแล้ว</span>
+    </div>
+  </div>
+
+  <script>
+    let currentBalance = 124500.00;
+    let pendingType = null;
+    let pendingAmount = 0;
+    let pendingNote = '';
+
+    function setCredit(val) {
+      document.getElementById('credit-amount').value = val;
+    }
+
+    function setDebit(val) {
+      document.getElementById('debit-amount').value = val;
+    }
+
+    function copyAccountId() {
+      navigator.clipboard.writeText('VB-882104-9901');
+      showToast('คัดลอกสำเร็จ', 'คัดลอกเลขบัญชีจำลอง VB-882104-9901 แล้ว');
+    }
+
+    function openConfirmModal(type) {
+      pendingType = type;
+      if (type === 'CREDIT') {
+        pendingAmount = parseFloat(document.getElementById('credit-amount').value) || 0;
+        pendingNote = document.getElementById('credit-note').value || 'เติมเงินจำลอง';
+        document.getElementById('modal-type-text').innerText = 'เติมเงินเข้าบัญชี (Credit)';
+        document.getElementById('modal-type-text').className = 'font-semibold text-primary';
+        document.getElementById('modal-submit-btn').className = 'flex-1 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-sm font-semibold text-on-primary transition-colors';
+      } else {
+        pendingAmount = parseFloat(document.getElementById('debit-amount').value) || 0;
+        pendingNote = document.getElementById('debit-note').value || 'หักเงินจำลอง';
+        document.getElementById('modal-type-text').innerText = 'หักเงินออกจากบัญชี (Debit)';
+        document.getElementById('modal-type-text').className = 'font-semibold text-secondary';
+        document.getElementById('modal-submit-btn').className = 'flex-1 py-2.5 rounded-lg bg-secondary hover:bg-red-600 text-sm font-semibold text-white transition-colors';
+      }
+
+      if (pendingAmount <= 0) {
+        showToast('ข้อมูลไม่ถูกต้อง', 'กรุณาระบุจำนวนเงินที่มากกว่า 0');
+        return;
+      }
+
+      if (type === 'DEBIT' && pendingAmount > currentBalance) {
+        showToast('ยอดเงินไม่เพียงพอ', 'ยอดเงินในบัญชีจำลองมีไม่เพียงพอสำหรับการหัก');
+        return;
+      }
+
+      document.getElementById('modal-amount-text').innerText = '฿' + pendingAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+      document.getElementById('modal-note-text').innerText = pendingNote;
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirm-modal').classList.add('hidden');
+    }
+
+    function executeConfirmedTransaction() {
+      closeConfirmModal();
+      if (pendingType === 'CREDIT') {
+        currentBalance += pendingAmount;
+      } else {
+        currentBalance -= pendingAmount;
+      }
+
+      const formatted = '฿' + currentBalance.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+      document.getElementById('hero-balance').innerText = formatted;
+      document.getElementById('sidebar-balance').innerText = formatted;
+
+      // Add Row to Table
+      const tbody = document.getElementById('ledger-rows');
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-surface-high/30 transition-colors';
+      tr.setAttribute('data-type', pendingType.toLowerCase());
+
+      const now = new Date();
+      const timeStr = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+      const txnId = 'TXN-VB-' + Math.floor(1000 + Math.random() * 9000);
+      const isCredit = pendingType === 'CREDIT';
+
+      tr.innerHTML = `
+        <td class="py-3.5 px-3 font-mono text-xs text-on-surface-variant">${txnId}</td>
+        <td class="py-3.5 px-3">
+          <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded ${isCredit ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'}">
+            ${isCredit ? 'เติมเงิน' : 'ตัดเงิน'}
+          </span>
+        </td>
+        <td class="py-3.5 px-3 text-on-surface">${pendingNote}</td>
+        <td class="py-3.5 px-3 text-right font-mono font-bold ${isCredit ? 'text-primary' : 'text-secondary'}">
+          ${isCredit ? '+' : '-'}฿${pendingAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+        </td>
+        <td class="py-3.5 px-3 text-right font-mono text-on-surface">${formatted}</td>
+        <td class="py-3.5 px-3 text-xs text-on-surface-variant">${timeStr}</td>
+        <td class="py-3.5 px-3 text-center">
+          <span class="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">สำเร็จ</span>
+        </td>
+      `;
+      tbody.insertBefore(tr, tbody.firstChild);
+
+      showToast('ทำรายการสำเร็จ', `${isCredit ? 'เติมเงิน' : 'หักเงิน'} ฿${pendingAmount.toLocaleString('th-TH', { minimumFractionDigits: 2 })} บันทึกแล้ว`);
+    }
+
+    function showToast(title, desc) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-title').innerText = title;
+      document.getElementById('toast-desc').innerText = desc;
+      toast.classList.remove('hidden');
+      setTimeout(() => { toast.classList.add('hidden'); }, 3500);
+    }
+
+    function filterTable(type, btn) {
+      const buttons = btn.parentElement.querySelectorAll('button');
+      buttons.forEach(b => {
+        b.className = 'px-3 py-1.5 rounded-lg text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-high transition-colors';
+      });
+      btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-on-primary transition-colors';
+
+      const rows = document.querySelectorAll('#ledger-rows tr');
+      rows.forEach(row => {
+        if (type === 'all') {
+          row.style.display = '';
+        } else {
+          const rowType = row.getAttribute('data-type');
+          row.style.display = (rowType === type) ? '' : 'none';
+        }
+      });
+    }
+
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+    });
+  </script>
+</body>
+</html>
