@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 248 250 252;
+  --on-background: 17 24 39;
+  --surface: 255 255 255;
+  --surface-container-lowest: 255 255 255;
+  --surface-container-low: 241 245 249;
+  --surface-container: 255 255 255;
+  --surface-container-high: 241 245 249;
+  --surface-container-highest: 226 232 240;
+  --surface-bright: 226 232 240;
+  --on-surface: 17 24 39;
+  --on-surface-variant: 100 116 139;
+  --outline: 148 163 184;
+  --outline-variant: 203 213 225;
+  --primary: 16 185 129;
+  --on-primary: 255 255 255;
+  --primary-container: 16 185 129;
+  --on-primary-container: 255 255 255;
+  --primary-fixed: 5 150 105;
+  --primary-fixed-dim: 16 185 129;
+  --secondary: 239 68 68;
+  --on-secondary: 255 255 255;
+  --secondary-container: 254 226 226;
+  --on-secondary-container: 185 28 28;
+  --tertiary: 124 58 237;
+  --on-tertiary: 255 255 255;
+  --tertiary-container: 237 233 254;
+  --on-tertiary-container: 91 33 182;
+  --tertiary-fixed: 237 233 254;
+  --tertiary-fixed-dim: 124 58 237;
+  --error: 220 38 38;
+  --on-error: 255 255 255;
+  --error-container: 254 226 226;
+  --on-error-container: 153 27 27;
+}
+
+html.dark {
+  --background: 5 20 36;
+  --on-background: 212 228 250;
+  --surface: 5 20 36;
+  --surface-container-lowest: 1 15 31;
+  --surface-container-low: 13 28 45;
+  --surface-container: 18 33 49;
+  --surface-container-high: 28 43 60;
+  --surface-container-highest: 39 54 71;
+  --surface-bright: 44 58 76;
+  --on-surface: 212 228 250;
+  --on-surface-variant: 187 202 191;
+  --outline: 134 148 138;
+  --outline-variant: 60 74 66;
+  --primary: 78 222 163;
+  --on-primary: 0 56 36;
+  --primary-container: 16 185 129;
+  --on-primary-container: 0 66 43;
+  --primary-fixed: 111 251 190;
+  --primary-fixed-dim: 78 222 163;
+  --secondary: 255 179 173;
+  --on-secondary: 104 0 10;
+  --secondary-container: 164 2 23;
+  --on-secondary-container: 255 174 168;
+  --tertiary: 208 188 255;
+  --on-tertiary: 60 0 145;
+  --tertiary-container: 176 144 255;
+  --on-tertiary-container: 70 0 167;
+  --tertiary-fixed: 233 221 255;
+  --tertiary-fixed-dim: 208 188 255;
+  --error: 255 180 171;
+  --on-error: 105 0 5;
+  --error-container: 147 0 10;
+  --on-error-container: 255 218 214;
+}
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    overscroll-behavior: none;
+  }
+  h1 {
+    font-size: 28px;
+    line-height: 36px;
+    font-weight: 700;
+  }
+  h2 {
+    font-size: 22px;
+    line-height: 30px;
+    font-weight: 600;
+  }
+  h3 {
+    font-size: 18px;
+    line-height: 26px;
+    font-weight: 600;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--outline-variant) / 0.5);
+  border-radius: 9999px;
+}
