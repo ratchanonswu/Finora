@@ -27,16 +27,14 @@
           ตั้งค่าระบบ <span class="font-headline-md text-headline-md font-normal text-on-surface-variant">(System Settings)</span>
 </h1>
 <p class="font-body-md text-body-md text-on-surface-variant max-w-3xl">
-          จัดการข้อมูลบัญชีผู้ใช้ สกุลเงิน การแจ้งเตือน การจำแนกหมวดหมู่ AI และการเชื่อมต่อ Virtual Bank API
+          จัดการข้อมูลบัญชีผู้ใช้ สกุลเงิน การแจ้งเตือน การจำแนกหมวดหมู่ AI และบัญชีการเงินที่เชื่อมต่อ
         </p>
 </div>
 <!-- Quick Status Strip -->
 <div class="flex items-center gap-space-sm self-start lg:self-center">
 <div class="flex items-center gap-2 px-space-md py-2 rounded-xl bg-surface-container-low shadow-sm">
 <span class="h-2.5 w-2.5 rounded-full bg-primary"></span>
-<span class="font-label-code text-label-code text-primary font-semibold">API Sandbox Active</span>
-<span class="text-outline text-body-sm">|</span>
-<span class="font-label-code text-label-code text-on-surface-variant">24ms Latency</span>
+<span class="font-body-sm text-body-sm text-on-surface font-semibold">สถานะบัญชี: ปกติ (Verified)</span>
 </div>
 <div class="hidden sm:flex items-center gap-2 px-space-md py-2 rounded-xl bg-surface-container-low shadow-sm">
 <span class="material-symbols-outlined text-[18px] text-tertiary">psychology</span>
@@ -79,9 +77,9 @@
 <button class="tab-button flex items-center justify-between w-full px-space-md py-2.5 rounded-lg text-left text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-tab-target="virtual-bank" type="button">
 <div class="flex items-center gap-space-sm">
 <span class="material-symbols-outlined text-[20px] text-primary">account_balance</span>
-<span class="font-body-md text-body-md">Virtual Bank API</span>
+<span class="font-body-md text-body-md">บัญชีและการชำระเงิน</span>
 </div>
-<span class="h-2 w-2 rounded-full bg-primary"></span>
+<span class="font-label-badge text-label-badge px-1.5 py-0.5 rounded bg-surface-container text-primary">1 บัญชี</span>
 </button>
 <button class="tab-button flex items-center justify-between w-full px-space-md py-2.5 rounded-lg text-left text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-tab-target="notifications" type="button">
 <div class="flex items-center gap-space-sm">
@@ -333,7 +331,7 @@
 </div>
 </div>
 </section>
-<!-- SECTION 4: การเชื่อมต่อ Virtual Bank API (API & Simulator) -->
+<!-- SECTION 4: บัญชีธนาคารและการชำระเงิน (Linked Accounts & Wallets) -->
 <section class="settings-section flex flex-col gap-space-md" id="section-virtual-bank">
 <div class="flex items-center justify-between">
 <div class="flex items-center gap-space-sm">
@@ -341,78 +339,63 @@
 <span class="material-symbols-outlined text-[24px]">account_balance</span>
 </div>
 <div class="flex flex-col">
-<span class="font-headline-sm text-headline-sm text-on-surface font-semibold">การเชื่อมต่อ Virtual Bank API</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">จัดการ Sandbox Credentials และพฤติกรรมการตัดยอดกระเป๋าเงินจำลอง</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold m-0">บัญชีธนาคารและกระเป๋าเงิน (Linked Accounts)</h2>
+<span class="font-body-sm text-body-sm text-on-surface-variant">จัดการบัญชีการเงินที่เชื่อมต่อเพื่อใช้ในการบันทึกรายรับรายจ่ายและการตัดเงินอัตโนมัติ</span>
 </div>
 </div>
 <span class="font-label-badge text-label-badge px-2.5 py-1 rounded bg-primary-container/20 text-primary-fixed-dim uppercase tracking-wider font-semibold">
-              Sandbox Live
+              1 บัญชีหลักพร้อมใช้งาน
             </span>
 </div>
-<!-- Connection Status Card -->
+<!-- Primary Account Card -->
 <div class="p-space-md rounded-xl bg-surface-container flex flex-col sm:flex-row sm:items-center justify-between gap-space-md">
 <div class="flex items-center gap-space-sm">
-<div class="h-10 w-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
-<span class="material-symbols-outlined text-[24px]">cloud_done</span>
+<div class="h-10 w-10 rounded-lg bg-primary-container/15 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[24px]">account_balance_wallet</span>
 </div>
 <div class="flex flex-col">
-<span class="font-body-md text-body-md font-semibold text-primary flex items-center gap-1.5">
-<span class="h-2 w-2 rounded-full bg-primary"></span>
-                  เชื่อมต่อกับ Virtual Bank API Sandbox สำเร็จ
-                </span>
-<span class="font-label-code text-label-code text-outline">HTTP 200 OK • Round-trip Latency: 24ms • Uptime: 99.98%</span>
-</div>
-</div>
-<button class="px-space-md py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-body-md text-body-md font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm" id="pingTestBtn" type="button">
-<span class="material-symbols-outlined text-[18px]">network_ping</span>
-<span>ทดสอบการส่งคำขอ Ping API</span>
-</button>
-</div>
-<!-- Endpoints and Keys -->
-<div class="grid grid-cols-1 gap-space-md">
-<div class="flex flex-col gap-1.5">
-<label class="font-label-badge text-label-badge uppercase tracking-wider text-on-surface-variant" for="endpointUrl">Sandbox Endpoint URL</label>
-<div class="relative flex items-center">
-<span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">link</span>
-<input class="w-full bg-surface-container text-on-surface font-label-code text-label-code pl-10 pr-4 py-2.5 rounded-lg focus:outline-none cursor-default" id="endpointUrl" readonly="" type="text" value="https://sandbox.finora.internal/v1/bank-simulator"/>
-</div>
-</div>
-<div class="flex flex-col gap-1.5">
-<div class="flex items-center justify-between">
-<label class="font-label-badge text-label-badge uppercase tracking-wider text-on-surface-variant" for="apiKeyField">Sandbox API Secret Key</label>
-<span class="font-label-code text-label-code text-outline">สร้างเมื่อ 12 ส.ค. 2024</span>
-</div>
-<div class="flex flex-col sm:flex-row gap-space-sm">
-<div class="relative flex-1 flex items-center">
-<span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">key</span>
-<input class="w-full bg-surface-container text-on-surface font-label-code text-label-code pl-10 pr-12 py-2.5 rounded-lg focus:outline-none" id="apiKeyField" readonly="" type="password" value="fn_live_sandbox_994a8274bc9901e882a1"/>
-<button class="absolute right-3 text-outline hover:text-on-surface" id="toggleKeyBtn" type="button">
-<span class="material-symbols-outlined text-[18px]">visibility</span>
-</button>
-</div>
 <div class="flex items-center gap-2">
-<button class="px-space-md py-2.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-body-md text-body-md font-semibold transition-colors flex items-center justify-center gap-1" id="copyKeyBtn" type="button">
-<span class="material-symbols-outlined text-[18px]">content_copy</span>
-<span>คัดลอก</span>
-</button>
-<button class="px-space-md py-2.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface font-body-md text-body-md transition-colors flex items-center justify-center gap-1" type="button">
-<span class="material-symbols-outlined text-[18px]">refresh</span>
-<span>สร้างคีย์ใหม่</span>
-</button>
+<span class="font-body-md text-body-md font-semibold text-on-surface">Finora Virtual Wallet</span>
+<span class="px-2 py-0.5 rounded-full bg-primary-container/20 text-primary text-[10px] font-bold uppercase">บัญชีหลัก</span>
+</div>
+<span class="font-label-code text-label-code text-on-surface-variant">เลขที่บัญชี: 782-2-90145-8 • พร้อมใช้งาน</span>
 </div>
 </div>
+<div class="flex items-center gap-3">
+<div class="text-right">
+<span class="font-label-badge text-label-badge text-outline uppercase block">ยอดเงินคงเหลือ</span>
+<span class="font-numeric-metric-md text-numeric-metric-md text-primary font-bold">฿124,500.00</span>
+</div>
+<a href="../finora_virtual_bank/code.html" class="px-space-md py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-body-md text-body-md font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[18px]">open_in_new</span>
+<span>ดูสมุดบัญชี</span>
+</a>
 </div>
 </div>
-<!-- Toggle: Auto debit -->
-<div class="flex items-center justify-between p-space-md rounded-xl bg-surface-container transition-colors hover:bg-surface-container-high">
+<!-- Account Preferences & Safeguards -->
+<div class="flex flex-col divide-y divide-outline-variant/20 rounded-xl bg-surface-container overflow-hidden">
+<!-- Item 1: Auto-debit toggle -->
+<div class="flex items-center justify-between p-space-md transition-colors hover:bg-surface-container-high">
 <div class="flex flex-col gap-0.5 pr-space-md">
-<span class="font-body-lg text-body-lg font-semibold text-on-surface">ตัดเงินจากกระเป๋าจำลองอัตโนมัติเมื่อกดยืนยันบันทึกรายจ่าย</span>
-<span class="font-body-sm text-body-sm text-on-surface-variant">ปรับปรุงยอดคงเหลือใน Virtual Bank Wallet ทันทีโดยไม่ต้องรอกดยืนยันเพิ่มเติม</span>
+<span class="font-body-md text-body-md font-semibold text-on-surface">ตัดเงินจากกระเป๋าเงินจำลองอัตโนมัติเมื่อบันทึกรายจ่าย</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">หักยอดคงเหลือใน Finora Virtual Wallet ทันทีที่มีการบันทึกหรือสแกนจ่ายสำเร็จ</span>
 </div>
 <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
 <input checked="" class="sr-only peer" type="checkbox"/>
 <div class="w-12 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
 </label>
+</div>
+<!-- Item 2: Confirmation safeguard -->
+<div class="flex items-center justify-between p-space-md transition-colors hover:bg-surface-container-high">
+<div class="flex flex-col gap-0.5 pr-space-md">
+<span class="font-body-md text-body-md font-semibold text-on-surface">ยืนยันรหัสความปลอดภัยก่อนทำรายการเกิน ฿5,000</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">เพิ่มความปลอดภัยในการจำลองการโอนและการชำระเงินก้อนใหญ่</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-12 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
 </div>
 </section>
 <!-- SECTION 5: การแจ้งเตือน (Notification Preferences) -->
@@ -570,45 +553,6 @@
   if (slider && sliderText) {
     slider.addEventListener('input', (e) => {
       sliderText.textContent = e.target.value;
-    });
-  }
-
-  // Toggle API Key visibility
-  const toggleKeyBtn = document.getElementById('toggleKeyBtn');
-  const apiKeyField = document.getElementById('apiKeyField');
-  if (toggleKeyBtn && apiKeyField) {
-    toggleKeyBtn.addEventListener('click', () => {
-      const isPassword = apiKeyField.type === 'password';
-      apiKeyField.type = isPassword ? 'text' : 'password';
-      toggleKeyBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">${isPassword ? 'visibility_off' : 'visibility'}</span>`;
-    });
-  }
-
-  // Copy API Key feedback
-  const copyKeyBtn = document.getElementById('copyKeyBtn');
-  if (copyKeyBtn && apiKeyField) {
-    copyKeyBtn.addEventListener('click', () => {
-      navigator.clipboard?.writeText(apiKeyField.value);
-      copyKeyBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">done</span> คัดลอกแล้ว!';
-      setTimeout(() => {
-        copyKeyBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">content_copy</span><span>คัดลอก</span>';
-      }, 2000);
-    });
-  }
-
-  // Ping API Simulator micro-interaction
-  const pingTestBtn = document.getElementById('pingTestBtn');
-  if (pingTestBtn) {
-    pingTestBtn.addEventListener('click', () => {
-      pingTestBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span> กำลังส่งคำขอ Ping...';
-      pingTestBtn.disabled = true;
-      setTimeout(() => {
-        pingTestBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] text-primary">check_circle</span> 200 OK (19ms)';
-        setTimeout(() => {
-          pingTestBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">network_ping</span><span>ทดสอบการส่งคำขอ Ping API</span>';
-          pingTestBtn.disabled = false;
-        }, 2500);
-      }, 700);
     });
   }
 
