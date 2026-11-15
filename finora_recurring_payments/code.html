@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="th"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>
+  @layer base {
+    html, body { margin: 0; padding: 0; font-size: 14px; }
+    body { overscroll-behavior: none; }
+    h1 { font-size: 28px; line-height: 36px; }
+    h2 { font-size: 22px; line-height: 28px; }
+    h3 { font-size: 18px; line-height: 24px; }
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.2); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.4); }
+</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={"darkMode":"class","theme":{"extend":{"colors":{"error-container":"#93000a","on-error-container":"#ffdad6","on-secondary-fixed-variant":"#930013","background":"#051424","tertiary":"#d0bcff","surface-dim":"#051424","primary-fixed":"#6ffbbe","error":"#ffb4ab","surface-container-lowest":"#010f1f","on-secondary-container":"#ffaea8","tertiary-container":"#b090ff","primary-container":"#10b981","on-primary":"#003824","on-primary-fixed":"#002113","primary-fixed-dim":"#4edea3","outline-variant":"#3c4a42","inverse-primary":"#006c49","tertiary-fixed":"#e9ddff","surface-container-highest":"#273647","primary":"#4edea3","surface-variant":"#273647","secondary-fixed":"#ffdad7","on-tertiary":"#3c0091","secondary-container":"#a40217","on-surface-variant":"#bbcabf","surface-tint":"#4edea3","secondary-fixed-dim":"#ffb3ad","on-tertiary-fixed":"#23005c","surface-container-low":"#0d1c2d","on-error":"#690005","on-primary-container":"#00422b","on-secondary-fixed":"#410004","on-primary-fixed-variant":"#005236","on-tertiary-fixed-variant":"#5516be","on-tertiary-container":"#4600a7","on-surface":"#d4e4fa","inverse-surface":"#d4e4fa","surface-bright":"#2c3a4c","tertiary-fixed-dim":"#d0bcff","on-background":"#d4e4fa","surface-container":"#122131","outline":"#86948a","secondary":"#ffb3ad","surface":"#051424","inverse-on-surface":"#233143","surface-container-high":"#1c2b3c","on-secondary":"#68000a"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-xs":"0.25rem","space-xl":"2.5rem","margin":"2rem","margin-mobile":"1rem","gutter":"1.5rem","gutter-mobile":"1rem","space-lg":"1.5rem","space-md":"1rem","space-sm":"0.5rem"},"fontFamily":{"headline-xl-mobile":["Inter"],"label-code":["JetBrains Mono"],"headline-lg":["Inter"],"body-sm":["Inter"],"headline-md":["Inter"],"headline-lg-mobile":["Inter"],"headline-xl":["Inter"],"numeric-metric-lg":["Inter"],"numeric-metric-md":["Inter"],"headline-sm":["Inter"],"body-md":["Inter"],"body-lg":["Inter"],"label-badge":["Inter"]},"fontSize":{"headline-xl-mobile":["28px",{"lineHeight":"36px","letterSpacing":"-0.01em","fontWeight":"700"}],"label-code":["12px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"500"}],"headline-lg":["30px",{"lineHeight":"38px","letterSpacing":"-0.015em","fontWeight":"600"}],"body-sm":["12px",{"lineHeight":"18px","fontWeight":"400"}],"headline-md":["22px",{"lineHeight":"30px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-xl":["36px",{"lineHeight":"44px","letterSpacing":"-0.02em","fontWeight":"700"}],"numeric-metric-lg":["32px",{"lineHeight":"38px","letterSpacing":"-0.02em","fontWeight":"700"}],"numeric-metric-md":["20px",{"lineHeight":"28px","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-sm":["18px",{"lineHeight":"26px","letterSpacing":"-0.005em","fontWeight":"600"}],"body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],"body-lg":["16px",{"lineHeight":"24px","fontWeight":"400"}],"label-badge":["11px",{"lineHeight":"14px","letterSpacing":"0.04em","fontWeight":"600"}]}}}}</script></head><body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-container selection:text-on-primary-container"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low/95 backdrop-blur-xl z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.2)]"><div class="flex flex-col"><div class="h-16 px-space-lg flex items-center justify-between gap-space-sm bg-surface-container-lowest/60"><div class="flex items-center gap-space-sm"><img alt="Finora Brand Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBHhIRb5yNTg78Ozap3r_cK-CsDaGdjxi8DSXlxs68UHbk4iAwh67Wwg7iw34pj50hYRkq5-3LVHUZF_BOinnFPEBGeEg0va5HRaVixYcx144lPIbHmqeWMGBSTTWBmL9UP1Awa2laxz7kPMFpB2nd_ptPifaCkVhk8oisOAQq8Fm-Db9yCPqT6PKfYN50hTzgYiX33Jchd4Q9XAh0wPyKahIOGyf99hOmL-HPOg-Z"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface tracking-tight font-bold">Finora</span><span class="font-label-badge text-label-badge text-primary uppercase tracking-wider">AI Wealth Engine</span></div></div><span class="font-label-code text-label-code px-space-xs py-0.5 rounded bg-surface-container-highest text-on-surface-variant">v2.4</span></div><div class="px-space-md pt-space-md"><span class="px-space-sm font-label-badge text-label-badge uppercase tracking-wider text-outline">เมนูหลัก</span></div><nav class="flex flex-col gap-1 px-space-md pt-space-xs" data-active-classes="bg-primary-container text-on-primary-container font-semibold rounded-lg shadow-sm"><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="dashboard" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">space_dashboard</span><span class="font-body-md text-body-md">ภาพรวมการเงิน</span></div></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="transactions" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">receipt_long</span><span class="font-body-md text-body-md">รายรับรายจ่าย</span></div></a><a aria-current="page" class="flex items-center justify-between px-space-md py-2.5 transition-colors bg-primary-container text-on-primary-container font-semibold rounded-lg shadow-sm" data-path="recurring" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">autorenew</span><span class="font-body-md text-body-md">ตัดเงินอัตโนมัติ</span></div></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="qr-scanner" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">qr_code_scanner</span><span class="font-body-md text-body-md">สแกน QR Code</span></div></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="categories" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">category</span><span class="font-body-md text-body-md">จัดการหมวดหมู่</span></div></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="virtual-bank" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">account_balance</span><span class="font-body-md text-body-md">ธนาคารจำลอง</span></div><span class="font-label-badge text-label-badge px-1.5 py-0.5 rounded bg-surface-container-highest text-primary-fixed-dim">API Simulator</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="ai-assistant" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px] text-tertiary">auto_awesome</span><span class="font-body-md text-body-md">ผู้ช่วย AI</span></div><span class="font-label-badge text-label-badge px-1.5 py-0.5 rounded bg-tertiary-container text-on-tertiary-container shadow-[0_0_8px_rgba(208,188,255,0.4)]">LLM</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" data-path="settings" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px]">settings</span><span class="font-body-md text-body-md">ตั้งค่าระบบ</span></div></a></nav></div><div class="p-space-md"><div class="rounded-xl bg-surface-container/70 p-space-md shadow-[0_8px_32px_0_rgba(0,0,0,0.36)] backdrop-blur-md"><div class="flex items-center justify-between mb-space-xs"><span class="font-label-badge text-label-badge uppercase tracking-wider text-on-surface-variant">Virtual Wallet</span><div class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-primary"></span><span class="font-label-code text-label-code text-primary">API Connected</span></div></div><div class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-semibold tracking-tight">฿124,500.00</div><div class="mt-space-xs flex items-center justify-between"><span class="font-label-code text-label-code text-outline">Sandbox Protocol</span><span class="font-label-badge text-label-badge text-on-surface-variant">Finora v2.4 SaaS</span></div></div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.2)] z-40 flex items-center justify-between px-space-lg"><div class="flex items-center gap-space-sm"><span class="font-headline-sm text-headline-sm text-on-surface font-semibold">แดชบอร์ดการเงิน</span><span class="text-outline font-body-sm text-body-sm">/</span><span class="text-on-surface-variant font-body-sm text-body-sm">ภาพรวมสินทรัพย์ส่วนบุคคล</span></div><div class="flex-1 max-w-lg mx-space-lg"><div class="relative flex items-center"><span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span><input class="w-full bg-surface-container-low text-on-surface font-body-sm text-body-sm placeholder:text-outline pl-9 pr-12 py-2 rounded-lg focus:outline-none focus:bg-surface-container focus:text-on-surface" placeholder="ค้นหาธุรกรรม, หมวดหมู่, หรือถาม AI... (Ctrl+K)" readonly="" type="text"/><span class="material-symbols-outlined absolute right-3 text-outline text-[18px]">keyboard_command_key</span></div></div><div class="flex items-center gap-space-md"><div class="flex items-center px-space-sm py-1 rounded bg-surface-container font-label-code text-label-code text-primary-fixed-dim"><span class="font-semibold">THB (฿)</span></div><button class="flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary-container font-body-md text-body-md font-semibold hover:bg-primary-fixed transition-colors shadow-sm"><span class="material-symbols-outlined text-[18px]">add_circle</span><span>บันทึกธุรกรรม</span></button><button class="relative p-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 w-4 h-4 bg-error text-on-error font-label-badge text-[10px] font-bold rounded-full flex items-center justify-center leading-none">3</span></button><div class="flex items-center gap-space-sm pl-space-xs"><div class="relative"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrFL3g_hlHL3ko0fh_QAIeXBw5FKzhYnT2egDX2s3GfVQfMATsnwBxBmtqxMZ_3CtGVYMfpg2iqDFq2tnZeXlbmb4FtdqYMEK7pNhSYMI2cHfMTHG2-GquQGqbhPInshm7TDV-cIjUyBmxEAk4-DOGZHxuTKN5luphoViBwGNSaXjymIhvFwZkHlnvmHoj5K3ozO5QzvFllJcH2PUgDFyAHt_LEpzl5_wxxZa0nFxL"/><span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-primary"></span></div><div class="flex flex-col text-left"><span class="font-body-md text-body-md text-on-surface font-semibold leading-tight">คุณธนภัทร วงศ์เจริญ</span><span class="font-label-badge text-label-badge text-primary-fixed-dim leading-tight">Finora Pro Member</span></div></div></div></header><main class="relative pt-16 w-full min-h-screen bg-background"><div class="flex flex-col w-full">
+<!-- Micro Top Ambient Glow -->
+<div class="relative w-full overflow-hidden px-space-xl py-space-lg flex flex-col gap-space-lg">
+<!-- Breadcrumb & Control Bar -->
+<div class="flex flex-wrap items-center justify-between gap-space-md">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2">
+<span class="font-label-badge text-label-badge text-primary uppercase tracking-wider bg-surface-container px-2 py-0.5 rounded">System Module</span>
+<span class="font-label-code text-label-code text-outline">AUTO-DEBIT SCHEDULER</span>
+</div>
+<div class="font-headline-lg text-headline-lg text-on-surface font-semibold tracking-tight">
+          รายการตัดเงินอัตโนมัติ (Recurring Payments)
+        </div>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">
+          จัดการค่าสมาชิก บริการรายเดือน และรายการตัดจ่ายประจำ พร้อมระบบจำลองการหักเงินผ่าน Virtual Bank API
+        </p>
+</div>
+<div class="flex items-center gap-space-sm">
+<button class="flex items-center gap-space-xs px-space-md py-2.5 rounded-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-all shadow-sm" id="btn-sync-simulation">
+<span class="material-symbols-outlined text-[18px] text-primary">sync</span>
+<span class="font-body-md text-body-md font-medium">จำลองประมวลผลรอบ</span>
+</button>
+<button class="flex items-center gap-space-xs px-space-md py-2.5 rounded-lg bg-primary-container text-on-primary font-body-md text-body-md font-semibold hover:bg-primary-fixed transition-all shadow-md" id="btn-open-modal">
+<span class="material-symbols-outlined text-[20px]">add</span>
+<span>สร้างรายการตัดเงินอัตโนมัติใหม่</span>
+</button>
+</div>
+</div>
+<!-- Mandatory Simulator Notice Banner -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-low p-space-md shadow-md">
+<div class="flex items-start gap-space-md">
+<div class="flex-shrink-0 w-10 h-10 rounded-lg bg-tertiary-container/30 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[24px]">terminal</span>
+</div>
+<div class="flex-1 flex flex-col justify-center">
+<div class="flex items-center gap-2 mb-0.5">
+<span class="font-label-badge text-label-badge text-tertiary uppercase tracking-wider font-semibold">Virtual Bank API Active Protocol</span>
+<span class="h-1.5 w-1.5 rounded-full bg-primary"></span>
+</div>
+<p class="font-body-md text-body-md text-on-surface">
+<span class="font-semibold text-tertiary">ℹ️ หมายเหตุระบบจำลอง:</span> รายการตัดเงินอัตโนมัติทั้งหมดจะประมวลผลผ่าน Virtual Bank API จำลองเท่านั้น ไม่มีการเชื่อมต่อหรือตัดเงินจากธนาคารจริงภายนอก บัญชีเป้าหมาย <span class="font-label-code text-label-code text-primary bg-surface-container-lowest px-1.5 py-0.5 rounded">#VB-882104</span>
+</p>
+</div>
+<div class="hidden lg:flex items-center gap-space-xs px-space-sm py-1 rounded bg-surface-container text-on-surface-variant font-label-code text-label-code">
+<span>Latency: 12ms</span>
+</div>
+</div>
+</div>
+<!-- 3 Highlight Metric Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Metric 1 -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container p-space-lg shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between mb-space-sm">
+<span class="font-label-badge text-label-badge uppercase tracking-wider text-outline">ค่าใช้จ่ายตัดรอบเดือนนี้</span>
+<div class="p-2 rounded-lg bg-surface-container-highest text-primary">
+<span class="material-symbols-outlined text-[20px]">calendar_month</span>
+</div>
+</div>
+<div>
+<div class="font-numeric-metric-lg text-numeric-metric-lg text-on-surface font-bold tracking-tight">
+            ฿6,890.00
+          </div>
+<div class="mt-space-xs flex items-center justify-between text-on-surface-variant">
+<span class="font-body-sm text-body-sm">รวมกำหนดการทั้งหมด 8 รายการ</span>
+<span class="font-label-code text-label-code text-primary bg-primary/10 px-2 py-0.5 rounded">6 กำลังรัน</span>
+</div>
+</div>
+<!-- Micro sparkline visualization -->
+<div class="mt-space-md pt-space-xs flex items-end gap-1.5 h-6">
+<div class="flex-1 bg-surface-container-highest rounded-t h-2"></div>
+<div class="flex-1 bg-primary-container rounded-t h-5"></div>
+<div class="flex-1 bg-surface-container-highest rounded-t h-3"></div>
+<div class="flex-1 bg-primary-container rounded-t h-6"></div>
+<div class="flex-1 bg-surface-container-highest rounded-t h-2"></div>
+<div class="flex-1 bg-primary-container rounded-t h-4"></div>
+</div>
+</div>
+<!-- Metric 2 -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container p-space-lg shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between mb-space-sm">
+<span class="font-label-badge text-label-badge uppercase tracking-wider text-outline">ตัดจ่ายใน 7 วันข้างหน้า</span>
+<div class="p-2 rounded-lg bg-secondary-container/40 text-secondary">
+<span class="material-symbols-outlined text-[20px]">notification_important</span>
+</div>
+</div>
+<div>
+<div class="flex items-baseline gap-2">
+<div class="font-numeric-metric-lg text-numeric-metric-lg text-on-surface font-bold tracking-tight">
+              3
+            </div>
+<span class="font-headline-sm text-headline-sm text-on-surface-variant font-normal">รายการ</span>
+</div>
+<div class="mt-space-xs flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-on-surface-variant">ยอดรวม ฿2,459.00</span>
+<span class="font-label-badge text-label-badge text-secondary bg-secondary-container/30 px-2 py-0.5 rounded">กระชั้นชิด</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs">
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 35.6%"></div>
+</div>
+<div class="flex justify-between items-center mt-1">
+<span class="font-label-code text-label-code text-outline">35.6% ของยอดรวมเดือนนี้</span>
+<span class="font-label-code text-label-code text-on-surface-variant">ยอดสำรองพร้อม</span>
+</div>
+</div>
+</div>
+<!-- Metric 3 -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container p-space-lg shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between mb-space-sm">
+<span class="font-label-badge text-label-badge uppercase tracking-wider text-outline">Virtual Auto-Debit Rate</span>
+<div class="p-2 rounded-lg bg-tertiary-container/30 text-tertiary">
+<span class="material-symbols-outlined text-[20px]">verified_user</span>
+</div>
+</div>
+<div>
+<div class="font-numeric-metric-lg text-numeric-metric-lg text-primary font-bold tracking-tight">
+            100%
+          </div>
+<div class="mt-space-xs flex items-center justify-between">
+<span class="font-body-sm text-body-sm text-on-surface-variant">จำลองสำเร็จ 14/14 ครั้งล่าสุด</span>
+<span class="font-label-code text-label-code text-primary bg-primary/10 px-2 py-0.5 rounded">API Healthy</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center gap-2">
+<div class="flex-1 flex gap-1">
+<span class="h-2 w-full rounded-sm bg-primary"></span>
+<span class="h-2 w-full rounded-sm bg-primary"></span>
+<span class="h-2 w-full rounded-sm bg-primary"></span>
+<span class="h-2 w-full rounded-sm bg-primary"></span>
+<span class="h-2 w-full rounded-sm bg-primary"></span>
+<span class="h-2 w-full rounded-sm bg-primary"></span>
+</div>
+<span class="font-label-code text-label-code text-outline">No Faults</span>
+</div>
+</div>
+</div>
+<!-- Upcoming Payment Timeline Visualization (Current Month) -->
+<div class="rounded-xl bg-surface-container p-space-lg shadow-sm flex flex-col gap-space-md">
+<div class="flex flex-wrap items-center justify-between gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px] text-tertiary">timeline</span>
+<div class="font-headline-sm text-headline-sm text-on-surface font-semibold">ไทม์ไลน์การตัดเงินในเดือนมีนาคม 2025</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="font-label-code text-label-code text-outline">Virtual Account Sandbox #VB-882104</span>
+<div class="flex items-center gap-1">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span>
+<span class="font-label-badge text-label-badge text-on-surface-variant">7 วันนี้</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+<span class="font-label-badge text-label-badge text-on-surface-variant">ตามแผน</span>
+</div>
+</div>
+</div>
+<!-- Timeline Canvas / Ribbon -->
+<div class="relative w-full overflow-x-auto pb-space-xs">
+<div class="min-w-[860px] flex flex-col gap-3 py-2">
+<!-- Calendar Days Bar -->
+<div class="grid grid-cols-6 gap-2 text-center">
+<div class="bg-surface-container-high rounded-lg p-2.5 flex flex-col items-center gap-1">
+<span class="font-label-code text-label-code text-secondary font-bold">5 มี.ค. (อีก 2 วัน)</span>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">คอนโดมิเนียม</span>
+</div>
+<span class="font-label-code text-label-code text-on-surface-variant">฿3,200.00</span>
+</div>
+<div class="bg-surface-container-high rounded-lg p-2.5 flex flex-col items-center gap-1">
+<span class="font-label-code text-label-code text-secondary font-bold">8 มี.ค. (อีก 5 วัน)</span>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Spotify Family</span>
+</div>
+<span class="font-label-code text-label-code text-on-surface-variant">฿209.00</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col items-center gap-1">
+<span class="font-label-code text-label-code text-outline">15 มี.ค. (อีก 12 วัน)</span>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Fitness First</span>
+</div>
+<span class="font-label-code text-label-code text-on-surface-variant">฿2,100.00</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col items-center gap-1">
+<span class="font-label-code text-label-code text-outline">20 มี.ค. (อีก 17 วัน)</span>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">ChatGPT Plus</span>
+</div>
+<span class="font-label-code text-label-code text-on-surface-variant">฿750.00</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col items-center gap-1">
+<span class="font-label-code text-label-code text-outline">22 มี.ค. (อีก 19 วัน)</span>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">iCloud+ 2TB</span>
+</div>
+<span class="font-label-code text-label-code text-on-surface-variant">฿349.00</span>
+</div>
+<div class="bg-surface-container-low rounded-lg p-2.5 flex flex-col items-center gap-1">
+<span class="font-label-code text-label-code text-outline">1 เม.ย. (รอบถัดไป)</span>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Netflix 4K</span>
+</div>
+<span class="font-label-code text-label-code text-on-surface-variant">฿419.00</span>
+</div>
+</div>
+<!-- Balance impact meter -->
+<div class="bg-surface-container-lowest p-space-sm rounded-lg flex items-center justify-between px-space-md">
+<span class="font-body-sm text-body-sm text-on-surface-variant">ผลกระทบยอดเงินในวอลเล็ตจำลอง: หักรวมทั้งเดือน <strong class="text-on-surface">฿6,890.00</strong></span>
+<span class="font-label-code text-label-code text-primary">ยอดคงเหลือเพียงพอ (คงเหลือหลังหัก ฿117,610.00)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Subscriptions Section with Filters & Ledger Table -->
+<div class="rounded-xl bg-surface-container shadow-sm flex flex-col">
+<!-- Section Toolbar -->
+<div class="p-space-lg flex flex-col md:flex-row md:items-center justify-between gap-space-md bg-surface-container-high/40 rounded-t-xl">
+<div class="flex items-center gap-2">
+<!-- Filter Tabs -->
+<div class="flex items-center bg-surface-container-low p-1 rounded-lg">
+<button class="filter-tab px-3 py-1.5 rounded-md font-body-sm text-body-sm font-semibold bg-primary-container text-on-primary shadow-sm" data-filter="all">
+              ทั้งหมด (8)
+            </button>
+<button class="filter-tab px-3 py-1.5 rounded-md font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-filter="active">
+              เปิดใช้งาน (6)
+            </button>
+<button class="filter-tab px-3 py-1.5 rounded-md font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-filter="paused">
+              พักชั่วคราว (2)
+            </button>
+<button class="filter-tab px-3 py-1.5 rounded-md font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-filter="failed">
+              ล้มเหลว (0)
+            </button>
+</div>
+</div>
+<div class="flex items-center gap-space-sm">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2.5 top-2 text-outline text-[18px]">search</span>
+<input class="bg-surface-container-low text-on-surface font-body-sm text-body-sm placeholder:text-outline pl-8 pr-3 py-1.5 rounded-lg focus:outline-none focus:bg-surface-container-lowest" id="search-input" placeholder="ค้นหาบริการหรือหมวดหมู่..." type="text"/>
+</div>
+<button class="p-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-[20px]">filter_list</span>
+</button>
+</div>
+</div>
+<!-- Ledger Table (Responsive Container) -->
+<div class="overflow-x-auto">
+<table class="w-full text-left font-body-md text-body-md text-on-surface">
+<thead class="bg-surface-container-lowest/80 text-outline uppercase font-label-badge text-label-badge tracking-wider">
+<tr>
+<th class="py-3 px-space-md" scope="col">บริการ / รายการ</th>
+<th class="py-3 px-space-md" scope="col">หมวดหมู่</th>
+<th class="py-3 px-space-md" scope="col">ยอดตัดชำระ</th>
+<th class="py-3 px-space-md" scope="col">ความถี่</th>
+<th class="py-3 px-space-md" scope="col">รอบตัดถัดไป</th>
+<th class="py-3 px-space-md" scope="col">บัญชีจำลอง</th>
+<th class="py-3 px-space-md" scope="col">สถานะ</th>
+<th class="py-3 px-space-md text-right" scope="col">การจัดการ</th>
+</tr>
+</thead>
+<tbody class="divide-y-0" id="recurring-table-body">
+<!-- Item 1: Netflix -->
+<tr class="item-row hover:bg-surface-container-high/50 transition-colors" data-name="netflix" data-status="active">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-error font-bold">
+<span class="material-symbols-outlined text-[20px]">movie</span>
+</div>
+<div class="flex flex-col">
+<span class="font-semibold text-on-surface">Netflix Premium 4K</span>
+<span class="font-label-code text-label-code text-outline">Rec-ID: #RF-0091</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-badge text-label-badge">บันเทิง</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-semibold">฿419.00</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายเดือน</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface">1 เม.ย. 2025</span>
+<span class="font-label-code text-label-code text-primary">อีก 28 วัน</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">account_balance</span>
+<span>#VB-882104</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-label-badge text-label-badge bg-primary/10 text-primary">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                  Active
+                </span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="inline-flex items-center gap-1">
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="พักการหัก">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="แก้ไข">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="ประวัติการตัด">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-error hover:bg-error-container hover:text-on-error-container" title="ลบ">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Item 2: Spotify -->
+<tr class="item-row hover:bg-surface-container-high/50 transition-colors" data-name="spotify" data-status="active">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary font-bold">
+<span class="material-symbols-outlined text-[20px]">music_note</span>
+</div>
+<div class="flex flex-col">
+<span class="font-semibold text-on-surface">Spotify Family Plan</span>
+<span class="font-label-code text-label-code text-outline">Rec-ID: #RF-0092</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-badge text-label-badge">บันเทิง</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-semibold">฿209.00</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายเดือน</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface">8 มี.ค. 2025</span>
+<span class="font-label-code text-label-code text-secondary font-semibold">อีก 5 วัน (ใกล้ถึงกำหนด)</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">account_balance</span>
+<span>#VB-882104</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-label-badge text-label-badge bg-primary/10 text-primary">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                  Active
+                </span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="inline-flex items-center gap-1">
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="พักการหัก">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="แก้ไข">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="ประวัติการตัด">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-error hover:bg-error-container hover:text-on-error-container" title="ลบ">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Item 3: Condo Fee -->
+<tr class="item-row hover:bg-surface-container-high/50 transition-colors" data-name="condo" data-status="active">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-tertiary font-bold">
+<span class="material-symbols-outlined text-[20px]">apartment</span>
+</div>
+<div class="flex flex-col">
+<span class="font-semibold text-on-surface">คอนโดมิเนียม - ค่าส่วนกลาง</span>
+<span class="font-label-code text-label-code text-outline">Rec-ID: #RF-0080</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-badge text-label-badge">ที่อยู่อาศัย</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-semibold">฿3,200.00</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายเดือน</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface">5 มี.ค. 2025</span>
+<span class="font-label-code text-label-code text-secondary font-bold">อีก 2 วัน (ตัดด่วน)</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">account_balance</span>
+<span>#VB-882104</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-label-badge text-label-badge bg-primary/10 text-primary">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                  Active
+                </span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="inline-flex items-center gap-1">
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="พักการหัก">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="แก้ไข">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="ประวัติการตัด">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-error hover:bg-error-container hover:text-on-error-container" title="ลบ">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Item 4: Fitness First -->
+<tr class="item-row hover:bg-surface-container-high/50 transition-colors" data-name="fitness" data-status="active">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary-fixed font-bold">
+<span class="material-symbols-outlined text-[20px]">fitness_center</span>
+</div>
+<div class="flex flex-col">
+<span class="font-semibold text-on-surface">ค่าสมาชิกฟิตเนส Fitness First</span>
+<span class="font-label-code text-label-code text-outline">Rec-ID: #RF-0084</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-badge text-label-badge">สุขภาพ</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-semibold">฿2,100.00</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายเดือน</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface">15 มี.ค. 2025</span>
+<span class="font-label-code text-label-code text-outline">อีก 12 วัน</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">account_balance</span>
+<span>#VB-882104</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-label-badge text-label-badge bg-primary/10 text-primary">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                  Active
+                </span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="inline-flex items-center gap-1">
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="พักการหัก">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="แก้ไข">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="ประวัติการตัด">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-error hover:bg-error-container hover:text-on-error-container" title="ลบ">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Item 5: ChatGPT Plus -->
+<tr class="item-row hover:bg-surface-container-high/50 transition-colors" data-name="chatgpt" data-status="active">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-tertiary-fixed font-bold">
+<span class="material-symbols-outlined text-[20px]">smart_toy</span>
+</div>
+<div class="flex flex-col">
+<span class="font-semibold text-on-surface">ChatGPT Plus Subscription</span>
+<span class="font-label-code text-label-code text-outline">Rec-ID: #RF-0089</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-badge text-label-badge">ซอฟต์แวร์/การทำงาน</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-semibold">฿750.00</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายเดือน</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface">20 มี.ค. 2025</span>
+<span class="font-label-code text-label-code text-outline">อีก 17 วัน</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">account_balance</span>
+<span>#VB-882104</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-label-badge text-label-badge bg-primary/10 text-primary">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                  Active
+                </span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="inline-flex items-center gap-1">
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="พักการหัก">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="แก้ไข">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="ประวัติการตัด">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-error hover:bg-error-container hover:text-on-error-container" title="ลบ">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Item 6: YouTube Premium (Paused) -->
+<tr class="item-row hover:bg-surface-container-high/50 transition-colors opacity-75" data-name="youtube" data-status="paused">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-error font-bold">
+<span class="material-symbols-outlined text-[20px]">subscriptions</span>
+</div>
+<div class="flex flex-col">
+<span class="font-semibold text-on-surface">YouTube Premium Family</span>
+<span class="font-label-code text-label-code text-outline">Rec-ID: #RF-0077</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-badge text-label-badge">บันเทิง</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-semibold">฿299.00</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายเดือน</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface">25 มี.ค. 2025</span>
+<span class="font-label-code text-label-code text-outline">หยุดชั่วคราว</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-outline">account_balance</span>
+<span>#VB-882104</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-label-badge text-label-badge bg-surface-container-highest text-on-surface-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                  Paused
+                </span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="inline-flex items-center gap-1">
+<button class="p-1.5 rounded bg-surface-container text-primary hover:bg-surface-container-highest" title="เปิดใช้งานต่อ">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="แก้ไข">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="ประวัติการตัด">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-error hover:bg-error-container hover:text-on-error-container" title="ลบ">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Item 7: iCloud+ 2TB -->
+<tr class="item-row hover:bg-surface-container-high/50 transition-colors" data-name="icloud" data-status="active">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-primary font-bold">
+<span class="material-symbols-outlined text-[20px]">cloud</span>
+</div>
+<div class="flex flex-col">
+<span class="font-semibold text-on-surface">iCloud+ 2TB Storage</span>
+<span class="font-label-code text-label-code text-outline">Rec-ID: #RF-0095</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-badge text-label-badge">ไอที &amp; คลาวด์</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-semibold">฿349.00</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายเดือน</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface">22 มี.ค. 2025</span>
+<span class="font-label-code text-label-code text-outline">อีก 19 วัน</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">account_balance</span>
+<span>#VB-882104</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-label-badge text-label-badge bg-primary/10 text-primary">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                  Active
+                </span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="inline-flex items-center gap-1">
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="พักการหัก">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="แก้ไข">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="ประวัติการตัด">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-error hover:bg-error-container hover:text-on-error-container" title="ลบ">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Item 8: Adobe Creative Cloud (Paused) -->
+<tr class="item-row hover:bg-surface-container-high/50 transition-colors opacity-75" data-name="adobe" data-status="paused">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest flex items-center justify-center text-error font-bold">
+<span class="material-symbols-outlined text-[20px]">palette</span>
+</div>
+<div class="flex flex-col">
+<span class="font-semibold text-on-surface">Adobe Creative Cloud</span>
+<span class="font-label-code text-label-code text-outline">Rec-ID: #RF-0062</span>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant font-label-badge text-label-badge">ซอฟต์แวร์</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-metric-md text-numeric-metric-md text-on-surface font-semibold">฿1,850.00</span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายเดือน</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex flex-col">
+<span class="font-body-sm text-body-sm text-on-surface">1 เม.ย. 2025</span>
+<span class="font-label-code text-label-code text-outline">หยุดชั่วคราว</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-1 font-label-code text-label-code text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-outline">account_balance</span>
+<span>#VB-882104</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-label-badge text-label-badge bg-surface-container-highest text-on-surface-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-outline"></span>
+                  Paused
+                </span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="inline-flex items-center gap-1">
+<button class="p-1.5 rounded bg-surface-container text-primary hover:bg-surface-container-highest" title="เปิดใช้งานต่อ">
+<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="แก้ไข">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest" title="ประวัติการตัด">
+<span class="material-symbols-outlined text-[18px]">history</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container text-error hover:bg-error-container hover:text-on-error-container" title="ลบ">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Footer Table Summary Bar -->
+<div class="p-space-md bg-surface-container-lowest/60 rounded-b-xl flex flex-wrap items-center justify-between text-on-surface-variant font-body-sm text-body-sm gap-2">
+<div class="flex items-center gap-2">
+<span>แสดงทั้งหมด 8 รายการ (รวมภาษีมูลค่าเพิ่มถ้ามี)</span>
+<span class="text-outline">|</span>
+<span class="font-label-code text-label-code text-primary">Virtual Auto-Execution Queue: 6 Scheduled</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<span>ยอดตัดชำระรวมรายเดือนที่เปิดใช้งาน:</span>
+<span class="font-numeric-metric-md text-numeric-metric-md text-primary font-bold">฿6,890.00</span>
+</div>
+</div>
+</div>
+<!-- AI Suggestion & Subscription Health Optimization Banner -->
+<div class="rounded-xl bg-surface-container p-space-md shadow-sm relative overflow-hidden">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-tertiary-container text-on-tertiary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-[22px]">auto_awesome</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<span class="font-label-badge text-label-badge text-tertiary uppercase tracking-wider font-semibold">Finora AI Cost Optimizer</span>
+<span class="font-label-code text-label-code bg-surface-container-highest px-1.5 py-0.2 rounded text-on-surface-variant">Insights</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface mt-0.5">
+              คุณมีบริการ <strong class="text-on-surface">Adobe Creative Cloud (฿1,850/เดือน)</strong> และ <strong class="text-on-surface">YouTube Premium (฿299/เดือน)</strong> ที่หยุดชั่วคราวอยู่ หากยกเลิกถาวรจะประหยัดงบได้ถึง <strong class="text-primary font-semibold">฿25,788.00 ต่อปี</strong>
+</p>
+</div>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0">
+<button class="px-space-md py-2 rounded-lg bg-tertiary-container text-on-tertiary-container font-body-sm text-body-sm font-semibold hover:bg-tertiary transition-colors">
+            ให้ AI วิเคราะห์สถิติการใช้งาน
+          </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal / Slide-in Drawer: สร้างรายการตัดเงินอัตโนมัติ (Add Recurring Payment) -->
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-surface-container-lowest/80 backdrop-blur-md hidden transition-opacity" id="modal-add-recurring">
+<div class="relative w-full max-w-xl mx-4 rounded-xl bg-surface-container p-space-lg shadow-2xl flex flex-col gap-space-md max-h-[921px] overflow-y-auto">
+<!-- Modal Header -->
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">autorenew</span>
+</div>
+<div>
+<div class="font-headline-sm text-headline-sm text-on-surface font-semibold">สร้างรายการตัดเงินอัตโนมัติ</div>
+<div class="font-label-code text-label-code text-outline">Virtual Bank API Scheduled Job</div>
+</div>
+</div>
+<button class="p-1 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" id="btn-close-modal">
+<span class="material-symbols-outlined text-[24px]">close</span>
+</button>
+</div>
+<!-- Simulator Alert inside Form -->
+<div class="p-space-sm rounded-lg bg-surface-container-lowest flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">รายการใหม่จะผูกเข้ากับกระเป๋าเงิน <strong class="text-on-surface">Virtual Wallet #VB-882104</strong> อัตโนมัติ</span>
+</div>
+<!-- Form Body -->
+<form class="flex flex-col gap-space-md" id="form-create-recurring">
+<!-- Field 1: Service Name -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-badge text-label-badge uppercase tracking-wider text-outline">ชื่องาน / บริการประจำ *</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[18px]">label</span>
+<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-outline pl-9 pr-3 py-2 rounded-lg focus:outline-none focus:bg-surface-container-lowest" placeholder="เช่น Netflix, ค่าอินเทอร์เน็ต, ฟิตเนส..." required="" type="text"/>
+</div>
+</div>
+<!-- Field 2 & 3: Amount & Category -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+<div class="flex flex-col gap-1.5">
+<label class="font-label-badge text-label-badge uppercase tracking-wider text-outline">จำนวนเงินต่องวด (฿) *</label>
+<div class="relative">
+<span class="absolute left-3 top-2 font-label-code text-label-code text-outline">฿</span>
+<input class="w-full bg-surface-container-low text-on-surface font-numeric-metric-md text-numeric-metric-md placeholder:text-outline pl-8 pr-3 py-1.5 rounded-lg focus:outline-none focus:bg-surface-container-lowest" placeholder="0.00" required="" step="0.01" type="number"/>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label-badge text-label-badge uppercase tracking-wider text-outline">หมวดหมู่ค่าใช้จ่าย *</label>
+<select class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md py-2 px-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest">
+<option value="entertainment">บันเทิง &amp; สตรีมมิ่ง</option>
+<option value="utilities">สาธารณูปโภค &amp; ค่าบ้าน</option>
+<option value="software">ซอฟต์แวร์ &amp; ไอที</option>
+<option value="fitness">สุขภาพ &amp; กีฬา</option>
+<option value="insurance">ประกันภัย &amp; กองทุน</option>
+<option value="other">อื่น ๆ</option>
+</select>
+</div>
+</div>
+<!-- Field 4 & 5: Frequency & Start Date -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+<div class="flex flex-col gap-1.5">
+<label class="font-label-badge text-label-badge uppercase tracking-wider text-outline">ความถี่การตัดชำระ *</label>
+<select class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md py-2 px-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest">
+<option selected="" value="monthly">รายเดือน (Monthly)</option>
+<option value="weekly">รายสัปดาห์ (Weekly)</option>
+<option value="yearly">รายปี (Yearly)</option>
+<option value="daily">รายวัน (Daily Simulator)</option>
+</select>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-label-badge text-label-badge uppercase tracking-wider text-outline">วันที่เริ่มตัดรอบแรก *</label>
+<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md py-2 px-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest" type="date" value="2025-03-10"/>
+</div>
+</div>
+<!-- Field 6: End Date (Optional) -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<label class="font-label-badge text-label-badge uppercase tracking-wider text-outline">วันสิ้นสุดสัญญา (ไม่ระบุ = ตลอดไปจนกว่าจะสั่งหยุด)</label>
+<span class="font-label-code text-label-code text-outline">Optional</span>
+</div>
+<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md py-2 px-3 rounded-lg focus:outline-none focus:bg-surface-container-lowest" placeholder="ไม่มีกำหนด" type="date"/>
+</div>
+<!-- Notification Toggle -->
+<div class="p-space-sm rounded-lg bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-[20px] text-tertiary">notifications_active</span>
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-surface font-semibold">แจ้งเตือนก่อนตัดเงินล่วงหน้า 3 วัน</span>
+<span class="font-label-code text-label-code text-outline">ผ่าน In-App Feed และข้อความสรุป AI</span>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:bg-primary-container peer-focus:outline-none after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full peer-checked:after:bg-on-primary"></div>
+</label>
+</div>
+<!-- Action Buttons -->
+<div class="flex items-center justify-end gap-space-sm pt-space-xs">
+<button class="px-space-md py-2 rounded-lg bg-surface-container-high text-on-surface hover:bg-surface-container-highest transition-colors font-body-md text-body-md font-medium" id="btn-cancel-modal" type="button">
+            ยกเลิก
+          </button>
+<button class="flex items-center gap-1.5 px-space-md py-2 rounded-lg bg-primary-container text-on-primary hover:bg-primary-fixed transition-colors font-body-md text-body-md font-semibold shadow-md" type="submit">
+<span class="material-symbols-outlined text-[18px]">save</span>
+<span>บันทึกและเริ่มจำลองตัดเงิน</span>
+</button>
+</div>
+</form>
+</div>
+</div>
+<!-- Inline Micro Interactions Script -->
+<script>
+    (function initRecurringUI() {
+      // Filter Tabs behavior
+      const filterTabs = document.querySelectorAll('.filter-tab');
+      const rows = document.querySelectorAll('.item-row');
+
+      filterTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          filterTabs.forEach(t => {
+            t.classList.remove('bg-primary-container', 'text-on-primary', 'font-semibold', 'shadow-sm');
+            t.classList.add('text-on-surface-variant');
+          });
+          tab.classList.add('bg-primary-container', 'text-on-primary', 'font-semibold', 'shadow-sm');
+          tab.classList.remove('text-on-surface-variant');
+
+          const filter = tab.getAttribute('data-filter');
+          rows.forEach(row => {
+            const status = row.getAttribute('data-status');
+            if (filter === 'all') {
+              row.style.display = '';
+            } else if (filter === status) {
+              row.style.display = '';
+            } else {
+              row.style.display = 'none';
+            }
+          });
+        });
+      });
+
+      // Quick Search
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          const query = e.target.value.toLowerCase().trim();
+          rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(query) ? '' : 'none';
+          });
+        });
+      }
+
+      // Modal Controls
+      const modal = document.getElementById('modal-add-recurring');
+      const btnOpen = document.getElementById('btn-open-modal');
+      const btnClose = document.getElementById('btn-close-modal');
+      const btnCancel = document.getElementById('btn-cancel-modal');
+      const form = document.getElementById('form-create-recurring');
+
+      const openModal = () => modal.classList.remove('hidden');
+      const closeModal = () => modal.classList.add('hidden');
+
+      if (btnOpen) btnOpen.addEventListener('click', openModal);
+      if (btnClose) btnClose.addEventListener('click', closeModal);
+      if (btnCancel) btnCancel.addEventListener('click', closeModal);
+
+      // Close modal on click outside content
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) closeModal();
+        });
+      }
+
+      // Handle Form Submit (Simulation)
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          closeModal();
+          const btn = document.getElementById('btn-open-modal');
+          const original = btn.innerHTML;
+          btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">check_circle</span><span>บันทึกสำเร็จ</span>';
+          setTimeout(() => { btn.innerHTML = original; }, 2500);
+        });
+      }
+
+      // Simulate Batch Execution Button
+      const btnSync = document.getElementById('btn-sync-simulation');
+      if (btnSync) {
+        btnSync.addEventListener('click', () => {
+          btnSync.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin text-primary">autorenew</span><span class="font-body-md text-body-md">กำลังจำลองตัดเงิน...</span>';
+          setTimeout(() => {
+            btnSync.innerHTML = '<span class="material-symbols-outlined text-[18px] text-primary">check_circle</span><span class="font-body-md text-body-md">ตัดรอบสำเร็จ (6/6)</span>';
+            setTimeout(() => {
+              btnSync.innerHTML = '<span class="material-symbols-outlined text-[18px] text-primary">sync</span><span class="font-body-md text-body-md">จำลองประมวลผลรอบ</span>';
+            }, 3000);
+          }, 900);
+        });
+      }
+    })();
+  </script>
+</div></main></div></body></html>
