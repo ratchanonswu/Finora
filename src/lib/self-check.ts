@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
-import { CATEGORY_PALETTE, INITIAL_CATEGORIES, isBaseCategory, nextCategoryColor } from "./seed.ts";
+import { CATEGORY_PALETTE, INITIAL_CATEGORIES, isBaseCategory, nextCategoryColor, parsePromptPayPayload } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -31,4 +31,10 @@ assert.equal(nextCategoryColor([...seedColors, CATEGORY_PALETTE[0]]), CATEGORY_P
 assert.equal(isBaseCategory("food"), true);
 assert.equal(isBaseCategory("cat-12345"), false);
 
-console.log("Finora self-check passed (6/6 checks)");
+// 7. PromptPay TLV parser extracts merchant, ID, and amount
+const parsedQr = parsePromptPayPayload("00020129370016A000000677010111011300668123456785406185.005909Starbucks");
+assert.equal(parsedQr.amount, 185);
+assert.equal(parsedQr.merchant, "Starbucks");
+assert.equal(parsedQr.promptPayId, "0066812345678");
+
+console.log("Finora self-check passed (7/7 checks)");

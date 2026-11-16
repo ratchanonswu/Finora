@@ -132,3 +132,35 @@ export function formatThaiDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
+
+// Parses EMVCo TLV payload from Thai PromptPay QR strings (tag 29/30 ID, tag 54 amount, tag 59 merchant).
+export function parsePromptPayPayload(raw: string): {
+  merchant?: string;
+  promptPayId?: string;
+  amount?: number;
+} {
+  let i = 0;
+  const out: { merchant?: string; promptPayId?: string; amount?: number } = {};
+  while (i + 4 <= raw.length) {
+    const tag = raw.slice(i, i + 2);
+    const len = Number(raw.slice(i + 2, i + 4));
+    if (!Number.isFinite(len) || len < 0 || i + 4 + len > raw.length) break;
+    const val = raw.slice(i + 4, i + 4 + len);
+    if (tag === "54" && Number(val) > 0) out.amount = Number(val);
+    if (tag === "59" && val.trim()) out.merchant = val.trim();
+    if (tag === "29" || tag === "30") {
+      let j = 0;
+      while (j + 4 <= val.length) {
+        const subTag = val.slice(j, j + 2);
+        const subLen = Number(val.slice(j + 2, j + 4));
+        if (!Number.isFinite(subLen) || subLen < 0 || j + 4 + subLen > val.length) break;
+        if (subTag === "01" || subTag === "02" || subTag === "03") {
+          out.promptPayId = val.slice(j + 4, j + 4 + subLen);
+        }
+        j += 4 + subLen;
+      }
+    }
+    i += 4 + len;
+  }
+  return out;
+}
