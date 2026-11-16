@@ -138,24 +138,39 @@ export function parsePromptPayPayload(raw: string): {
   merchant?: string;
   promptPayId?: string;
   amount?: number;
+  isPromptPayOrSlip?: boolean;
 } {
   let i = 0;
-  const out: { merchant?: string; promptPayId?: string; amount?: number } = {};
+  const out: {
+    merchant?: string;
+    promptPayId?: string;
+    amount?: number;
+    isPromptPayOrSlip?: boolean;
+  } = {};
+  if (raw.startsWith("000201") || raw.startsWith("00410006000001")) {
+    out.isPromptPayOrSlip = true;
+  }
   while (i + 4 <= raw.length) {
     const tag = raw.slice(i, i + 2);
     const len = Number(raw.slice(i + 2, i + 4));
     if (!Number.isFinite(len) || len < 0 || i + 4 + len > raw.length) break;
     const val = raw.slice(i + 4, i + 4 + len);
     if (tag === "54" && Number(val) > 0) out.amount = Number(val);
-    if (tag === "59" && val.trim()) out.merchant = val.trim();
+    if (tag === "59" && val.trim() && val.trim().toUpperCase() !== "TH") {
+      out.merchant = val.trim();
+    }
     if (tag === "29" || tag === "30") {
+      out.isPromptPayOrSlip = true;
       let j = 0;
       while (j + 4 <= val.length) {
         const subTag = val.slice(j, j + 2);
         const subLen = Number(val.slice(j + 2, j + 4));
         if (!Number.isFinite(subLen) || subLen < 0 || j + 4 + subLen > val.length) break;
-        if (subTag === "01" || subTag === "02" || subTag === "03") {
-          out.promptPayId = val.slice(j + 4, j + 4 + subLen);
+        const subVal = val.slice(j + 4, j + 4 + subLen);
+        if (tag === "29" && (subTag === "01" || subTag === "02" || subTag === "03")) {
+          out.promptPayId = subVal.replace(/^0066(\d{9})$/, "0$1");
+        } else if (tag === "30" && subTag === "01") {
+          out.promptPayId = subVal;
         }
         j += 4 + subLen;
       }

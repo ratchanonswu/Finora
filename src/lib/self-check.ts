@@ -31,10 +31,11 @@ assert.equal(nextCategoryColor([...seedColors, CATEGORY_PALETTE[0]]), CATEGORY_P
 assert.equal(isBaseCategory("food"), true);
 assert.equal(isBaseCategory("cat-12345"), false);
 
-// 7. PromptPay TLV parser extracts merchant, ID, and amount
+// 7. PromptPay TLV parser extracts merchant, formatted Thai phone ID, and amount
 const parsedQr = parsePromptPayPayload("00020129370016A000000677010111011300668123456785406185.005909Starbucks");
 assert.equal(parsedQr.amount, 185);
 assert.equal(parsedQr.merchant, "Starbucks");
-assert.equal(parsedQr.promptPayId, "0066812345678");
+assert.equal(parsedQr.promptPayId, "0812345678");
+assert.equal(parsedQr.isPromptPayOrSlip, true);
 
 console.log("Finora self-check passed (7/7 checks)");
