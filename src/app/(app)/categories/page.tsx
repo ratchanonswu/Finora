@@ -2,21 +2,33 @@
 
 import React, { useState } from "react";
 import { useFinora } from "@/context/FinoraContext";
-import { formatTHB } from "@/lib/seed";
+import { formatTHB, nextCategoryColor } from "@/lib/seed";
+
+const ICON_CHOICES = [
+  { icon: "label", label: "ทั่วไป" },
+  { icon: "fitness_center", label: "สุขภาพ & ฟิตเนส" },
+  { icon: "school", label: "การศึกษา" },
+  { icon: "pets", label: "สัตว์เลี้ยง" },
+  { icon: "flight", label: "ท่องเที่ยว" },
+  { icon: "medical_services", label: "ค่ารักษาพยาบาล" },
+  { icon: "card_giftcard", label: "ของขวัญ" },
+  { icon: "work", label: "งานเสริม / ฟรีแลนซ์" },
+];
 
 export default function CategoriesPage() {
   const { categories, transactions, addCategory, updateCategoryBudget } = useFinora();
   const [name, setName] = useState("");
   const [budget, setBudget] = useState("5000");
   const [type, setType] = useState<"expense" | "income">("expense");
+  const [icon, setIcon] = useState("label");
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     addCategory({
       name: name.trim(),
-      icon: type === "expense" ? "label" : "payments",
-      color: type === "expense" ? "#10B981" : "#10B981",
+      icon,
+      color: nextCategoryColor(categories.map((c) => c.color)),
       budget: Number(budget) || 0,
       type,
     });
@@ -37,7 +49,7 @@ export default function CategoriesPage() {
       {/* Add Category Form */}
       <form
         onSubmit={handleAdd}
-        className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 grid grid-cols-1 md:grid-cols-4 gap-3 items-end"
+        className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
       >
         <div>
           <label className="block text-xs font-semibold text-on-surface-variant mb-1">
@@ -64,6 +76,35 @@ export default function CategoriesPage() {
             <option value="expense">รายจ่าย (Expense)</option>
             <option value="income">รายรับ (Income)</option>
           </select>
+        </div>
+        <div>
+          <label htmlFor="cat-icon" className="block text-xs font-semibold text-on-surface-variant mb-1">
+            ไอคอน
+          </label>
+          <div className="flex items-center gap-2">
+            <span
+              className="material-symbols-outlined w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-[20px]"
+              style={{
+                backgroundColor: `${nextCategoryColor(categories.map((c) => c.color))}1F`,
+                color: nextCategoryColor(categories.map((c) => c.color)),
+              }}
+              aria-hidden="true"
+            >
+              {icon}
+            </span>
+            <select
+              id="cat-icon"
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
+            >
+              {ICON_CHOICES.map((o) => (
+                <option key={o.icon} value={o.icon}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div>
           <label className="block text-xs font-semibold text-on-surface-variant mb-1">
@@ -98,7 +139,10 @@ export default function CategoriesPage() {
             <div key={cat.id} className="p-5 flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-surface-container-high text-primary flex items-center justify-center">
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${cat.color}1F`, color: cat.color }}
+                  >
                     <span className="material-symbols-outlined">{cat.icon}</span>
                   </div>
                   <div>
@@ -136,8 +180,8 @@ export default function CategoriesPage() {
                   </div>
                   <div className="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${over ? "bg-error" : "bg-primary"}`}
-                      style={{ width: `${pct}%` }}
+                      className={`h-full rounded-full ${over ? "bg-error" : ""}`}
+                      style={{ width: `${pct}%`, backgroundColor: over ? undefined : cat.color }}
                     />
                   </div>
                 </div>

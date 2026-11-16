@@ -79,6 +79,13 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<FinoraState>;
+        // Saved demo data predates the per-category palette; refresh seed category colors.
+        if (parsed.categories) {
+          parsed.categories = parsed.categories.map((c) => {
+            const seed = INITIAL_CATEGORIES.find((s) => s.id === c.id);
+            return seed ? { ...c, color: seed.color } : c;
+          });
+        }
         setState((prev) => ({ ...prev, ...parsed }));
       }
     } catch {

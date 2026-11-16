@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
+import { CATEGORY_PALETTE, INITIAL_CATEGORIES, nextCategoryColor } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -21,4 +22,9 @@ assert.equal(overdraft.balance, 10000);
 const invalid = executeBankTransfer({ type: "credit", amount: 0, title: "Zero", counterparty: "Test" }, 10000);
 assert.equal(invalid.ok, false);
 
-console.log("Finora self-check passed (4/4 assertions)");
+// 5. Seed categories have unique colors, and new ones skip colors already in use
+const seedColors = INITIAL_CATEGORIES.map((c) => c.color);
+assert.equal(new Set(seedColors).size, seedColors.length);
+assert.equal(nextCategoryColor([...seedColors, CATEGORY_PALETTE[0]]), CATEGORY_PALETTE[1]);
+
+console.log("Finora self-check passed (5/5 checks)");

@@ -14,15 +14,24 @@ export const INITIAL_USER: UserProfile = {
   isLoggedIn: false,
 };
 
+// Each category gets its own hue; red/green stay reserved for expense/income amounts.
 export const INITIAL_CATEGORIES: Category[] = [
-  { id: "food", name: "อาหาร & เครื่องดื่ม", icon: "restaurant", color: "#EF4444", budget: 15000, type: "expense" },
+  { id: "food", name: "อาหาร & เครื่องดื่ม", icon: "restaurant", color: "#EA580C", budget: 15000, type: "expense" },
   { id: "shopping", name: "ช้อปปิ้ง & ไลฟ์สไตล์", icon: "shopping_bag", color: "#8B5CF6", budget: 10000, type: "expense" },
-  { id: "housing", name: "ที่อยู่อาศัย & บิล", icon: "home", color: "#10B981", budget: 12000, type: "expense" },
-  { id: "transport", name: "การเดินทาง & น้ำมัน", icon: "directions_car", color: "#0EA5E9", budget: 6000, type: "expense" },
-  { id: "entertainment", name: "ความบันเทิง & สมาชิก", icon: "subscriptions", color: "#F59E0B", budget: 4000, type: "expense" },
-  { id: "salary", name: "เงินเดือน & โบนัส", icon: "payments", color: "#10B981", budget: 0, type: "income" },
-  { id: "investment", name: "เงินปันผล & การลงทุน", icon: "show_chart", color: "#10B981", budget: 0, type: "income" },
+  { id: "housing", name: "ที่อยู่อาศัย & บิล", icon: "home", color: "#0284C7", budget: 12000, type: "expense" },
+  { id: "transport", name: "การเดินทาง & น้ำมัน", icon: "directions_car", color: "#4F46E5", budget: 6000, type: "expense" },
+  { id: "entertainment", name: "ความบันเทิง & สมาชิก", icon: "subscriptions", color: "#DB2777", budget: 4000, type: "expense" },
+  { id: "salary", name: "เงินเดือน & โบนัส", icon: "payments", color: "#059669", budget: 0, type: "income" },
+  { id: "investment", name: "เงินปันผล & การลงทุน", icon: "show_chart", color: "#CA8A04", budget: 0, type: "income" },
 ];
+
+// Colors handed to user-created categories, in order, skipping ones already in use.
+export const CATEGORY_PALETTE = ["#0891B2", "#C026D3", "#65A30D", "#B45309", "#475569", "#7C3AED", "#0D9488", "#BE185D"];
+
+export function nextCategoryColor(used: string[]): string {
+  const taken = new Set(used.map((c) => c.toUpperCase()));
+  return CATEGORY_PALETTE.find((c) => !taken.has(c)) ?? CATEGORY_PALETTE[used.length % CATEGORY_PALETTE.length];
+}
 
 export const INITIAL_TRANSACTIONS: Transaction[] = [
   {
