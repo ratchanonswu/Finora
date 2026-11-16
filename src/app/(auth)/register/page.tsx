@@ -9,8 +9,8 @@ import { useFinora } from "@/context/FinoraContext";
 const HIGHLIGHTS = [
   {
     icon: "account_balance_wallet",
-    title: "฿124,500 เครดิตใน Virtual Bank",
-    desc: "จำลองการโอน รับเงิน และจ่ายบิลแบบเรียลไทม์ผ่าน API",
+    title: "Virtual Bank Simulator",
+    desc: "จำลองการเติมเงิน โอน และจ่ายบิลแบบเรียลไทม์ผ่าน API",
   },
   {
     icon: "psychology",
@@ -26,7 +26,7 @@ const HIGHLIGHTS = [
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { loginUser } = useFinora();
+  const { registerUser } = useFinora();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -76,7 +76,7 @@ export default function RegisterPage() {
     }
 
     setError("");
-    loginUser(email.trim(), name.trim());
+    registerUser(email.trim(), name.trim());
     router.push("/");
   };
 

@@ -38,6 +38,7 @@ interface FinoraContextValue extends FinoraState {
   setTxModalOpen: (open: boolean) => void;
   toggleTheme: () => void;
   loginUser: (email: string, name?: string) => void;
+  registerUser: (email: string, name: string) => void;
   logoutUser: () => void;
   addTransaction: (tx: Omit<Transaction, "id" | "ref" | "status">) => Promise<{ ok: boolean; error?: string }>;
   deleteTransaction: (id: string) => void;
@@ -110,12 +111,41 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => ({ ...prev, theme: prev.theme === "light" ? "dark" : "light" }));
 
   const loginUser = (email: string, name?: string) =>
+    setState((prev) => {
+      const isMockUser = email.toLowerCase() === INITIAL_USER.email.toLowerCase();
+      return {
+        ...prev,
+        ...(isMockUser
+          ? {
+              categories: INITIAL_CATEGORIES,
+              transactions: INITIAL_TRANSACTIONS,
+              recurring: INITIAL_RECURRING,
+              bankBalance: INITIAL_BANK_BALANCE,
+              ledger: INITIAL_LEDGER,
+            }
+          : {}),
+        user: {
+          ...prev.user,
+          email,
+          name: isMockUser ? INITIAL_USER.name : name?.trim() || prev.user.name,
+          isLoggedIn: true,
+        },
+      };
+    });
+
+  // New registered users start with a clean account (no mock transactions/balance), keeping base categories.
+  const registerUser = (email: string, name: string) =>
     setState((prev) => ({
       ...prev,
+      categories: INITIAL_CATEGORIES,
+      transactions: [],
+      recurring: [],
+      bankBalance: 0,
+      ledger: [],
       user: {
-        ...prev.user,
+        name: name.trim(),
         email,
-        name: name?.trim() || prev.user.name,
+        role: "",
         isLoggedIn: true,
       },
     }));
@@ -252,6 +282,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         setTxModalOpen,
         toggleTheme,
         loginUser,
+        registerUser,
         logoutUser,
         addTransaction,
         deleteTransaction,
