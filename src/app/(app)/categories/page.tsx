@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useFinora } from "@/context/FinoraContext";
-import { formatTHB, nextCategoryColor } from "@/lib/seed";
+import { formatTHB, isBaseCategory, nextCategoryColor } from "@/lib/seed";
 
 const ICON_CHOICES = [
   { icon: "label", label: "ทั่วไป" },
@@ -16,7 +16,7 @@ const ICON_CHOICES = [
 ];
 
 export default function CategoriesPage() {
-  const { categories, transactions, addCategory, updateCategoryBudget } = useFinora();
+  const { categories, transactions, addCategory, deleteCategory, updateCategoryBudget } = useFinora();
   const [name, setName] = useState("");
   const [budget, setBudget] = useState("5000");
   const [type, setType] = useState<"expense" | "income">("expense");
@@ -176,6 +176,8 @@ export default function CategoriesPage() {
           const pct = cat.budget > 0 ? Math.min(100, Math.round((spent / cat.budget) * 100)) : 0;
           const over = cat.budget > 0 && spent > cat.budget;
 
+          const base = isBaseCategory(cat.id);
+
           return (
             <div key={cat.id} className="p-5 flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -187,7 +189,14 @@ export default function CategoriesPage() {
                     <span className="material-symbols-outlined">{cat.icon}</span>
                   </div>
                   <div>
-                    <h3 className="text-base font-semibold text-on-surface m-0">{cat.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-semibold text-on-surface m-0">{cat.name}</h3>
+                      {base && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant">
+                          พื้นฐาน
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-on-surface-variant">
                       {cat.type === "income" ? "หมวดรายรับ" : "หมวดรายจ่าย"} • ยอดรวมปัจจุบัน{" "}
                       <strong className="font-mono text-on-surface">{formatTHB(spent)}</strong>
@@ -195,18 +204,31 @@ export default function CategoriesPage() {
                   </div>
                 </div>
 
-                {cat.type === "expense" && (
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-on-surface-variant">งบประมาณ:</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={cat.budget}
-                      onChange={(e) => updateCategoryBudget(cat.id, Number(e.target.value) || 0)}
-                      className="w-28 bg-surface-container-low border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-sm font-mono text-right text-on-surface"
-                    />
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  {cat.type === "expense" && (
+                    <>
+                      <label className="text-xs text-on-surface-variant">งบประมาณ:</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={cat.budget}
+                        onChange={(e) => updateCategoryBudget(cat.id, Number(e.target.value) || 0)}
+                        className="w-28 bg-surface-container-low border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-sm font-mono text-right text-on-surface"
+                      />
+                    </>
+                  )}
+                  {!base && (
+                    <button
+                      type="button"
+                      onClick={() => deleteCategory(cat.id)}
+                      aria-label={`ลบหมวดหมู่ ${cat.name}`}
+                      title="ลบหมวดหมู่"
+                      className="p-1.5 rounded-lg text-outline hover:text-error hover:bg-surface-container-high transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {cat.type === "expense" && cat.budget > 0 && (

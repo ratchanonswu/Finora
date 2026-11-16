@@ -18,6 +18,7 @@ import {
   INITIAL_SETTINGS,
   INITIAL_TRANSACTIONS,
   INITIAL_USER,
+  isBaseCategory,
 } from "@/lib/seed";
 
 interface FinoraState {
@@ -41,6 +42,7 @@ interface FinoraContextValue extends FinoraState {
   addTransaction: (tx: Omit<Transaction, "id" | "ref" | "status">) => Promise<{ ok: boolean; error?: string }>;
   deleteTransaction: (id: string) => void;
   addCategory: (cat: Omit<Category, "id">) => void;
+  deleteCategory: (id: string) => void;
   updateCategoryBudget: (id: string, budget: number) => void;
   addRecurring: (rec: Omit<RecurringPayment, "id">) => void;
   toggleRecurring: (id: string) => void;
@@ -197,6 +199,20 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       categories: [...prev.categories, { ...cat, id: `cat-${Date.now()}` }],
     }));
 
+  const deleteCategory = (id: string) => {
+    if (isBaseCategory(id)) return;
+    setState((prev) => ({
+      ...prev,
+      categories: prev.categories.filter((c) => c.id !== id),
+      transactions: prev.transactions.map((t) =>
+        t.categoryId === id ? { ...t, categoryId: t.type === "income" ? "salary" : "food" } : t
+      ),
+      recurring: prev.recurring.map((r) =>
+        r.categoryId === id ? { ...r, categoryId: "food" } : r
+      ),
+    }));
+  };
+
   const updateCategoryBudget = (id: string, budget: number) =>
     setState((prev) => ({
       ...prev,
@@ -240,6 +256,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         addTransaction,
         deleteTransaction,
         addCategory,
+        deleteCategory,
         updateCategoryBudget,
         addRecurring,
         toggleRecurring,

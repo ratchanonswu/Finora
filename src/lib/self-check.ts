@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
-import { CATEGORY_PALETTE, INITIAL_CATEGORIES, nextCategoryColor } from "./seed.ts";
+import { CATEGORY_PALETTE, INITIAL_CATEGORIES, isBaseCategory, nextCategoryColor } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -27,4 +27,8 @@ const seedColors = INITIAL_CATEGORIES.map((c) => c.color);
 assert.equal(new Set(seedColors).size, seedColors.length);
 assert.equal(nextCategoryColor([...seedColors, CATEGORY_PALETTE[0]]), CATEGORY_PALETTE[1]);
 
-console.log("Finora self-check passed (5/5 checks)");
+// 6. Base categories are protected while custom ones can be removed
+assert.equal(isBaseCategory("food"), true);
+assert.equal(isBaseCategory("cat-12345"), false);
+
+console.log("Finora self-check passed (6/6 checks)");

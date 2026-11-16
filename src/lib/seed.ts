@@ -25,6 +25,12 @@ export const INITIAL_CATEGORIES: Category[] = [
   { id: "investment", name: "เงินปันผล & การลงทุน", icon: "show_chart", color: "#CA8A04", budget: 0, type: "income" },
 ];
 
+export const BASE_CATEGORY_IDS = new Set(INITIAL_CATEGORIES.map((c) => c.id));
+
+export function isBaseCategory(id: string): boolean {
+  return BASE_CATEGORY_IDS.has(id);
+}
+
 // Colors handed to user-created categories, in order, skipping ones already in use.
 export const CATEGORY_PALETTE = ["#0891B2", "#C026D3", "#65A30D", "#B45309", "#475569", "#7C3AED", "#0D9488", "#BE185D"];
 
