@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import jsQR from "jsqr";
 import { useFinora } from "@/context/FinoraContext";
 import { formatTHB, parsePromptPayPayload } from "@/lib/seed";
 
@@ -49,8 +50,77 @@ function guessCategoryId(text: string): string {
   return "food";
 }
 
+// Multi-pass canvas QR decoder (full image, high-contrast pass, and center-crop pass) + JPEG base64 export.
+async function decodeImageAndPrepareBase64(
+  file: File
+): Promise<{ qrRaw: string | null; imageBase64: string }> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("ไม่สามารถอ่านไฟล์รูปภาพได้"));
+    reader.readAsDataURL(file);
+  });
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("รูปภาพไม่ถูกต้อง"));
+    el.src = dataUrl;
+  });
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) {
+    return { qrRaw: null, imageBase64: dataUrl.split(",")[1] || "" };
+  }
+
+  const runPass = (
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
+    maxDim: number,
+    highContrast: boolean
+  ): string | null => {
+    const scale = Math.min(1, maxDim / Math.max(sw, sh));
+    const w = Math.max(1, Math.round(sw * scale));
+    const h = Math.max(1, Math.round(sh * scale));
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+    const imageData = ctx.getImageData(0, 0, w, h);
+    if (highContrast) {
+      const d = imageData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        const v = lum < 140 ? 0 : 255;
+        d[i] = v;
+        d[i + 1] = v;
+        d[i + 2] = v;
+      }
+    }
+    const code = jsQR(imageData.data, w, h, { inversionAttempts: "attemptBoth" });
+    return code?.data?.trim() || null;
+  };
+
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+
+  // Export compressed JPEG from pass 1 canvas before any contrast mutation
+  const pass1 = runPass(0, 0, iw, ih, 1024, false);
+  const imageBase64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1] || "";
+
+  const qrRaw =
+    pass1 ||
+    runPass(0, 0, iw, ih, 1600, true) ||
+    runPass(iw * 0.15, ih * 0.15, iw * 0.7, ih * 0.7, 1200, false) ||
+    runPass(iw * 0.15, ih * 0.15, iw * 0.7, ih * 0.7, 1200, true);
+
+  return { qrRaw, imageBase64 };
+}
+
 export default function QrScannerPage() {
-  const { addTransaction, categories, bankBalance } = useFinora();
+  const { addTransaction, categories, bankBalance, settings } = useFinora();
   const [selected, setSelected] = useState<SlipData | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [customFileName, setCustomFileName] = useState<string | null>(null);
@@ -66,50 +136,89 @@ export default function QrScannerPage() {
     if (!file) return;
 
     setStatus(null);
+    setSelected(null);
     setScanning(true);
     setCustomFileName(file.name);
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
+    setPreviewUrl(URL.createObjectURL(file));
 
-    const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
-    let merchant = baseName && !/^(img|image|qr|screenshot|หน้าจอ)/i.test(baseName)
-      ? baseName
-      : "ร้านค้า PromptPay (จากรูปภาพ QR)";
-    let promptPayId = `01055${String(10000000 + (file.size % 89999999))}`;
-    let amount = Math.max(50, Math.round(((file.size % 900) + 100) / 5) * 5);
-
-    // Decode actual QR barcode when supported by browser (Chromium BarcodeDetector)
     try {
-      const Detector = (window as unknown as {
-        BarcodeDetector?: new (opts: { formats: string[] }) => {
-          detect: (src: ImageBitmap) => Promise<{ rawValue?: string }[]>;
-        };
-      }).BarcodeDetector;
-      if (Detector) {
-        const bitmap = await createImageBitmap(file);
-        const codes = await new Detector({ formats: ["qr_code"] }).detect(bitmap);
-        const raw = codes[0]?.rawValue?.trim();
-        if (raw) {
-          const parsed = parsePromptPayPayload(raw);
-          if (parsed.merchant) merchant = parsed.merchant;
-          else if (!raw.startsWith("000201") && raw.length <= 60) merchant = raw;
-          if (parsed.promptPayId) promptPayId = parsed.promptPayId;
-          if (parsed.amount) amount = parsed.amount;
-        }
-      }
-    } catch {
-      // Fallback to file metadata above if BarcodeDetector is unavailable
-    }
+      const { qrRaw, imageBase64 } = await decodeImageAndPrepareBase64(file);
+      const tlv = qrRaw ? parsePromptPayPayload(qrRaw) : {};
 
-    setSelected({
-      id: `upload-${Date.now()}`,
-      merchant,
-      promptPayId,
-      amount,
-      categoryId: guessCategoryId(`${merchant} ${baseName}`),
-      source: "upload",
-    });
-    setScanning(false);
+      let vision: {
+        isValidPaymentImage?: boolean;
+        merchant?: string;
+        promptPayId?: string;
+        amount?: number;
+        categoryId?: string;
+      } | null = null;
+
+      try {
+        const res = await fetch("/api/ai/qr", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageBase64,
+            mimeType: "image/jpeg",
+            qrRaw,
+            categories: expenseCategories.map((c) => ({ id: c.id, name: c.name })),
+            apiKeyOverride: settings.geminiApiKeyOverride,
+          }),
+        });
+        if (res.ok) {
+          vision = await res.json();
+        }
+      } catch {
+        // Vision OCR is optional when jsQR already decoded a valid QR barcode
+      }
+
+      if (!qrRaw && !vision?.isValidPaymentImage) {
+        setStatus({
+          type: "err",
+          text: "ไม่พบ QR Code หรือข้อมูลการชำระเงินในรูปภาพนี้",
+        });
+        setScanning(false);
+        return;
+      }
+
+      const merchant =
+        tlv.merchant ||
+        vision?.merchant ||
+        (tlv.isPromptPayOrSlip ? "ร้านค้า PromptPay" : qrRaw?.slice(0, 50) || "ร้านค้า PromptPay");
+
+      const promptPayId =
+        tlv.promptPayId ||
+        vision?.promptPayId ||
+        (qrRaw ? qrRaw.slice(0, 20) : "-");
+
+      const amount =
+        typeof tlv.amount === "number" && tlv.amount > 0
+          ? tlv.amount
+          : typeof vision?.amount === "number" && vision.amount > 0
+          ? vision.amount
+          : 0;
+
+      const validCategory =
+        vision?.categoryId && expenseCategories.some((c) => c.id === vision?.categoryId)
+          ? vision.categoryId
+          : guessCategoryId(merchant);
+
+      setSelected({
+        id: `upload-${Date.now()}`,
+        merchant,
+        promptPayId,
+        amount,
+        categoryId: validCategory,
+        source: "upload",
+      });
+    } catch {
+      setStatus({
+        type: "err",
+        text: "ไม่สามารถอ่านไฟล์รูปภาพนี้ได้ กรุณาลองใหม่อีกครั้ง",
+      });
+    } finally {
+      setScanning(false);
+    }
   };
 
   const handleClear = () => {
@@ -155,7 +264,7 @@ export default function QrScannerPage() {
           สแกน PromptPay QR Code
         </h1>
         <p className="text-sm text-on-surface-variant mt-1">
-          อัปโหลดรูปภาพสลิป/QR หรือเลือกตัวอย่าง QR เพื่อทดสอบการถอดรหัสและชำระเงินผ่าน Virtual Bank
+          อัปโหลดรูปภาพสลิป/QR หรือเลือกตัวอย่าง QR เพื่อถอดรหัสและชำระเงินผ่าน Virtual Bank
         </p>
       </div>
 
@@ -164,14 +273,14 @@ export default function QrScannerPage() {
         <div className="lg:col-span-6 rounded-2xl bg-surface-container border border-outline-variant/30 p-6 flex flex-col gap-5">
           <div className="aspect-video rounded-xl bg-surface-container-lowest border border-outline-variant/30 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
             {previewUrl ? (
-              <div className="flex flex-col items-center gap-3 w-full h-full justify-center">
+              <div className="flex flex-col items-center gap-2.5 w-full h-full justify-center">
                 <img
                   src={previewUrl}
                   alt="Uploaded QR preview"
                   className="max-h-36 w-auto rounded-lg object-contain border border-outline-variant/30 bg-white p-1.5"
                 />
                 <p className="text-xs font-semibold text-on-surface truncate max-w-xs">
-                  {customFileName}
+                  {scanning ? "กำลังสแกน QR และวิเคราะห์ภาพด้วย AI..." : customFileName}
                 </p>
               </div>
             ) : (
@@ -183,7 +292,7 @@ export default function QrScannerPage() {
                   {scanning ? "กำลังถอดรหัส QR Code..." : "พร้อมรับข้อมูล QR Code"}
                 </p>
                 <p className="text-xs text-on-surface-variant mt-1 mb-4">
-                  รองรับมาตรฐาน Thai QR Payment (PromptPay)
+                  รองรับมาตรฐาน Thai QR Payment (PromptPay) และสลิปธนาคาร
                 </p>
               </>
             )}
@@ -194,11 +303,12 @@ export default function QrScannerPage() {
                 <input
                   type="file"
                   accept="image/*"
+                  disabled={scanning}
                   onChange={handleFileChange}
                   className="hidden"
                 />
               </label>
-              {selected && (
+              {(selected || previewUrl) && !scanning && (
                 <button
                   type="button"
                   onClick={handleClear}
@@ -209,6 +319,13 @@ export default function QrScannerPage() {
               )}
             </div>
           </div>
+
+          {status && !selected && (
+            <div className="p-3 rounded-lg border border-error/40 bg-error-container/20 text-on-error-container text-xs flex items-center gap-2">
+              <span className="material-symbols-outlined text-[16px]">error</span>
+              <span>{status.text}</span>
+            </div>
+          )}
 
           <div>
             <span className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-2">
@@ -250,10 +367,12 @@ export default function QrScannerPage() {
                 <span className="material-symbols-outlined text-[24px]">qr_code_scanner</span>
               </div>
               <h2 className="text-base font-semibold text-on-surface m-0">
-                ยังไม่มีข้อมูลรายการสแกน
+                {scanning ? "กำลังวิเคราะห์รูปภาพ QR..." : "ยังไม่มีข้อมูลรายการสแกน"}
               </h2>
               <p className="text-xs text-on-surface-variant mt-1.5 max-w-xs leading-relaxed">
-                กรุณาอัปโหลดรูปภาพ QR Code หรือคลิกเลือกตัวอย่าง QR ด้านซ้ายเพื่อแสดงรายละเอียดและชำระเงิน
+                {scanning
+                  ? "กำลังถอดรหัสบาร์โค้ดด้วย jsQR และอ่านข้อมูลร้านค้า/ยอดเงินด้วย Gemini Vision"
+                  : "กรุณาอัปโหลดรูปภาพ QR Code หรือคลิกเลือกตัวอย่าง QR ด้านซ้ายเพื่อแสดงรายละเอียดและชำระเงิน"}
               </p>
             </div>
           ) : (
@@ -264,7 +383,7 @@ export default function QrScannerPage() {
                     รายละเอียดรายการที่ถอดรหัสได้
                   </h2>
                   <span className="text-xs font-mono text-primary font-semibold">
-                    {selected.source === "upload" ? "QR Image Scanned" : "PromptPay Verified"}
+                    {selected.source === "upload" ? "QR & AI Verified" : "PromptPay Verified"}
                   </span>
                 </div>
 
@@ -282,7 +401,7 @@ export default function QrScannerPage() {
                     />
                   </div>
                   <div className="py-3 flex justify-between">
-                    <span className="text-on-surface-variant">รหัส PromptPay / Tax ID</span>
+                    <span className="text-on-surface-variant">รหัส PromptPay / อ้างอิง</span>
                     <span className="font-mono text-on-surface">{selected.promptPayId}</span>
                   </div>
                   <div className="py-3 flex items-center justify-between gap-3">
@@ -302,21 +421,29 @@ export default function QrScannerPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="py-3 flex items-center justify-between gap-3">
-                    <label htmlFor="qr-amount" className="text-on-surface-variant shrink-0">
-                      ยอดเงินที่ต้องชำระ (THB)
-                    </label>
-                    <input
-                      id="qr-amount"
-                      type="number"
-                      min="1"
-                      step="0.01"
-                      value={selected.amount}
-                      onChange={(e) =>
-                        setSelected({ ...selected, amount: Number(e.target.value) || 0 })
-                      }
-                      className="bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-1.5 text-lg font-bold font-mono text-right text-on-surface w-36 focus:outline-none focus:border-primary"
-                    />
+                  <div className="py-3 flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <label htmlFor="qr-amount" className="text-on-surface-variant shrink-0">
+                        ยอดเงินที่ต้องชำระ (THB)
+                      </label>
+                      <input
+                        id="qr-amount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={selected.amount === 0 ? "" : selected.amount}
+                        onChange={(e) =>
+                          setSelected({ ...selected, amount: Number(e.target.value) || 0 })
+                        }
+                        className="bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-1.5 text-lg font-bold font-mono text-right text-on-surface w-40 focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                    {selected.amount === 0 && (
+                      <span className="text-[11px] text-secondary text-right">
+                        * QR นี้ไม่ได้ระบุยอดเงินมาให้ กรุณากรอกจำนวนเงินที่ต้องการชำระ
+                      </span>
+                    )}
                   </div>
                   <div className="py-3 flex justify-between text-xs">
                     <span className="text-on-surface-variant">ยอดเงินคงเหลือใน Virtual Wallet</span>
