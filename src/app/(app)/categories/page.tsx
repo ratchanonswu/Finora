@@ -21,6 +21,10 @@ export default function CategoriesPage() {
   const [budget, setBudget] = useState("5000");
   const [type, setType] = useState<"expense" | "income">("expense");
   const [icon, setIcon] = useState("label");
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+
+  const newColor = nextCategoryColor(categories.map((c) => c.color));
+  const currentIconLabel = ICON_CHOICES.find((o) => o.icon === icon)?.label ?? icon;
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +32,7 @@ export default function CategoriesPage() {
     addCategory({
       name: name.trim(),
       icon,
-      color: nextCategoryColor(categories.map((c) => c.color)),
+      color: newColor,
       budget: Number(budget) || 0,
       type,
     });
@@ -77,34 +81,71 @@ export default function CategoriesPage() {
             <option value="income">รายรับ (Income)</option>
           </select>
         </div>
-        <div>
-          <label htmlFor="cat-icon" className="block text-xs font-semibold text-on-surface-variant mb-1">
+        <div className="relative">
+          <span id="cat-icon-label" className="block text-xs font-semibold text-on-surface-variant mb-1">
             ไอคอน
-          </label>
-          <div className="flex items-center gap-2">
+          </span>
+          <button
+            type="button"
+            aria-labelledby="cat-icon-label"
+            aria-haspopup="dialog"
+            aria-expanded={iconPickerOpen}
+            onClick={() => setIconPickerOpen((o) => !o)}
+            className="w-full flex items-center gap-2.5 bg-surface-container-low border border-outline-variant/40 rounded-lg pl-1.5 pr-3 py-1 text-sm text-on-surface hover:border-primary/60 focus:outline-none focus:border-primary"
+          >
             <span
-              className="material-symbols-outlined w-9 h-9 shrink-0 rounded-lg flex items-center justify-center text-[20px]"
-              style={{
-                backgroundColor: `${nextCategoryColor(categories.map((c) => c.color))}1F`,
-                color: nextCategoryColor(categories.map((c) => c.color)),
-              }}
-              aria-hidden="true"
+              className="w-7 h-7 shrink-0 rounded-md flex items-center justify-center"
+              style={{ backgroundColor: `${newColor}1F`, color: newColor }}
             >
-              {icon}
+              <span className="material-symbols-outlined text-[18px] leading-none">{icon}</span>
             </span>
-            <select
-              id="cat-icon"
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
-            >
-              {ICON_CHOICES.map((o) => (
-                <option key={o.icon} value={o.icon}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+            <span className="flex-1 text-left truncate">{currentIconLabel}</span>
+            <span className="material-symbols-outlined text-[18px] text-outline">expand_more</span>
+          </button>
+
+          {iconPickerOpen && (
+            <>
+              {/* Click-away layer */}
+              <div className="fixed inset-0 z-40" onClick={() => setIconPickerOpen(false)} />
+              <div
+                role="dialog"
+                aria-label="เลือกไอคอนหมวดหมู่"
+                onKeyDown={(e) => e.key === "Escape" && setIconPickerOpen(false)}
+                className="absolute z-50 left-0 top-full mt-2 w-72 rounded-xl bg-surface-container border border-outline-variant/40 shadow-xl p-3"
+              >
+                <div className="grid grid-cols-4 gap-2">
+                  {ICON_CHOICES.map((o, i) => {
+                    const selected = o.icon === icon;
+                    return (
+                      <button
+                        key={o.icon}
+                        type="button"
+                        autoFocus={selected || (i === 0 && !ICON_CHOICES.some((c) => c.icon === icon))}
+                        title={o.label}
+                        aria-label={o.label}
+                        aria-pressed={selected}
+                        onClick={() => {
+                          setIcon(o.icon);
+                          setIconPickerOpen(false);
+                        }}
+                        className={`aspect-square rounded-lg flex items-center justify-center border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                          selected
+                            ? "border-transparent"
+                            : "border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                        }`}
+                        style={selected ? { backgroundColor: `${newColor}1F`, color: newColor } : undefined}
+                      >
+                        <span className="material-symbols-outlined text-[22px] leading-none">{o.icon}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 pt-2.5 border-t border-outline-variant/20 text-xs text-on-surface-variant">
+                  {currentIconLabel}
+                </p>
+              </div>
+            </>
+          )}
         </div>
         <div>
           <label className="block text-xs font-semibold text-on-surface-variant mb-1">
