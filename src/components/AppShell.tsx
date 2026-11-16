@@ -23,6 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { theme, toggleTheme, bankBalance, user, logoutUser, setTxModalOpen } = useFinora();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   const currentNav = NAV_ITEMS.find((item) => item.href === pathname) || NAV_ITEMS[0];
 
@@ -43,17 +44,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Left Sidebar */}
       <aside
-        className={`fixed left-0 top-0 bottom-0 z-50 w-72 bg-surface-container-low border-r border-outline-variant/30 flex flex-col justify-between transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed left-0 top-0 bottom-0 z-50 w-72 ${
+          collapsed ? "lg:w-20" : "lg:w-72"
+        } bg-surface-container-low border-r border-outline-variant/30 flex flex-col justify-between transition-all duration-200 lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div>
-          <div className="h-16 px-6 flex items-center justify-between border-b border-outline-variant/20">
+          <div
+            className={`h-16 flex items-center border-b border-outline-variant/20 ${
+              collapsed ? "lg:justify-center lg:px-0 px-6 justify-between" : "px-6 justify-between"
+            }`}
+          >
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-bold">
+              <div className="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-bold shrink-0">
                 F
               </div>
-              <div className="flex flex-col">
+              <div className={`flex flex-col ${collapsed ? "lg:hidden" : ""}`}>
                 <span className="text-lg font-bold tracking-tight text-on-surface leading-tight">
                   Finora
                 </span>
@@ -62,38 +69,53 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
               </div>
             </Link>
-            <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant">
+            <span
+              className={`font-mono text-[11px] px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant ${
+                collapsed ? "lg:hidden" : ""
+              }`}
+            >
               v2.4
             </span>
           </div>
 
-          <div className="px-4 pt-5 pb-2">
+          <div className={`px-4 pt-5 pb-2 ${collapsed ? "lg:hidden" : ""}`}>
             <span className="px-3 text-[11px] font-semibold uppercase tracking-wider text-outline">
               เมนูหลัก
             </span>
           </div>
 
-          <nav className="flex flex-col gap-1 px-4">
+          <nav className={`flex flex-col gap-1 px-3 ${collapsed ? "lg:pt-4" : ""}`}>
             {NAV_ITEMS.map((item) => {
               const active = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  title={collapsed ? item.label : undefined}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm transition-colors ${
+                  className={`flex items-center rounded-lg text-sm transition-colors py-2.5 ${
+                    collapsed
+                      ? "lg:justify-center lg:px-0 px-3.5 justify-between"
+                      : "px-3.5 justify-between"
+                  } ${
                     active
                       ? "bg-primary-container text-on-primary-container font-semibold shadow-sm"
                       : "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                    <span>{item.label}</span>
+                    <span className="material-symbols-outlined text-[20px] shrink-0">
+                      {item.icon}
+                    </span>
+                    <span className={`whitespace-nowrap ${collapsed ? "lg:hidden" : ""}`}>
+                      {item.label}
+                    </span>
                   </div>
                   {item.badge && (
                     <span
                       className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                        collapsed ? "lg:hidden" : ""
+                      } ${
                         active
                           ? "bg-on-primary-container/20 text-on-primary-container"
                           : "bg-tertiary-container text-on-tertiary-container"
@@ -109,33 +131,49 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Virtual Wallet Summary Widget */}
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           <Link
             href="/virtual-bank"
-            className="block rounded-xl bg-surface-container border border-outline-variant/30 p-4 hover:border-primary/50 transition-colors"
+            title={collapsed ? `Virtual Wallet: ${formatTHB(bankBalance)}` : undefined}
+            className={`block rounded-xl bg-surface-container border border-outline-variant/30 hover:border-primary/50 transition-colors ${
+              collapsed ? "lg:p-3 p-4" : "p-4"
+            }`}
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                Virtual Wallet
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-primary">
-                <span className="h-2 w-2 rounded-full bg-primary" />
-                Active
-              </span>
-            </div>
-            <div className="text-xl font-bold tracking-tight text-on-surface">
-              {formatTHB(bankBalance)}
-            </div>
-            <div className="mt-1.5 flex items-center justify-between text-[11px] text-on-surface-variant">
-              <span className="font-mono">782-2-90145-8</span>
-              <span>ดูสมุดบัญชี →</span>
+            {collapsed && (
+              <div className="hidden lg:flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-[22px]">
+                  account_balance_wallet
+                </span>
+              </div>
+            )}
+            <div className={collapsed ? "lg:hidden" : ""}>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+                  Virtual Wallet
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-primary">
+                  <span className="h-2 w-2 rounded-full bg-primary" />
+                  Active
+                </span>
+              </div>
+              <div className="text-xl font-bold tracking-tight text-on-surface">
+                {formatTHB(bankBalance)}
+              </div>
+              <div className="mt-1.5 flex items-center justify-between text-[11px] text-on-surface-variant">
+                <span className="font-mono">782-2-90145-8</span>
+                <span>ดูสมุดบัญชี →</span>
+              </div>
             </div>
           </Link>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 lg:pl-72 flex flex-col min-w-0">
+      <div
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-200 ${
+          collapsed ? "lg:pl-20" : "lg:pl-72"
+        }`}
+      >
         {/* Top Navigation Bar */}
         <header className="sticky top-0 z-30 h-16 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 px-4 sm:px-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -146,6 +184,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-label="เปิดเมนู"
             >
               <span className="material-symbols-outlined">menu</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollapsed((c) => !c)}
+              className="hidden lg:inline-flex p-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+              aria-label={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
+              title={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
+            >
+              <span className="material-symbols-outlined text-[20px]">
+                {collapsed ? "left_panel_open" : "left_panel_close"}
+              </span>
             </button>
             <div className="flex items-center gap-2">
               <span className="text-base font-semibold text-on-surface">{currentNav.label}</span>
