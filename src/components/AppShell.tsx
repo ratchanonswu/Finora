@@ -130,8 +130,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        {/* Virtual Wallet Summary Widget */}
-        <div className="p-3 sm:p-4">
+        {/* Virtual Wallet Summary Widget + Collapse Toggle */}
+        <div className="p-3 sm:p-4 flex flex-col gap-2">
           <Link
             href="/virtual-bank"
             title={collapsed ? `Virtual Wallet: ${formatTHB(bankBalance)}` : undefined}
@@ -165,6 +165,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </Link>
+
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
+            title={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
+            className={`hidden lg:flex items-center gap-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors ${
+              collapsed ? "justify-center" : "px-3.5"
+            }`}
+          >
+            <span className="material-symbols-outlined text-[20px] shrink-0">
+              {collapsed ? "left_panel_open" : "left_panel_close"}
+            </span>
+            {!collapsed && <span>ย่อแถบเมนู</span>}
+          </button>
         </div>
       </aside>
 
@@ -184,17 +199,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-label="เปิดเมนู"
             >
               <span className="material-symbols-outlined">menu</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCollapsed((c) => !c)}
-              className="hidden lg:inline-flex p-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
-              aria-label={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
-              title={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
-            >
-              <span className="material-symbols-outlined text-[20px]">
-                {collapsed ? "left_panel_open" : "left_panel_close"}
-              </span>
             </button>
             <div className="flex items-center gap-2">
               <span className="text-base font-semibold text-on-surface">{currentNav.label}</span>
