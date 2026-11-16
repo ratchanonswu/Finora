@@ -17,6 +17,74 @@ const SUGGESTIONS = [
   "ช่วยสรุปภาระค่าบริการตัดเงินอัตโนมัติ (Recurring) ของฉัน",
 ];
 
+// Parses **หัวข้อ**, ** หัวข้อ ** (with spaces), `code`, headings, and bullet lists without external deps.
+function renderInline(line: string): React.ReactNode[] {
+  const tokenRegex = /(\*\*\s*[^*]+?\s*\*\*|`[^`]+`)/g;
+  return line.split(tokenRegex).map((part, idx) => {
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+      return (
+        <strong key={idx} className="font-semibold text-on-surface">
+          {part.slice(2, -2).trim()}
+        </strong>
+      );
+    }
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+      return (
+        <code
+          key={idx}
+          className="px-1.5 py-0.5 rounded bg-surface-container-highest font-mono text-xs"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
+}
+
+function renderChatMarkdown(text: string): React.ReactNode {
+  const blocks = text.split(/(```[\s\S]*?```)/g);
+  return blocks.map((block, bIdx) => {
+    if (block.startsWith("```") && block.endsWith("```")) {
+      const code = block.replace(/^```[a-zA-Z0-9_-]*\n?/, "").replace(/```$/, "");
+      return (
+        <pre
+          key={bIdx}
+          className="my-2 p-3 rounded-lg bg-surface-container-highest font-mono text-xs overflow-x-auto"
+        >
+          <code>{code}</code>
+        </pre>
+      );
+    }
+    return (
+      <div key={bIdx} className="space-y-1">
+        {block.split("\n").map((line, lIdx) => {
+          const trimmed = line.trim();
+          if (!trimmed) return <div key={lIdx} className="h-1.5" />;
+          const headingMatch = trimmed.match(/^#{1,4}\s+(.+)$/);
+          if (headingMatch) {
+            return (
+              <div key={lIdx} className="font-bold text-on-surface pt-1.5 pb-0.5">
+                {renderInline(headingMatch[1])}
+              </div>
+            );
+          }
+          const bulletMatch = trimmed.match(/^([*\-•])\s+(.+)$/);
+          if (bulletMatch) {
+            return (
+              <div key={lIdx} className="flex items-start gap-2 pl-1">
+                <span className="text-primary select-none">•</span>
+                <span>{renderInline(bulletMatch[2])}</span>
+              </div>
+            );
+          }
+          return <div key={lIdx}>{renderInline(line)}</div>;
+        })}
+      </div>
+    );
+  });
+}
+
 export default function AiAssistantPage() {
   const { bankBalance, transactions, categories, recurring, settings } = useFinora();
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -140,15 +208,15 @@ export default function AiAssistantPage() {
               className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
                   m.role === "user"
-                    ? "bg-primary-container text-on-primary-container font-medium"
+                    ? "bg-primary-container text-on-primary-container font-medium whitespace-pre-wrap"
                     : m.role === "error"
-                    ? "bg-error-container/20 border border-error/40 text-on-error-container"
+                    ? "bg-error-container/20 border border-error/40 text-on-error-container whitespace-pre-wrap"
                     : "bg-surface-container-low border border-outline-variant/20 text-on-surface"
                 }`}
               >
-                {m.text}
+                {m.role === "assistant" ? renderChatMarkdown(m.text) : m.text}
               </div>
             </div>
           ))}
