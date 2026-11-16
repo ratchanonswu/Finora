@@ -10,7 +10,7 @@ import type {
 export const INITIAL_USER: UserProfile = {
   name: "คุณธนภัทร วงศ์เจริญ",
   email: "thanapat@finora.io",
-  role: "Finora Pro Member",
+  role: "",
   isLoggedIn: false,
 };
 

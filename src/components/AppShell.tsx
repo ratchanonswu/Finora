@@ -236,12 +236,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="w-8 h-8 rounded-full bg-primary-container/20 text-primary flex items-center justify-center font-bold text-sm">
                 {user.name.charAt(0)}
               </div>
-              <div className="flex flex-col text-left">
-                <span className="text-xs font-semibold text-on-surface leading-tight">
-                  {user.name}
-                </span>
-                <span className="text-[10px] text-primary leading-tight">{user.role}</span>
-              </div>
+              <span className="text-xs font-semibold text-on-surface leading-tight">
+                {user.name}
+              </span>
               <button
                 type="button"
                 onClick={handleLogout}
