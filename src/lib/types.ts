@@ -33,6 +33,7 @@ export interface RecurringPayment {
   nextDueDate: string; // YYYY-MM-DD
   active: boolean;
   icon: string;
+  color?: string;
 }
 
 export interface BankLedgerEntry {

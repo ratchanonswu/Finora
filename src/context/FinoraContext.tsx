@@ -55,6 +55,8 @@ interface FinoraContextValue extends FinoraState {
   updateCategoryBudget: (id: string, budget: number) => void;
   addRecurring: (rec: Omit<RecurringPayment, "id">) => void;
   toggleRecurring: (id: string) => void;
+  deleteRecurring: (id: string) => void;
+  updateRecurringDate: (id: string, nextDueDate: string) => void;
   executeBankAction: (
     type: "credit" | "debit",
     amount: number,
@@ -336,6 +338,18 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       recurring: prev.recurring.map((r) => (r.id === id ? { ...r, active: !r.active } : r)),
     }));
 
+  const deleteRecurring = (id: string) =>
+    setState((prev) => ({
+      ...prev,
+      recurring: prev.recurring.filter((r) => r.id !== id),
+    }));
+
+  const updateRecurringDate = (id: string, nextDueDate: string) =>
+    setState((prev) => ({
+      ...prev,
+      recurring: prev.recurring.map((r) => (r.id === id ? { ...r, nextDueDate } : r)),
+    }));
+
   const updateSettings = (patch: Partial<AppSettings>) =>
     setState((prev) => ({
       ...prev,
@@ -371,6 +385,8 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         updateCategoryBudget,
         addRecurring,
         toggleRecurring,
+        deleteRecurring,
+        updateRecurringDate,
         executeBankAction,
         updateSettings,
         updateUser,
