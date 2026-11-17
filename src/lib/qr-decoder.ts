@@ -1,9 +1,13 @@
 import jsQR from "jsqr";
 
-// Multi-pass canvas QR decoder (full image, high-contrast pass, and center-crop pass) + JPEG base64 & thumbnail export.
+const DIRECT_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
+const DIRECT_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+// Multi-pass canvas QR decoder (full image, high-contrast pass, and center-crop pass) + high-res Vision export.
 export async function decodeQrImage(file: File): Promise<{
   qrRaw: string | null;
   imageBase64: string;
+  mimeType: string;
   thumbnailDataUrl: string;
 }> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -20,15 +24,36 @@ export async function decodeQrImage(file: File): Promise<{
     el.src = dataUrl;
   });
 
+  const directBase64 = dataUrl.split(",")[1] || "";
+  const canSendDirect =
+    file.size <= DIRECT_UPLOAD_MAX_BYTES && DIRECT_MIME_TYPES.has(file.type) && directBase64.length > 0;
+
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) {
     return {
       qrRaw: null,
-      imageBase64: dataUrl.split(",")[1] || "",
+      imageBase64: directBase64,
+      mimeType: file.type || "image/jpeg",
       thumbnailDataUrl: dataUrl,
     };
   }
+
+  const drawWithWhiteBg = (
+    sx: number,
+    sy: number,
+    sw: number,
+    sh: number,
+    w: number,
+    h: number
+  ) => {
+    canvas.width = w;
+    canvas.height = h;
+    // White backdrop prevents transparent PNG QR codes from turning solid black
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+  };
 
   const runPass = (
     sx: number,
@@ -41,9 +66,7 @@ export async function decodeQrImage(file: File): Promise<{
     const scale = Math.min(1, maxDim / Math.max(sw, sh));
     const w = Math.max(1, Math.round(sw * scale));
     const h = Math.max(1, Math.round(sh * scale));
-    canvas.width = w;
-    canvas.height = h;
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+    drawWithWhiteBg(sx, sy, sw, sh, w, h);
     const imageData = ctx.getImageData(0, 0, w, h);
     if (highContrast) {
       const d = imageData.data;
@@ -62,22 +85,26 @@ export async function decodeQrImage(file: File): Promise<{
   const iw = img.naturalWidth || img.width;
   const ih = img.naturalHeight || img.height;
 
-  // Pass 1 also prepares the 1024px JPEG base64 for Gemini Vision
-  const pass1 = runPass(0, 0, iw, ih, 1024, false);
-  const imageBase64 = canvas.toDataURL("image/jpeg", 0.85).split(",")[1] || "";
+  // Send original file when <= 2MB; otherwise downscale to 2048px at high JPEG quality so Thai text stays sharp
+  let imageBase64 = directBase64;
+  let mimeType = file.type || "image/jpeg";
+  if (!canSendDirect) {
+    const vScale = Math.min(1, 2048 / Math.max(iw, ih));
+    drawWithWhiteBg(0, 0, iw, ih, Math.max(1, Math.round(iw * vScale)), Math.max(1, Math.round(ih * vScale)));
+    imageBase64 = canvas.toDataURL("image/jpeg", 0.95).split(",")[1] || "";
+    mimeType = "image/jpeg";
+  }
 
   const qrRaw =
-    pass1 ||
-    runPass(0, 0, iw, ih, 1600, true) ||
-    runPass(iw * 0.15, ih * 0.15, iw * 0.7, ih * 0.7, 1200, false) ||
-    runPass(iw * 0.15, ih * 0.15, iw * 0.7, ih * 0.7, 1200, true);
+    runPass(0, 0, iw, ih, 1200, false) ||
+    runPass(0, 0, iw, ih, 1800, true) ||
+    runPass(iw * 0.15, ih * 0.15, iw * 0.7, ih * 0.7, 1400, false) ||
+    runPass(iw * 0.15, ih * 0.15, iw * 0.7, ih * 0.7, 1400, true);
 
   // Create compact 180px thumbnail so sessionStorage stays well within quota
   const thumbScale = Math.min(1, 180 / Math.max(iw, ih));
-  canvas.width = Math.max(1, Math.round(iw * thumbScale));
-  canvas.height = Math.max(1, Math.round(ih * thumbScale));
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  const thumbnailDataUrl = canvas.toDataURL("image/jpeg", 0.75);
+  drawWithWhiteBg(0, 0, iw, ih, Math.max(1, Math.round(iw * thumbScale)), Math.max(1, Math.round(ih * thumbScale)));
+  const thumbnailDataUrl = canvas.toDataURL("image/jpeg", 0.8);
 
-  return { qrRaw, imageBase64, thumbnailDataUrl };
+  return { qrRaw, imageBase64, mimeType, thumbnailDataUrl };
 }

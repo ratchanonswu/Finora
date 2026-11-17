@@ -187,7 +187,7 @@ export default function AiAssistantPage() {
     setLoading(true);
 
     try {
-      const { qrRaw, imageBase64, thumbnailDataUrl } = await decodeQrImage(file);
+      const { qrRaw, imageBase64, mimeType, thumbnailDataUrl } = await decodeQrImage(file);
       appendChatMessage({
         id: `u-${Date.now()}`,
         role: "user",
@@ -212,7 +212,7 @@ export default function AiAssistantPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             imageBase64,
-            mimeType: "image/jpeg",
+            mimeType,
             qrRaw,
             categories: categories.map((c) => ({ id: c.id, name: c.name, type: c.type })),
             apiKeyOverride: settings.geminiApiKeyOverride,
