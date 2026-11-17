@@ -1,4 +1,5 @@
 import type { OpenRouterToolDef } from "./openrouter.ts";
+import { isInCurrentQuotaCycle } from "./seed.ts";
 import type { Category, RecurringPayment, Transaction, TransactionType } from "./types.ts";
 
 export interface FinancialSnapshot {
@@ -7,6 +8,7 @@ export interface FinancialSnapshot {
   categories: Category[];
   recurring: RecurringPayment[];
   autoDebitOnExpense?: boolean;
+  quotaResetAt?: string;
 }
 
 export const READ_TOOL_NAMES = new Set([
@@ -363,7 +365,11 @@ export function runReadTool(
     return {
       categories: categories.map((c) => {
         const spent = transactions
-          .filter((t) => t.categoryId === c.id)
+          .filter(
+            (t) =>
+              t.categoryId === c.id &&
+              isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+          )
           .reduce((s, t) => s + t.amount, 0);
         return { id: c.id, name: c.name, type: c.type, budget: c.budget, spent };
       }),

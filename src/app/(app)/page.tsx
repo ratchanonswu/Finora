@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { useFinora } from "@/context/FinoraContext";
-import { formatTHB, formatThaiDate } from "@/lib/seed";
+import { formatTHB, formatThaiDate, isInCurrentQuotaCycle } from "@/lib/seed";
 
 const MONTHLY_SERIES = [
   { month: "ต.ค.", income: 74000, expense: 41000 },
@@ -15,7 +15,7 @@ const MONTHLY_SERIES = [
 ];
 
 export default function DashboardPage() {
-  const { user, bankBalance, transactions, categories, setTxModalOpen } = useFinora();
+  const { user, bankBalance, transactions, categories, settings, setTxModalOpen } = useFinora();
 
   const stats = useMemo(() => {
     const income = transactions
@@ -29,7 +29,9 @@ export default function DashboardPage() {
   }, [transactions]);
 
   const categoryTotals = useMemo(() => {
-    const expenseTx = transactions.filter((t) => t.type === "expense");
+    const expenseTx = transactions.filter(
+      (t) => t.type === "expense" && isInCurrentQuotaCycle(t.date, settings.quotaResetAt)
+    );
     const total = expenseTx.reduce((s, t) => s + t.amount, 0) || 1;
     return categories
       .filter((c) => c.type === "expense")
@@ -40,7 +42,7 @@ export default function DashboardPage() {
         return { ...c, sum, pct: Math.round((sum / total) * 100) };
       })
       .sort((a, b) => b.sum - a.sum);
-  }, [transactions, categories]);
+  }, [transactions, categories, settings.quotaResetAt]);
 
   return (
     <div className="flex flex-col gap-6">

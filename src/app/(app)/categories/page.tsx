@@ -3,10 +3,10 @@
 import React, { useState } from "react";
 import { IconColorPicker } from "@/components/IconColorPicker";
 import { useFinora } from "@/context/FinoraContext";
-import { formatTHB, isBaseCategory, nextCategoryColor } from "@/lib/seed";
+import { formatTHB, isBaseCategory, isInCurrentQuotaCycle, nextCategoryColor } from "@/lib/seed";
 
 export default function CategoriesPage() {
-  const { categories, transactions, addCategory, deleteCategory, updateCategoryBudget } = useFinora();
+  const { categories, transactions, settings, addCategory, deleteCategory, updateCategoryBudget } = useFinora();
   const [name, setName] = useState("");
   const [budget, setBudget] = useState("5000");
   const [type, setType] = useState<"expense" | "income">("expense");
@@ -105,7 +105,11 @@ export default function CategoriesPage() {
       <div className="rounded-2xl bg-surface-container border border-outline-variant/30 divide-y divide-outline-variant/20">
         {categories.map((cat) => {
           const spent = transactions
-            .filter((t) => t.categoryId === cat.id)
+            .filter(
+              (t) =>
+                t.categoryId === cat.id &&
+                isInCurrentQuotaCycle(t.date, settings.quotaResetAt)
+            )
             .reduce((s, t) => s + t.amount, 0);
           const pct = cat.budget > 0 ? Math.min(100, Math.round((spent / cat.budget) * 100)) : 0;
           const over = cat.budget > 0 && spent > cat.budget;

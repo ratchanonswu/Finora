@@ -183,6 +183,7 @@ export default function AiAssistantPage() {
       categories: activeCategories,
       recurring,
       autoDebitOnExpense: settings.autoDebitOnExpense,
+      quotaResetAt: settings.quotaResetAt,
     };
 
     for (let step = 0; step < 4; step++) {
@@ -308,6 +309,7 @@ export default function AiAssistantPage() {
       categories,
       recurring,
       autoDebitOnExpense: settings.autoDebitOnExpense,
+      quotaResetAt: settings.quotaResetAt,
     };
     const check = validateAndNormalizeWriteTool(pt.name, pt.args, snapshot);
     if (!check.ok) {
