@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { callOpenRouter } from "@/lib/openrouter";
 
 export async function POST(request: Request) {
   try {
@@ -7,18 +7,6 @@ export async function POST(request: Request) {
 
     if (!imageBase64 || typeof imageBase64 !== "string") {
       return NextResponse.json({ error: "ไม่พบข้อมูลรูปภาพ" }, { status: 400 });
-    }
-
-    const apiKey =
-      (typeof apiKeyOverride === "string" && apiKeyOverride.trim()) ||
-      process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL?.trim();
-
-    if (!apiKey || !model) {
-      return NextResponse.json(
-        { error: "ยังไม่ได้ตั้งค่า GEMINI_API_KEY หรือ GEMINI_MODEL" },
-        { status: 400 }
-      );
     }
 
     const categoryList = Array.isArray(categories)
@@ -42,24 +30,31 @@ export async function POST(request: Request) {
       "6. categoryId: เลือก id หมวดหมู่ที่ตรงกับ type และรายการนั้นที่สุด (ถ้าเป็นรายรับใช้ \"salary\" หรือ \"investment\", ถ้าเป็นรายจ่ายและไม่แน่ใจใช้ \"food\")",
     ].join("\n");
 
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model,
-      contents: [
+    const result = await callOpenRouter({
+      apiKeyOverride,
+      jsonMode: true,
+      messages: [
         {
           role: "user",
-          parts: [
-            { inlineData: { data: imageBase64, mimeType: mimeType || "image/jpeg" } },
-            { text: prompt },
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: { url: `data:${mimeType || "image/jpeg"};base64,${imageBase64}` },
+            },
           ],
         },
       ],
-      config: {
-        responseMimeType: "application/json",
-      },
     });
 
-    const parsed = JSON.parse(response.text || "{}");
+    if (!result.ok || !result.text) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+
+    // Strip optional markdown code fences before parsing JSON
+    const cleaned = result.text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    const parsed = JSON.parse(cleaned || "{}");
+
     return NextResponse.json({
       isValidPaymentImage: Boolean(parsed.isValidPaymentImage),
       type: parsed.type === "income" ? "income" : "expense",

@@ -205,6 +205,7 @@ export default function AiAssistantPage() {
         categoryId?: string;
       } | null = null;
 
+      let visionError = "";
       try {
         const res = await fetch("/api/ai/qr", {
           method: "POST",
@@ -219,16 +220,21 @@ export default function AiAssistantPage() {
         });
         if (res.ok) {
           vision = await res.json();
+        } else {
+          const errBody = await res.json().catch(() => ({}));
+          visionError = errBody?.error || `AI Error (${res.status})`;
         }
       } catch {
-        // Vision OCR is optional when jsQR already decoded a valid QR barcode
+        visionError = "ไม่สามารถเชื่อมต่อบริการ AI ได้";
       }
 
       if (!qrRaw && !vision?.isValidPaymentImage) {
         appendChatMessage({
           id: `e-${Date.now()}`,
           role: "error",
-          text: "ไม่พบ QR Code หรือข้อมูลการชำระเงินในรูปภาพนี้ กรุณาอัปโหลดรูปป้าย QR หรือสลิปธนาคารที่ชัดเจนครับ",
+          text: visionError
+            ? `ไม่สามารถอ่านรูปภาพด้วย AI ได้ (${visionError})`
+            : "ไม่พบ QR Code หรือข้อมูลการชำระเงินในรูปภาพนี้ กรุณาอัปโหลดรูปป้าย QR หรือสลิปธนาคารที่ชัดเจนครับ",
         });
         return;
       }

@@ -10,7 +10,6 @@
     "test:check": "node --experimental-strip-types src/lib/self-check.ts"
   },
   "dependencies": {
-    "@google/genai": "^0.14.0",
     "jsqr": "^1.4.0",
     "next": "^15.3.0",
     "react": "^19.0.0",

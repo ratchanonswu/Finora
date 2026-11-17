@@ -153,7 +153,7 @@ export default function SettingsPage() {
 
       {/* Section 4: AI Assistant Preferences */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-on-surface m-0">การตั้งค่าผู้ช่วย AI (Gemini)</h2>
+        <h2 className="text-lg font-semibold text-on-surface m-0">การตั้งค่าผู้ช่วย AI (OpenRouter)</h2>
         <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 space-y-4">
           <label className="flex items-center justify-between gap-4 cursor-pointer">
             <div>
@@ -174,13 +174,13 @@ export default function SettingsPage() {
 
           <div className="pt-3 border-t border-outline-variant/20">
             <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
-              Gemini API Key (ไม่บังคับ — ใช้แทน GEMINI_API_KEY ของเซิร์ฟเวอร์)
+              OpenRouter API Key (ไม่บังคับ — ใช้แทน OPENROUTER_API_KEY ของเซิร์ฟเวอร์)
             </label>
             <input
               type="password"
               value={geminiKey}
               onChange={(e) => setGeminiKey(e.target.value)}
-              placeholder="AIza..."
+              placeholder="sk-or-v1-..."
               className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2 text-sm font-mono text-on-surface"
             />
           </div>

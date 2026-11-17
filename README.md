@@ -56,14 +56,14 @@ Finora/
 npm install
 ```
 
-### 2. Configure Gemini API Key & Model
-Copy `.env.example` to `.env.local` and set your Gemini API key and model:
+### 2. Configure OpenRouter API Key & Model
+Copy `.env.example` to `.env.local` and set your OpenRouter API key and vision-capable model:
 ```bash
 cp .env.example .env.local
 ```
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.5-flash
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_MODEL=google/gemini-2.5-flash
 ```
 *(Alternatively, you can enter a Gemini API key override directly in **Settings** inside the app.)*
 
