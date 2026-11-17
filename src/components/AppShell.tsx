@@ -7,13 +7,19 @@ import { useFinora } from "@/context/FinoraContext";
 import { formatTHB } from "@/lib/seed";
 import { TransactionModal } from "./TransactionModal";
 
+const AI_NAV_ITEM = {
+  href: "/ai-assistant",
+  label: "ผู้ช่วย AI & สแกน QR",
+  icon: "auto_awesome",
+  badge: "AI",
+};
+
 const NAV_ITEMS = [
   { href: "/", label: "ภาพรวมการเงิน", icon: "space_dashboard" },
   { href: "/transactions", label: "รายรับรายจ่าย", icon: "receipt_long" },
   { href: "/recurring", label: "ตัดเงินอัตโนมัติ", icon: "autorenew" },
   { href: "/categories", label: "จัดการหมวดหมู่", icon: "category" },
   { href: "/virtual-bank", label: "ธนาคารจำลอง", icon: "account_balance" },
-  { href: "/ai-assistant", label: "ผู้ช่วย AI & สแกน QR", icon: "auto_awesome", badge: "AI" },
   { href: "/settings", label: "ตั้งค่าระบบ", icon: "settings" },
 ];
 
@@ -24,7 +30,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  const currentNav = NAV_ITEMS.find((item) => item.href === pathname) || NAV_ITEMS[0];
+  const currentNav =
+    [AI_NAV_ITEM, ...NAV_ITEMS].find((item) => item.href === pathname) || NAV_ITEMS[0];
 
   const handleLogout = () => {
     logoutUser();
@@ -51,11 +58,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div>
           <div
-            className={`h-16 flex items-center border-b border-outline-variant/20 ${
-              collapsed ? "lg:justify-center lg:px-0 px-6 justify-between" : "px-6 justify-between"
+            className={`h-16 flex items-center justify-between border-b border-outline-variant/20 ${
+              collapsed ? "lg:px-2.5 px-6" : "px-5"
             }`}
           >
-            <Link href="/" className="flex items-center gap-2.5">
+            <Link href="/" className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-bold shrink-0">
                 F
               </div>
@@ -68,22 +75,63 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
               </div>
             </Link>
-            <span
-              className={`font-mono text-[11px] px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant ${
-                collapsed ? "lg:hidden" : ""
-              }`}
+            <button
+              type="button"
+              onClick={() => setCollapsed((c) => !c)}
+              aria-label={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
+              title={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
+              className="hidden lg:flex items-center justify-center p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0"
             >
-              v2.4
-            </span>
+              <span className="material-symbols-outlined text-[20px] leading-none">
+                {collapsed ? "left_panel_open" : "left_panel_close"}
+              </span>
+            </button>
           </div>
 
-          <div className={`px-4 pt-5 pb-2 ${collapsed ? "lg:hidden" : ""}`}>
+          <div className="px-3 pt-4">
+            <Link
+              href={AI_NAV_ITEM.href}
+              title={collapsed ? AI_NAV_ITEM.label : undefined}
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center rounded-xl text-sm font-semibold transition-colors py-2.5 ${
+                collapsed
+                  ? "lg:justify-center lg:px-0 px-3.5 justify-between"
+                  : "px-3.5 justify-between"
+              } ${
+                pathname === AI_NAV_ITEM.href
+                  ? "bg-primary-container text-on-primary-container shadow-sm"
+                  : "bg-primary-container/15 text-primary border border-primary/30 hover:bg-primary-container/25"
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="material-symbols-outlined text-[20px] shrink-0">
+                  {AI_NAV_ITEM.icon}
+                </span>
+                <span className={`whitespace-nowrap truncate ${collapsed ? "lg:hidden" : ""}`}>
+                  {AI_NAV_ITEM.label}
+                </span>
+              </div>
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                  collapsed ? "lg:hidden" : ""
+                } ${
+                  pathname === AI_NAV_ITEM.href
+                    ? "bg-on-primary-container/20 text-on-primary-container"
+                    : "bg-primary text-on-primary"
+                }`}
+              >
+                {AI_NAV_ITEM.badge}
+              </span>
+            </Link>
+          </div>
+
+          <div className={`px-4 pt-4 pb-2 ${collapsed ? "lg:hidden" : ""}`}>
             <span className="px-3 text-[11px] font-semibold uppercase tracking-wider text-outline">
               เมนูหลัก
             </span>
           </div>
 
-          <nav className={`flex flex-col gap-1 px-3 ${collapsed ? "lg:pt-4" : ""}`}>
+          <nav className={`flex flex-col gap-1 px-3 ${collapsed ? "lg:pt-3" : ""}`}>
             {NAV_ITEMS.map((item) => {
               const active = pathname === item.href;
               return (
@@ -110,27 +158,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       {item.label}
                     </span>
                   </div>
-                  {item.badge && (
-                    <span
-                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                        collapsed ? "lg:hidden" : ""
-                      } ${
-                        active
-                          ? "bg-on-primary-container/20 text-on-primary-container"
-                          : "bg-tertiary-container text-on-tertiary-container"
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )}
                 </Link>
               );
             })}
           </nav>
         </div>
 
-        {/* Virtual Wallet Summary Widget + Collapse Toggle */}
-        <div className="p-3 sm:p-4 flex flex-col gap-2">
+        {/* Virtual Wallet Summary Widget */}
+        <div className="p-3 sm:p-4">
           <Link
             href="/virtual-bank"
             title={collapsed ? `Virtual Wallet: ${formatTHB(bankBalance)}` : undefined}
@@ -164,21 +199,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </Link>
-
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
-            title={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
-            className={`hidden lg:flex items-center gap-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors ${
-              collapsed ? "justify-center" : "px-3.5"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[20px] shrink-0">
-              {collapsed ? "left_panel_open" : "left_panel_close"}
-            </span>
-            {!collapsed && <span>ย่อแถบเมนู</span>}
-          </button>
         </div>
       </aside>
 
