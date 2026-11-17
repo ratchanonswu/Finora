@@ -86,4 +86,21 @@ const tooExpensive = validateAndNormalizeWriteTool(
 );
 assert.equal(tooExpensive.ok, false);
 
-console.log("Finora self-check passed (9/9 checks)");
+// 10. add_category and add_recurring_payment validators handle defaults and duplicate protection
+const newCat = validateAndNormalizeWriteTool("add_category", { name: "สัตว์เลี้ยง", budget: 2000 }, snap);
+assert.equal(newCat.ok, true);
+if (newCat.ok) {
+  assert.equal(newCat.args.icon, "pets");
+  assert.equal(newCat.args.type, "expense");
+}
+const dupCat = validateAndNormalizeWriteTool("add_category", { name: "อาหาร & เครื่องดื่ม" }, snap);
+assert.equal(dupCat.ok, false);
+
+const newRec = validateAndNormalizeWriteTool("add_recurring_payment", { title: "YouTube Premium", amount: 179 }, snap);
+assert.equal(newRec.ok, true);
+if (newRec.ok) {
+  assert.equal(newRec.args.cycle, "monthly");
+  assert.match(String(newRec.args.nextDueDate), /^\d{4}-\d{2}-\d{2}$/);
+}
+
+console.log("Finora self-check passed (10/10 checks)");

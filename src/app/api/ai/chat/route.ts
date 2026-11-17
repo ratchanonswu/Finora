@@ -71,7 +71,7 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 
 เครื่องมือที่ใช้งานได้:
 - ดูข้อมูล: get_financial_overview, get_transactions, get_categories, get_recurring_payments, get_financial_prediction
-- ดำเนินการ (ระบบจะให้ผู้ใช้กดยืนยันก่อนบันทึกจริง): add_transaction, update_category_budget, toggle_recurring, virtual_bank_transfer
+- ดำเนินการ (ระบบจะให้ผู้ใช้กดยืนยันก่อนบันทึกจริง): add_transaction, add_category, update_category_budget, add_recurring_payment, toggle_recurring, virtual_bank_transfer
 
 ข้อกำหนด:
 1. หากผู้ใช้ถามข้อมูลรายละเอียด (เช่น รายการล่าสุด, วันครบกำหนด Recurring, หรือคาดการณ์เงินในอนาคต) ให้เรียกใช้เครื่องมือที่เกี่ยวข้องก่อนตอบ

@@ -1,4 +1,5 @@
 import type { OpenRouterToolDef } from "./openrouter.ts";
+import { nextCategoryColor } from "./seed.ts";
 import type { Category, RecurringPayment, Transaction, TransactionType } from "./types.ts";
 
 export interface FinancialSnapshot {
@@ -19,10 +20,52 @@ export const READ_TOOL_NAMES = new Set([
 
 export const WRITE_TOOL_NAMES = new Set([
   "add_transaction",
+  "add_category",
   "update_category_budget",
+  "add_recurring_payment",
   "toggle_recurring",
   "virtual_bank_transfer",
 ]);
+
+const VALID_CATEGORY_ICONS = new Set([
+  "label",
+  "fitness_center",
+  "school",
+  "pets",
+  "flight",
+  "medical_services",
+  "card_giftcard",
+  "work",
+  "restaurant",
+  "shopping_bag",
+  "home",
+  "directions_car",
+  "subscriptions",
+  "payments",
+  "show_chart",
+]);
+
+function pickCategoryIcon(name: string, rawIcon?: unknown): string {
+  if (typeof rawIcon === "string" && VALID_CATEGORY_ICONS.has(rawIcon)) {
+    return rawIcon;
+  }
+  const lower = name.toLowerCase();
+  if (/สัตว์|แมว|หมา|pet|dog|cat/.test(lower)) return "pets";
+  if (/สุขภาพ|ฟิตเนส|ยิม|ออกกำลัง|gym|fit/.test(lower)) return "fitness_center";
+  if (/เรียน|ศึกษา|หนังสือ|คอร์ส|school|study|book/.test(lower)) return "school";
+  if (/เที่ยว|บิน|โรงแรม|ทริป|flight|travel|trip/.test(lower)) return "flight";
+  if (/หมอ|ยา|พยาบาล|คลินิก|medical|health|hospital/.test(lower)) return "medical_services";
+  if (/ของขวัญ|บริจาค|ทำบุญ|gift|donate/.test(lower)) return "card_giftcard";
+  if (/งาน|ฟรีแลนซ์|จ๊อบ|work|freelance/.test(lower)) return "work";
+  return "label";
+}
+
+function defaultNextMonthFirstDay(): string {
+  const now = new Date();
+  const y = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear();
+  const m = String(((now.getMonth() + 1) % 12) + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
+}
 
 const CATEGORY_ALIASES: Record<string, string> = {
   transportation: "transport",
@@ -262,6 +305,55 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "add_category",
+      description: "สร้างหมวดหมู่รายจ่ายหรือรายรับใหม่ (ต้องรอผู้ใช้ยืนยัน)",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "ชื่อหมวดหมู่ใหม่ เช่น สัตว์เลี้ยง, สุขภาพ & ฟิตเนส" },
+          type: { type: "string", enum: ["expense", "income"], description: "ประเภทหมวดหมู่ (ค่าเริ่มต้น expense)" },
+          budget: { type: "number", description: "งบประมาณต่อเดือน (บาท, >= 0, สำหรับหมวดรายจ่าย)" },
+          icon: {
+            type: "string",
+            enum: ["label", "fitness_center", "school", "pets", "flight", "medical_services", "card_giftcard", "work"],
+            description: "ไอคอนของหมวดหมู่",
+          },
+        },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_recurring_payment",
+      description: "สร้างรายการตัดเงินอัตโนมัติ (Recurring) ใหม่ (ต้องรอผู้ใช้ยืนยัน)",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "ชื่อบริการหรือบิล เช่น YouTube Premium, ค่าอินเทอร์เน็ต" },
+          amount: { type: "number", description: "จำนวนเงินต่อรอบ (บาท, มากกว่า 0)" },
+          categoryId: {
+            type: "string",
+            description: "รหัสหมวดหมู่รายจ่ายที่มีในระบบ เช่น entertainment, housing, food, shopping, transport",
+          },
+          cycle: {
+            type: "string",
+            enum: ["monthly", "weekly", "yearly"],
+            description: "รอบการตัดเงิน (ค่าเริ่มต้น monthly)",
+          },
+          nextDueDate: {
+            type: "string",
+            description: "วันครบกำหนดถัดไปในรูปแบบ YYYY-MM-DD (ถ้าไม่ระบุจะใช้วันที่ 1 ของเดือนถัดไป)",
+          },
+        },
+        required: ["title", "amount"],
+      },
+    },
+  },
 ];
 
 export function runReadTool(
@@ -393,6 +485,20 @@ export function describeWriteTool(
       args.type === "credit" ? "เติมเงินเข้า Virtual Bank" : "โอนเงินออกจาก Virtual Bank";
     return `${actionLabel} จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (${String(args.title || "")})`;
   }
+  if (name === "add_category") {
+    const typeLabel = args.type === "income" ? "หมวดรายรับ" : "หมวดรายจ่าย";
+    const budgetText =
+      args.type === "income" ? "" : ` งบ ฿${Number(args.budget || 0).toLocaleString("en-US")}/เดือน`;
+    return `สร้าง${typeLabel}ใหม่ "${String(args.name || "")}"${budgetText}`;
+  }
+  if (name === "add_recurring_payment") {
+    const cycleLabel =
+      args.cycle === "weekly" ? "รายสัปดาห์" : args.cycle === "yearly" ? "รายปี" : "รายเดือน";
+    const cat =
+      snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
+      String(args.categoryId || "");
+    return `เพิ่มรายการตัดเงินอัตโนมัติ "${String(args.title || "")}" ฿${Number(args.amount || 0).toLocaleString("en-US")} (${cycleLabel}, หมวด: ${cat}, ครบกำหนด: ${String(args.nextDueDate || "")})`;
+  }
   return `ดำเนินการ ${name}`;
 }
 
@@ -515,6 +621,87 @@ export function validateAndNormalizeWriteTool(
     }
 
     const normalized = { type: transferType, amount, title, counterparty };
+    return {
+      ok: true,
+      args: normalized,
+      summary: describeWriteTool(name, normalized, snapshot),
+    };
+  }
+
+  if (name === "add_category") {
+    const catName = String(rawArgs.name || "").trim();
+    if (!catName) {
+      return { ok: false, error: "ต้องระบุชื่อหมวดหมู่ (name)" };
+    }
+    if (categories.some((c) => c.name.trim().toLowerCase() === catName.toLowerCase())) {
+      return { ok: false, error: `มีหมวดหมู่ "${catName}" อยู่ในระบบแล้ว ไม่สามารถสร้างซ้ำได้` };
+    }
+    const catType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
+    const rawBudget = Number(rawArgs.budget ?? 0);
+    if (!Number.isFinite(rawBudget) || rawBudget < 0) {
+      return { ok: false, error: "งบประมาณ (budget) ต้องเป็นตัวเลขตั้งแต่ 0 บาทขึ้นไป" };
+    }
+    const budget = catType === "income" ? 0 : rawBudget;
+    const icon = pickCategoryIcon(catName, rawArgs.icon);
+    const color =
+      typeof rawArgs.color === "string" && rawArgs.color.startsWith("#")
+        ? rawArgs.color
+        : nextCategoryColor(categories.map((c) => c.color));
+
+    const normalized = { name: catName, type: catType, budget, icon, color };
+    return {
+      ok: true,
+      args: normalized,
+      summary: describeWriteTool(name, normalized, snapshot),
+    };
+  }
+
+  if (name === "add_recurring_payment") {
+    const title = String(rawArgs.title || "").trim();
+    if (!title) {
+      return { ok: false, error: "ต้องระบุชื่อรายการตัดเงินอัตโนมัติ (title)" };
+    }
+    if (recurring.some((r) => r.title.trim().toLowerCase() === title.toLowerCase())) {
+      return { ok: false, error: `มีรายการตัดเงินอัตโนมัติ "${title}" อยู่ในระบบแล้ว` };
+    }
+    const amount = Number(rawArgs.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { ok: false, error: "จำนวนเงิน (amount) ต้องมากกว่า 0 บาท" };
+    }
+    const cycle =
+      rawArgs.cycle === "weekly" || rawArgs.cycle === "yearly" ? rawArgs.cycle : "monthly";
+    const rawDate = String(rawArgs.nextDueDate || "").trim();
+    const nextDueDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+      ? rawDate
+      : defaultNextMonthFirstDay();
+
+    const rawCat = String(rawArgs.categoryId || "").trim();
+    const cat = rawCat
+      ? resolveCategory(rawCat, categories, "expense")
+      : resolveCategory("", categories, "expense", title) ||
+        categories.find((c) => c.id === "entertainment") ||
+        categories.find((c) => c.type === "expense") ||
+        null;
+
+    if (!cat) {
+      const validList = categories
+        .filter((c) => c.type === "expense")
+        .map((c) => `${c.id} (${c.name})`)
+        .join(", ");
+      return {
+        ok: false,
+        error: `ไม่พบหมวดหมู่รายจ่าย "${rawCat}" สำหรับรายการตัดเงินอัตโนมัติ หมวดหมู่ที่มีคือ: ${validList}`,
+      };
+    }
+
+    const normalized = {
+      title,
+      amount,
+      categoryId: cat.id,
+      cycle,
+      nextDueDate,
+      icon: "autorenew",
+    };
     return {
       ok: true,
       args: normalized,
