@@ -63,3 +63,21 @@ export interface AppSettings {
   aiConfidenceThreshold: number;
   geminiApiKeyOverride: string;
 }
+
+export interface ChatTxAction {
+  transactionId?: string;
+  status: "saved" | "needs_amount" | "undone";
+  type: TransactionType;
+  merchant: string;
+  promptPayId: string;
+  amount: number;
+  categoryId: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "error";
+  text: string;
+  thumbnailUrl?: string;
+  txAction?: ChatTxAction;
+}

@@ -5,6 +5,7 @@ import type {
   AppSettings,
   BankLedgerEntry,
   Category,
+  ChatMessage,
   RecurringPayment,
   ThemeMode,
   Transaction,
@@ -40,8 +41,15 @@ interface FinoraContextValue extends FinoraState {
   loginUser: (email: string, name?: string) => void;
   registerUser: (email: string, name: string) => void;
   logoutUser: () => void;
-  addTransaction: (tx: Omit<Transaction, "id" | "ref" | "status">) => Promise<{ ok: boolean; error?: string }>;
+  addTransaction: (
+    tx: Omit<Transaction, "id" | "ref" | "status">
+  ) => Promise<{ ok: boolean; error?: string; transactionId?: string }>;
   deleteTransaction: (id: string) => void;
+  chatMessages: ChatMessage[];
+  appendChatMessage: (msg: ChatMessage) => void;
+  updateChatMessage: (id: string, patch: Partial<ChatMessage>) => void;
+  clearChatMessages: () => void;
+  undoChatTransaction: (messageId: string) => Promise<void>;
   addCategory: (cat: Omit<Category, "id">) => void;
   deleteCategory: (id: string) => void;
   updateCategoryBudget: (id: string, budget: number) => void;
@@ -58,6 +66,15 @@ interface FinoraContextValue extends FinoraState {
 }
 
 const STORAGE_KEY = "finora_state_v1";
+const CHAT_SESSION_KEY = "finora_chat_session_v1";
+
+const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
+  {
+    id: "welcome",
+    role: "assistant",
+    text: "สวัสดีครับ ผมคือผู้ช่วยการเงิน Finora AI (ขับเคลื่อนด้วย Google Gemini) สามารถถามคำถามการเงิน หรือส่งรูป QR Code / สลิปโอนเงิน เพื่อให้ผมตรวจสอบ จัดหมวดหมู่ และบันทึกรายรับ-รายจ่ายให้อัตโนมัติได้เลยครับ",
+  },
+];
 
 const DEFAULT_STATE: FinoraState = {
   theme: "light",
@@ -74,6 +91,7 @@ const FinoraContext = createContext<FinoraContextValue | null>(null);
 
 export function FinoraProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<FinoraState>(DEFAULT_STATE);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
   const [hydrated, setHydrated] = useState(false);
   const [isTxModalOpen, setTxModalOpen] = useState(false);
 
@@ -91,6 +109,13 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         }
         setState((prev) => ({ ...prev, ...parsed }));
       }
+      const savedChat = sessionStorage.getItem(CHAT_SESSION_KEY);
+      if (savedChat) {
+        const parsedChat = JSON.parse(savedChat) as ChatMessage[];
+        if (Array.isArray(parsedChat) && parsedChat.length > 0) {
+          setChatMessages(parsedChat);
+        }
+      }
     } catch {
       // Ignore malformed storage and fall back to seed
     }
@@ -106,6 +131,15 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       // Ignore quota errors
     }
   }, [state, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      sessionStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(chatMessages));
+    } catch {
+      // Ignore sessionStorage quota errors
+    }
+  }, [chatMessages, hydrated]);
 
   const toggleTheme = () =>
     setState((prev) => ({ ...prev, theme: prev.theme === "light" ? "dark" : "light" }));
@@ -191,7 +225,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
 
   const addTransaction = async (
     tx: Omit<Transaction, "id" | "ref" | "status">
-  ): Promise<{ ok: boolean; error?: string }> => {
+  ): Promise<{ ok: boolean; error?: string; transactionId?: string }> => {
     if (tx.type === "expense" && state.settings.autoDebitOnExpense) {
       const bankRes = await executeBankAction(
         "debit",
@@ -214,7 +248,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       transactions: [newTx, ...prev.transactions],
     }));
-    return { ok: true };
+    return { ok: true, transactionId: newTx.id };
   };
 
   const deleteTransaction = (id: string) =>
@@ -222,6 +256,44 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       transactions: prev.transactions.filter((t) => t.id !== id),
     }));
+
+  const appendChatMessage = (msg: ChatMessage) =>
+    setChatMessages((prev) => [...prev, msg]);
+
+  const updateChatMessage = (id: string, patch: Partial<ChatMessage>) =>
+    setChatMessages((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
+
+  const clearChatMessages = () => {
+    setChatMessages(INITIAL_CHAT_MESSAGES);
+    try {
+      sessionStorage.removeItem(CHAT_SESSION_KEY);
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
+  const undoChatTransaction = async (messageId: string) => {
+    const msg = chatMessages.find((m) => m.id === messageId);
+    const action = msg?.txAction;
+    if (!action || action.status !== "saved") return;
+
+    if (state.settings.autoDebitOnExpense && action.amount > 0) {
+      await executeBankAction(
+        action.type === "expense" ? "credit" : "debit",
+        action.amount,
+        `ยกเลิกรายการ: ${action.merchant}`,
+        "Finora AI Undo"
+      );
+    }
+
+    if (action.transactionId) {
+      deleteTransaction(action.transactionId);
+    }
+
+    updateChatMessage(messageId, {
+      txAction: { ...action, status: "undone" },
+    });
+  };
 
   const addCategory = (cat: Omit<Category, "id">) =>
     setState((prev) => ({
@@ -286,6 +358,11 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         logoutUser,
         addTransaction,
         deleteTransaction,
+        chatMessages,
+        appendChatMessage,
+        updateChatMessage,
+        clearChatMessages,
+        undoChatTransaction,
         addCategory,
         deleteCategory,
         updateCategoryBudget,
