@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useFinora } from "@/context/FinoraContext";
+import { useFinora, type MonthlyRolloverResult } from "@/context/FinoraContext";
 import { formatTHB } from "@/lib/seed";
 
 export default function SettingsPage() {
@@ -17,12 +17,14 @@ export default function SettingsPage() {
     updateSettings,
     bankBalance,
     logoutUser,
+    runMonthlyRollover,
   } = useFinora();
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [geminiKey, setGeminiKey] = useState(settings.geminiApiKeyOverride);
   const [savedNotice, setSavedNotice] = useState(false);
+  const [rolloverResult, setRolloverResult] = useState<MonthlyRolloverResult | null>(null);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +32,11 @@ export default function SettingsPage() {
     updateSettings({ geminiApiKeyOverride: geminiKey.trim() });
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 2500);
+  };
+
+  const handleTestRollover = () => {
+    const res = runMonthlyRollover();
+    setRolloverResult(res);
   };
 
   return (
@@ -148,6 +155,63 @@ export default function SettingsPage() {
               className="w-4 h-4 accent-primary"
             />
           </label>
+
+          <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <label
+                htmlFor="monthly-salary-input"
+                className="text-sm font-semibold text-on-surface block"
+              >
+                เงินเดือนประจำ (THB)
+              </label>
+              <div className="text-xs text-on-surface-variant">
+                เติมเข้า Finora Virtual Wallet อัตโนมัติเมื่อครบรอบเดือน
+              </div>
+            </div>
+            <input
+              id="monthly-salary-input"
+              type="number"
+              min="0"
+              value={settings.monthlySalary}
+              onChange={(e) =>
+                updateSettings({ monthlySalary: Math.max(0, Number(e.target.value) || 0) })
+              }
+              className="w-40 bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-right text-on-surface"
+            />
+          </div>
+
+          <div className="p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-on-surface">
+                  ทดสอบครบรอบเดือน (Test Monthly Rollover)
+                </div>
+                <div className="text-xs text-on-surface-variant">
+                  จำลองครบรอบเดือน: เติมเงินเดือน ตัดบิล Recurring ที่เปิดใช้งาน และรีเซ็ตโควต้าหมวดหมู่เป็น ฿0
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleTestRollover}
+                className="px-4 py-2 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 shrink-0 self-start sm:self-center"
+              >
+                รันครบรอบเดือนจำลอง (Test)
+              </button>
+            </div>
+            {rolloverResult && (
+              <div
+                role="status"
+                className="text-xs text-primary bg-primary-container/15 border border-primary/30 rounded-lg px-3.5 py-2.5 font-medium"
+              >
+                ทดสอบครบรอบเดือนสำเร็จ: เติมเงินเดือน +{formatTHB(rolloverResult.salaryCredited)} • ตัดบิลอัตโนมัติ{" "}
+                {rolloverResult.billsPaid} รายการ ({formatTHB(rolloverResult.billsTotal)})
+                {rolloverResult.billsSkipped > 0
+                  ? ` • ข้าม ${rolloverResult.billsSkipped} รายการ (ยอดเงินไม่พอ)`
+                  : ""}
+                {" "}• รีเซ็ตโควต้าทุกหมวดหมู่เป็น ฿0 แล้ว
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
