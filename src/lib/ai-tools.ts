@@ -1,11 +1,12 @@
 import type { OpenRouterToolDef } from "./openrouter.ts";
-import type { Category, RecurringPayment, Transaction } from "./types.ts";
+import type { Category, RecurringPayment, Transaction, TransactionType } from "./types.ts";
 
 export interface FinancialSnapshot {
   bankBalance: number;
   transactions: Transaction[];
   categories: Category[];
   recurring: RecurringPayment[];
+  autoDebitOnExpense?: boolean;
 }
 
 export const READ_TOOL_NAMES = new Set([
@@ -22,6 +23,104 @@ export const WRITE_TOOL_NAMES = new Set([
   "toggle_recurring",
   "virtual_bank_transfer",
 ]);
+
+const CATEGORY_ALIASES: Record<string, string> = {
+  transportation: "transport",
+  travel: "transport",
+  transit: "transport",
+  commute: "transport",
+  bts: "transport",
+  mrt: "transport",
+  grab: "transport",
+  taxi: "transport",
+  fuel: "transport",
+  เดินทาง: "transport",
+  น้ำมัน: "transport",
+  dining: "food",
+  drink: "food",
+  drinks: "food",
+  coffee: "food",
+  restaurant: "food",
+  อาหาร: "food",
+  เครื่องดื่ม: "food",
+  shop: "shopping",
+  lifestyle: "shopping",
+  ช้อปปิ้ง: "shopping",
+  house: "housing",
+  home: "housing",
+  rent: "housing",
+  bill: "housing",
+  bills: "housing",
+  utility: "housing",
+  utilities: "housing",
+  บิล: "housing",
+  ที่อยู่อาศัย: "housing",
+  movie: "entertainment",
+  subscription: "entertainment",
+  subscriptions: "entertainment",
+  game: "entertainment",
+  บันเทิง: "entertainment",
+  wage: "salary",
+  bonus: "salary",
+  income: "salary",
+  เงินเดือน: "salary",
+  invest: "investment",
+  dividend: "investment",
+  stock: "investment",
+  ปันผล: "investment",
+  ลงทุน: "investment",
+};
+
+export function resolveCategory(
+  raw: unknown,
+  categories: Category[],
+  expectedType?: TransactionType,
+  fallbackText?: string
+): Category | null {
+  const pool = expectedType ? categories.filter((c) => c.type === expectedType) : categories;
+  const candidates = [String(raw || "").trim(), String(fallbackText || "").trim()].filter(Boolean);
+
+  for (const input of candidates) {
+    const lower = input.toLowerCase();
+    const exactId = pool.find((c) => c.id.toLowerCase() === lower);
+    if (exactId) return exactId;
+
+    const mappedId = CATEGORY_ALIASES[lower];
+    if (mappedId) {
+      const mapped = pool.find((c) => c.id === mappedId);
+      if (mapped) return mapped;
+    }
+
+    const byName = pool.find(
+      (c) => c.name.toLowerCase().includes(lower) || lower.includes(c.name.toLowerCase())
+    );
+    if (byName) return byName;
+
+    for (const [aliasKey, targetId] of Object.entries(CATEGORY_ALIASES)) {
+      if (lower.includes(aliasKey)) {
+        const hit = pool.find((c) => c.id === targetId);
+        if (hit) return hit;
+      }
+    }
+  }
+
+  return null;
+}
+
+export function resolveRecurring(
+  raw: unknown,
+  recurring: RecurringPayment[]
+): RecurringPayment | null {
+  const key = String(raw || "").trim().toLowerCase();
+  if (!key) return null;
+  return (
+    recurring.find((r) => r.id.toLowerCase() === key) ||
+    recurring.find(
+      (r) => r.title.toLowerCase().includes(key) || key.includes(r.title.toLowerCase())
+    ) ||
+    null
+  );
+}
 
 export const FINORA_TOOLS: OpenRouterToolDef[] = [
   {
@@ -41,7 +140,11 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
         type: "object",
         properties: {
           type: { type: "string", enum: ["all", "income", "expense"], description: "ประเภทรายการ" },
-          categoryId: { type: "string", description: "รหัสหมวดหมู่ (เช่น food, shopping, salary)" },
+          categoryId: {
+            type: "string",
+            description:
+              "รหัสหมวดหมู่ที่มีจริงในระบบ (food, shopping, housing, transport, entertainment, salary, investment หรือ cat-...)",
+          },
           limit: { type: "number", description: "จำนวนรายการสูงสุด (ค่าเริ่มต้น 10)" },
         },
       },
@@ -67,7 +170,8 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "get_financial_prediction",
-      description: "คำนวณคาดการณ์ยอดเงินและกระแสเงินสดในอนาคตล่วงหน้า พร้อมสมมติฐานและคำเตือนความเสี่ยง",
+      description:
+        "คำนวณคาดการณ์ยอดเงินและกระแสเงินสดในอนาคตล่วงหน้า พร้อมสมมติฐานและคำเตือนความเสี่ยง",
       parameters: {
         type: "object",
         properties: {
@@ -90,10 +194,17 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
           type: { type: "string", enum: ["income", "expense"] },
           title: { type: "string", description: "ชื่อรายการหรือร้านค้า" },
           amount: { type: "number", description: "จำนวนเงิน (บาท, มากกว่า 0)" },
-          categoryId: { type: "string", description: "รหัสหมวดหมู่ เช่น food, shopping, salary" },
-          channel: { type: "string", description: "ช่องทาง เช่น Virtual Bank Wallet, PromptPay QR" },
+          categoryId: {
+            type: "string",
+            description:
+              "รหัสหมวดหมู่ที่มีจริงในระบบเท่านั้น: รายจ่ายใช้ food, shopping, housing, transport, entertainment / รายรับใช้ salary, investment (หรือรหัสหมวดใน Context)",
+          },
+          channel: {
+            type: "string",
+            description: "ช่องทาง เช่น Virtual Bank Wallet, PromptPay QR",
+          },
         },
-        required: ["type", "title", "amount"],
+        required: ["type", "title", "amount", "categoryId"],
       },
     },
   },
@@ -105,8 +216,12 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
       parameters: {
         type: "object",
         properties: {
-          categoryId: { type: "string", description: "รหัสหมวดหมู่ เช่น food, shopping, housing" },
-          budget: { type: "number", description: "งบประมาณใหม่ต่อเดือน (บาท)" },
+          categoryId: {
+            type: "string",
+            description:
+              "รหัสหมวดหมู่รายจ่ายที่มีจริงในระบบ เช่น food, shopping, housing, transport, entertainment",
+          },
+          budget: { type: "number", description: "งบประมาณใหม่ต่อเดือน (บาท, >= 0)" },
         },
         required: ["categoryId", "budget"],
       },
@@ -120,7 +235,10 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
       parameters: {
         type: "object",
         properties: {
-          recurringId: { type: "string", description: "รหัสรายการ Recurring (เช่น rec-1)" },
+          recurringId: {
+            type: "string",
+            description: "รหัสรายการ Recurring (เช่น rec-1) หรือชื่อรายการ",
+          },
         },
         required: ["recurringId"],
       },
@@ -130,7 +248,8 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "virtual_bank_transfer",
-      description: "เติมเงินเข้า (credit) หรือโอน/จ่ายออก (debit) ในบัญชี Virtual Bank (ต้องรอผู้ใช้ยืนยัน)",
+      description:
+        "เติมเงินเข้า (credit) หรือโอน/จ่ายออก (debit) ในบัญชี Virtual Bank (ต้องรอผู้ใช้ยืนยัน)",
       parameters: {
         type: "object",
         properties: {
@@ -166,7 +285,9 @@ export function runReadTool(
 
   if (name === "get_transactions") {
     const type = typeof args.type === "string" ? args.type : "all";
-    const categoryId = typeof args.categoryId === "string" ? args.categoryId : "";
+    const categoryId = args.categoryId
+      ? resolveCategory(args.categoryId, categories)?.id || String(args.categoryId)
+      : "";
     const limit = Math.min(30, Math.max(1, Number(args.limit) || 10));
     const list = transactions
       .filter((t) => (type === "all" || t.type === type) && (!categoryId || t.categoryId === categoryId))
@@ -251,11 +372,15 @@ export function describeWriteTool(
 ): string {
   if (name === "add_transaction") {
     const typeLabel = args.type === "income" ? "รายรับ" : "รายจ่าย";
-    const cat = snapshot.categories.find((c) => c.id === args.categoryId)?.name || String(args.categoryId || "ทั่วไป");
+    const cat =
+      snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
+      String(args.categoryId || "");
     return `บันทึก${typeLabel} "${String(args.title || "")}" จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (หมวดหมู่: ${cat})`;
   }
   if (name === "update_category_budget") {
-    const cat = snapshot.categories.find((c) => c.id === args.categoryId)?.name || String(args.categoryId || "");
+    const cat =
+      snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
+      String(args.categoryId || "");
     return `ปรับงบประมาณหมวด "${cat}" เป็น ฿${Number(args.budget || 0).toLocaleString("en-US")}/เดือน`;
   }
   if (name === "toggle_recurring") {
@@ -264,8 +389,138 @@ export function describeWriteTool(
     return `${nextState} "${rec?.title || String(args.recurringId || "")}"`;
   }
   if (name === "virtual_bank_transfer") {
-    const actionLabel = args.type === "credit" ? "เติมเงินเข้า Virtual Bank" : "โอนเงินออกจาก Virtual Bank";
+    const actionLabel =
+      args.type === "credit" ? "เติมเงินเข้า Virtual Bank" : "โอนเงินออกจาก Virtual Bank";
     return `${actionLabel} จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (${String(args.title || "")})`;
   }
   return `ดำเนินการ ${name}`;
+}
+
+export function validateAndNormalizeWriteTool(
+  name: string,
+  rawArgs: Record<string, unknown>,
+  snapshot: FinancialSnapshot
+): { ok: true; args: Record<string, unknown>; summary: string } | { ok: false; error: string } {
+  const { bankBalance, categories, recurring, autoDebitOnExpense = true } = snapshot;
+
+  if (name === "add_transaction") {
+    const txType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
+    const title = String(rawArgs.title || "").trim();
+    const amount = Number(rawArgs.amount);
+
+    if (!title) {
+      return { ok: false, error: "ต้องระบุชื่อรายการ (title)" };
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { ok: false, error: "จำนวนเงิน (amount) ต้องเป็นตัวเลขที่มากกว่า 0 บาท" };
+    }
+    if (txType === "expense" && autoDebitOnExpense && amount > bankBalance) {
+      return {
+        ok: false,
+        error: `ยอดเงินใน Virtual Wallet คงเหลือ ฿${bankBalance.toLocaleString("en-US")} ไม่เพียงพอสำหรับรายจ่าย ฿${amount.toLocaleString("en-US")}`,
+      };
+    }
+
+    const rawCat = String(rawArgs.categoryId || "").trim();
+    const cat = rawCat
+      ? resolveCategory(rawCat, categories, txType)
+      : resolveCategory("", categories, txType, title);
+
+    if (!cat) {
+      const validList = categories
+        .filter((c) => c.type === txType)
+        .map((c) => `${c.id} (${c.name})`)
+        .join(", ");
+      return {
+        ok: false,
+        error: `ไม่พบหมวดหมู่ "${rawCat}" สำหรับ${txType === "income" ? "รายรับ" : "รายจ่าย"} หมวดหมู่ที่มีในระบบคือ: ${validList}`,
+      };
+    }
+
+    const normalized = {
+      type: txType,
+      title,
+      amount,
+      categoryId: cat.id,
+      channel: String(rawArgs.channel || "Virtual Bank Wallet").trim(),
+    };
+    return {
+      ok: true,
+      args: normalized,
+      summary: describeWriteTool(name, normalized, snapshot),
+    };
+  }
+
+  if (name === "update_category_budget") {
+    const budget = Number(rawArgs.budget);
+    if (!Number.isFinite(budget) || budget < 0) {
+      return { ok: false, error: "งบประมาณ (budget) ต้องเป็นตัวเลขตั้งแต่ 0 บาทขึ้นไป" };
+    }
+    const cat = resolveCategory(rawArgs.categoryId, categories, "expense");
+    if (!cat) {
+      const validExpenseCats = categories
+        .filter((c) => c.type === "expense")
+        .map((c) => `${c.id} (${c.name})`)
+        .join(", ");
+      return {
+        ok: false,
+        error: `ไม่พบหมวดหมู่รายจ่าย "${String(rawArgs.categoryId || "")}" หมวดหมู่รายจ่ายที่ตั้งงบได้คือ: ${validExpenseCats}`,
+      };
+    }
+
+    const normalized = { categoryId: cat.id, budget };
+    return {
+      ok: true,
+      args: normalized,
+      summary: describeWriteTool(name, normalized, snapshot),
+    };
+  }
+
+  if (name === "toggle_recurring") {
+    const rec = resolveRecurring(rawArgs.recurringId, recurring);
+    if (!rec) {
+      const validRecs =
+        recurring.map((r) => `${r.id} (${r.title})`).join(", ") ||
+        "ไม่มีรายการตัดเงินอัตโนมัติในระบบ";
+      return {
+        ok: false,
+        error: `ไม่พบรายการตัดเงินอัตโนมัติ "${String(rawArgs.recurringId || "")}" รายการที่มีในระบบคือ: ${validRecs}`,
+      };
+    }
+
+    const normalized = { recurringId: rec.id };
+    return {
+      ok: true,
+      args: normalized,
+      summary: describeWriteTool(name, normalized, snapshot),
+    };
+  }
+
+  if (name === "virtual_bank_transfer") {
+    const transferType = rawArgs.type === "credit" ? "credit" : "debit";
+    const amount = Number(rawArgs.amount);
+    const title =
+      String(rawArgs.title || "").trim() ||
+      (transferType === "credit" ? "เติมเงินเข้าบัญชี" : "โอนเงินออก");
+    const counterparty = String(rawArgs.counterparty || "Finora Sandbox").trim();
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { ok: false, error: "จำนวนเงิน (amount) ต้องมากกว่า 0 บาท" };
+    }
+    if (transferType === "debit" && amount > bankBalance) {
+      return {
+        ok: false,
+        error: `ยอดเงินใน Virtual Wallet คงเหลือ ฿${bankBalance.toLocaleString("en-US")} ไม่เพียงพอสำหรับการโอนออก ฿${amount.toLocaleString("en-US")}`,
+      };
+    }
+
+    const normalized = { type: transferType, amount, title, counterparty };
+    return {
+      ok: true,
+      args: normalized,
+      summary: describeWriteTool(name, normalized, snapshot),
+    };
+  }
+
+  return { ok: false, error: `ไม่รองรับคำสั่ง ${name}` };
 }

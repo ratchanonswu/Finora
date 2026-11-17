@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
-import { runReadTool } from "./ai-tools.ts";
+import { runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
 import { CATEGORY_PALETTE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload } from "./seed.ts";
 
 // 1. Valid credit increases balance
@@ -56,4 +56,34 @@ const predRes = runReadTool("get_financial_prediction", { monthsAhead: 3 }, {
 assert.equal(predRes.monthsAhead, 3);
 assert.equal(Array.isArray(predRes.assumptions), true);
 
-console.log("Finora self-check passed (8/8 checks)");
+// 9. Write-tool validator normalizes aliases, rejects unknown categories, and guards overdrafts
+const snap = {
+  bankBalance: 500,
+  transactions: INITIAL_TRANSACTIONS,
+  categories: INITIAL_CATEGORIES,
+  recurring: INITIAL_RECURRING,
+  autoDebitOnExpense: true,
+};
+const aliased = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "BTS Ticket", amount: 100, categoryId: "transportation" },
+  snap
+);
+assert.equal(aliased.ok, true);
+if (aliased.ok) assert.equal(aliased.args.categoryId, "transport");
+
+const badCat = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "Mystery", amount: 100, categoryId: "crypto_moon" },
+  snap
+);
+assert.equal(badCat.ok, false);
+
+const tooExpensive = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "Laptop", amount: 25000, categoryId: "shopping" },
+  snap
+);
+assert.equal(tooExpensive.ok, false);
+
+console.log("Finora self-check passed (9/9 checks)");
