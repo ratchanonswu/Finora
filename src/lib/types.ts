@@ -80,6 +80,7 @@ export interface PendingToolCall {
   args: Record<string, unknown>;
   summary: string;
   status: "pending" | "confirmed" | "cancelled";
+  continueAfterConfirm?: boolean;
 }
 
 export interface ChatMessage {

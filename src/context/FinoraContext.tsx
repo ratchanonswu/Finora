@@ -50,7 +50,7 @@ interface FinoraContextValue extends FinoraState {
   updateChatMessage: (id: string, patch: Partial<ChatMessage>) => void;
   clearChatMessages: () => void;
   undoChatTransaction: (messageId: string) => Promise<void>;
-  addCategory: (cat: Omit<Category, "id">) => void;
+  addCategory: (cat: Omit<Category, "id">) => Category;
   deleteCategory: (id: string) => void;
   updateCategoryBudget: (id: string, budget: number) => void;
   addRecurring: (rec: Omit<RecurringPayment, "id">) => void;
@@ -295,11 +295,14 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const addCategory = (cat: Omit<Category, "id">) =>
+  const addCategory = (cat: Omit<Category, "id">): Category => {
+    const newCat: Category = { ...cat, id: `cat-${Date.now()}` };
     setState((prev) => ({
       ...prev,
-      categories: [...prev.categories, { ...cat, id: `cat-${Date.now()}` }],
+      categories: [...prev.categories, newCat],
     }));
+    return newCat;
+  };
 
   const deleteCategory = (id: string) => {
     if (isBaseCategory(id)) return;

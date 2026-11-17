@@ -13,7 +13,7 @@ import {
   WRITE_TOOL_NAMES,
 } from "@/lib/ai-tools";
 import type { OpenRouterMessage, OpenRouterToolCall } from "@/lib/openrouter";
-import type { ChatMessage, TransactionType } from "@/lib/types";
+import type { Category, ChatMessage, TransactionType } from "@/lib/types";
 
 const SUGGESTIONS = [
   "วิเคราะห์รายจ่ายเดือนนี้ของฉันให้หน่อย ควรลดหมวดไหน?",
@@ -125,7 +125,7 @@ export default function AiAssistantPage() {
   const [loading, setLoading] = useState(false);
   const [pendingAmounts, setPendingAmounts] = useState<Record<string, string>>({});
 
-  const financialSummary = useMemo(() => {
+  const buildFinancialSummary = (cats: Category[]) => {
     const income = transactions
       .filter((t) => t.type === "income")
       .reduce((s, t) => s + t.amount, 0);
@@ -133,7 +133,7 @@ export default function AiAssistantPage() {
       .filter((t) => t.type === "expense")
       .reduce((s, t) => s + t.amount, 0);
     const recSum = recurring.filter((r) => r.active).reduce((s, r) => s + r.amount, 0);
-    const catBreakdown = categories
+    const catBreakdown = cats
       .filter((c) => c.type === "expense")
       .map((c) => {
         const sum = transactions
@@ -142,7 +142,7 @@ export default function AiAssistantPage() {
         return `- [${c.id}] ${c.name}: ใช้ไป ${formatTHB(sum)} (งบ ${formatTHB(c.budget)})`;
       })
       .join("\n");
-    const incomeCats = categories
+    const incomeCats = cats
       .filter((c) => c.type === "income")
       .map((c) => `[${c.id}] ${c.name}`)
       .join(", ");
@@ -161,14 +161,26 @@ export default function AiAssistantPage() {
       `หมวดรายจ่ายที่มี:\n${catBreakdown}`,
       `หมวดรายรับที่มี: ${incomeCats}`,
     ].join("\n");
-  }, [bankBalance, transactions, categories, recurring]);
+  };
 
-  const runToolLoop = async (initialHistory: OpenRouterMessage[]) => {
+  const financialSummary = useMemo(
+    () => buildFinancialSummary(categories),
+    [bankBalance, transactions, categories, recurring]
+  );
+
+  const runToolLoop = async (
+    initialHistory: OpenRouterMessage[],
+    overrideCategories?: Category[]
+  ) => {
     const history = [...initialHistory];
+    const activeCategories = overrideCategories ?? categories;
+    const summaryText = overrideCategories
+      ? buildFinancialSummary(overrideCategories)
+      : financialSummary;
     const snapshot = {
       bankBalance,
       transactions,
-      categories,
+      categories: activeCategories,
       recurring,
       autoDebitOnExpense: settings.autoDebitOnExpense,
     };
@@ -180,7 +192,7 @@ export default function AiAssistantPage() {
         body: JSON.stringify({
           messages: history,
           apiKeyOverride: settings.geminiApiKeyOverride,
-          financialSummary,
+          financialSummary: summaryText,
         }),
       });
       const data = await res.json();
@@ -218,6 +230,8 @@ export default function AiAssistantPage() {
           const out = runReadTool(tc.function.name, args, snapshot);
           history.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(out) });
         } else if (WRITE_TOOL_NAMES.has(tc.function.name)) {
+          // Process one write confirmation at a time so chained steps (e.g. add_category -> add_transaction) see updated state.
+          if (hasWrite) continue;
           const check = validateAndNormalizeWriteTool(tc.function.name, args, snapshot);
           if (!check.ok) {
             history.push({
@@ -227,6 +241,8 @@ export default function AiAssistantPage() {
             });
           } else {
             hasWrite = true;
+            const continueAfterConfirm =
+              tc.function.name === "add_category" || toolCalls.length > 1;
             appendChatMessage({
               id: `t-${Date.now()}-${tc.id}`,
               role: "assistant",
@@ -237,6 +253,7 @@ export default function AiAssistantPage() {
                 args: check.args,
                 summary: check.summary,
                 status: "pending",
+                continueAfterConfirm,
               },
             });
           }
@@ -295,6 +312,7 @@ export default function AiAssistantPage() {
 
     setLoading(true);
     let resultText = "";
+    let nextCategories = categories;
     try {
       const args = check.args;
       if (pt.name === "add_transaction") {
@@ -316,14 +334,15 @@ export default function AiAssistantPage() {
         toggleRecurring(String(args.recurringId));
         resultText = `อัปเดตสำเร็จ: ${check.summary}`;
       } else if (pt.name === "add_category") {
-        addCategory({
+        const created = addCategory({
           name: String(args.name),
           type: args.type === "income" ? "income" : "expense",
           budget: args.type === "income" ? 0 : Number(args.budget) || 0,
           icon: String(args.icon || "label"),
           color: String(args.color || "#0891B2"),
         });
-        resultText = `สร้างหมวดหมู่สำเร็จ: ${check.summary}`;
+        nextCategories = [...categories, created];
+        resultText = `สร้างหมวดหมู่สำเร็จ (${created.id}): ${check.summary}`;
       } else if (pt.name === "add_recurring_payment") {
         addRecurring({
           title: String(args.title),
@@ -350,11 +369,31 @@ export default function AiAssistantPage() {
       updateChatMessage(msg.id, {
         pendingTool: { ...pt, args, summary: check.summary, status: "confirmed" },
       });
+      const confirmMsg = `${resultText} เรียบร้อยแล้วค่ะ`;
       appendChatMessage({
         id: `a-${Date.now()}`,
         role: "assistant",
-        text: `${resultText} เรียบร้อยแล้วค่ะ`,
+        text: confirmMsg,
       });
+
+      if (pt.continueAfterConfirm) {
+        const prior: OpenRouterMessage[] = chatMessages
+          .filter((m) => m.id !== "welcome" && (m.role === "user" || m.role === "assistant"))
+          .slice(-8)
+          .map((m) => ({ role: m.role as "user" | "assistant", content: m.text }));
+        await runToolLoop(
+          [
+            ...prior,
+            { role: "assistant", content: confirmMsg },
+            {
+              role: "user",
+              content:
+                "[ระบบ] ผู้ใช้ยืนยันการดำเนินการข้างต้นเรียบร้อยแล้ว หากยังมีขั้นตอนถัดไปในคำขอก่อนหน้าของ User ให้เรียกใช้ Tool ต่อได้เลย หากครบทุกขั้นตอนแล้วให้ตอบสรุปสั้นๆ ค่ะ",
+            },
+          ],
+          nextCategories
+        );
+      }
     } finally {
       setLoading(false);
     }
