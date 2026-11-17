@@ -234,7 +234,7 @@ export default function AiAssistantPage() {
           role: "error",
           text: visionError
             ? `ไม่สามารถอ่านรูปภาพด้วย AI ได้ (${visionError})`
-            : "ไม่พบ QR Code หรือข้อมูลการชำระเงินในรูปภาพนี้ กรุณาอัปโหลดรูปป้าย QR หรือสลิปธนาคารที่ชัดเจนครับ",
+            : "ไม่พบ QR Code หรือข้อมูลการชำระเงินในรูปภาพนี้ กรุณาอัปโหลดรูปป้าย QR หรือสลิปธนาคารที่ชัดเจนนะคะ",
         });
         return;
       }
@@ -283,9 +283,9 @@ export default function AiAssistantPage() {
         appendChatMessage({
           id: `a-${Date.now()}`,
           role: "assistant",
-          text: `ตรวจสอบรูปภาพเรียบร้อยแล้วครับ ผมจัดหมวดหมู่เป็น **${catName}** และบันทึกเป็น**${
+          text: `ตรวจสอบรูปภาพเรียบร้อยแล้วค่ะ ฟิโนร่าจัดหมวดหมู่เป็น **${catName}** และบันทึกเป็น**${
             txType === "income" ? "รายรับ" : "รายจ่าย"
-          }** จำนวน **${formatTHB(amount)}** ให้เรียบร้อยแล้ว`,
+          }** จำนวน **${formatTHB(amount)}** ให้เรียบร้อยแล้วค่ะ`,
           txAction: {
             transactionId: saveRes.transactionId,
             status: "saved",
@@ -300,7 +300,7 @@ export default function AiAssistantPage() {
         appendChatMessage({
           id: `a-${Date.now()}`,
           role: "assistant",
-          text: `สแกนป้าย QR ของ **${merchant}** สำเร็จครับ (จัดหมวดหมู่แนะนำ: **${catName}**) เนื่องจากใน QR ไม่ได้ระบุยอดเงินไว้ กรุณากรอกจำนวนเงินด้านล่างเพื่อบันทึกรายการครับ`,
+          text: `สแกนป้าย QR ของ **${merchant}** สำเร็จค่ะ (จัดหมวดหมู่แนะนำ: **${catName}**) เนื่องจากใน QR ไม่ได้ระบุยอดเงินไว้ กรุณากรอกจำนวนเงินด้านล่างเพื่อบันทึกรายการนะคะ`,
           txAction: {
             status: "needs_amount",
             type: txType,
