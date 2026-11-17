@@ -74,10 +74,19 @@ export interface ChatTxAction {
   categoryId: string;
 }
 
+export interface PendingToolCall {
+  toolCallId: string;
+  name: string;
+  args: Record<string, unknown>;
+  summary: string;
+  status: "pending" | "confirmed" | "cancelled";
+}
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "error";
   text: string;
   thumbnailUrl?: string;
   txAction?: ChatTxAction;
+  pendingTool?: PendingToolCall;
 }

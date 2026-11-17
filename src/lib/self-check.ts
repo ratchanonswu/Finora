@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
-import { CATEGORY_PALETTE, INITIAL_CATEGORIES, isBaseCategory, nextCategoryColor, parsePromptPayPayload } from "./seed.ts";
+import { runReadTool } from "./ai-tools.ts";
+import { CATEGORY_PALETTE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -38,4 +39,21 @@ assert.equal(parsedQr.merchant, "Starbucks");
 assert.equal(parsedQr.promptPayId, "0812345678");
 assert.equal(parsedQr.isPromptPayOrSlip, true);
 
-console.log("Finora self-check passed (7/7 checks)");
+// 8. AI read tools return real transaction data and deterministic prediction with assumptions
+const txRes = runReadTool("get_transactions", { type: "expense", limit: 2 }, {
+  bankBalance: 100000,
+  transactions: INITIAL_TRANSACTIONS,
+  categories: INITIAL_CATEGORIES,
+  recurring: INITIAL_RECURRING,
+});
+assert.equal(txRes.count, 2);
+const predRes = runReadTool("get_financial_prediction", { monthsAhead: 3 }, {
+  bankBalance: 100000,
+  transactions: INITIAL_TRANSACTIONS,
+  categories: INITIAL_CATEGORIES,
+  recurring: INITIAL_RECURRING,
+});
+assert.equal(predRes.monthsAhead, 3);
+assert.equal(Array.isArray(predRes.assumptions), true);
+
+console.log("Finora self-check passed (8/8 checks)");
