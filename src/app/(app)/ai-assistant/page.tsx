@@ -114,7 +114,9 @@ export default function AiAssistantPage() {
     clearChatMessages,
     undoChatTransaction,
     addTransaction,
+    addCategory,
     updateCategoryBudget,
+    addRecurring,
     toggleRecurring,
     executeBankAction,
   } = useFinora();
@@ -313,6 +315,26 @@ export default function AiAssistantPage() {
       } else if (pt.name === "toggle_recurring") {
         toggleRecurring(String(args.recurringId));
         resultText = `อัปเดตสำเร็จ: ${check.summary}`;
+      } else if (pt.name === "add_category") {
+        addCategory({
+          name: String(args.name),
+          type: args.type === "income" ? "income" : "expense",
+          budget: args.type === "income" ? 0 : Number(args.budget) || 0,
+          icon: String(args.icon || "label"),
+          color: String(args.color || "#0891B2"),
+        });
+        resultText = `สร้างหมวดหมู่สำเร็จ: ${check.summary}`;
+      } else if (pt.name === "add_recurring_payment") {
+        addRecurring({
+          title: String(args.title),
+          amount: Number(args.amount) || 0,
+          categoryId: String(args.categoryId || "entertainment"),
+          cycle: args.cycle === "weekly" || args.cycle === "yearly" ? args.cycle : "monthly",
+          nextDueDate: String(args.nextDueDate),
+          active: true,
+          icon: String(args.icon || "autorenew"),
+        });
+        resultText = `เพิ่มรายการตัดเงินอัตโนมัติสำเร็จ: ${check.summary}`;
       } else if (pt.name === "virtual_bank_transfer") {
         const res = await executeBankAction(
           args.type === "credit" ? "credit" : "debit",
@@ -832,6 +854,110 @@ export default function AiAssistantPage() {
                                     })
                                   }
                                   className="w-32 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                            )}
+
+                            {pt.name === "add_category" && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <input
+                                  type="text"
+                                  aria-label="ชื่อหมวดหมู่ใหม่"
+                                  value={String(pt.args.name || "")}
+                                  onChange={(e) =>
+                                    updateToolArgs({ ...pt.args, name: e.target.value })
+                                  }
+                                  className="flex-1 min-w-[140px] bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                />
+                                <select
+                                  aria-label="ประเภทหมวดหมู่"
+                                  value={String(pt.args.type || "expense")}
+                                  onChange={(e) =>
+                                    updateToolArgs({
+                                      ...pt.args,
+                                      type: e.target.value,
+                                      budget: e.target.value === "income" ? 0 : pt.args.budget ?? 0,
+                                    })
+                                  }
+                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                >
+                                  <option value="expense">หมวดรายจ่าย</option>
+                                  <option value="income">หมวดรายรับ</option>
+                                </select>
+                                {pt.args.type !== "income" && (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="100"
+                                    placeholder="งบต่อเดือน"
+                                    aria-label="งบประมาณต่อเดือน"
+                                    value={pt.args.budget === "" ? "" : Number(pt.args.budget ?? 0)}
+                                    onChange={(e) =>
+                                      updateToolArgs({
+                                        ...pt.args,
+                                        budget:
+                                          e.target.value === "" ? "" : Number(e.target.value),
+                                      })
+                                    }
+                                    className="w-28 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                  />
+                                )}
+                              </div>
+                            )}
+
+                            {pt.name === "add_recurring_payment" && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <select
+                                  aria-label="หมวดหมู่รายการอัตโนมัติ"
+                                  value={String(pt.args.categoryId || "")}
+                                  onChange={(e) =>
+                                    updateToolArgs({ ...pt.args, categoryId: e.target.value })
+                                  }
+                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                >
+                                  {categories
+                                    .filter((c) => c.type === "expense")
+                                    .map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.name}
+                                      </option>
+                                    ))}
+                                </select>
+                                <select
+                                  aria-label="รอบการตัดเงิน"
+                                  value={String(pt.args.cycle || "monthly")}
+                                  onChange={(e) =>
+                                    updateToolArgs({ ...pt.args, cycle: e.target.value })
+                                  }
+                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                >
+                                  <option value="monthly">รายเดือน</option>
+                                  <option value="weekly">รายสัปดาห์</option>
+                                  <option value="yearly">รายปี</option>
+                                </select>
+                                <input
+                                  type="date"
+                                  aria-label="วันครบกำหนดถัดไป"
+                                  value={String(pt.args.nextDueDate || "")}
+                                  onChange={(e) =>
+                                    updateToolArgs({ ...pt.args, nextDueDate: e.target.value })
+                                  }
+                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                />
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="0.01"
+                                  aria-label="จำนวนเงินต่อรอบ"
+                                  value={pt.args.amount === "" ? "" : Number(pt.args.amount ?? 0)}
+                                  onChange={(e) =>
+                                    updateToolArgs({
+                                      ...pt.args,
+                                      amount:
+                                        e.target.value === "" ? "" : Number(e.target.value),
+                                    })
+                                  }
+                                  className="w-28 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
                                 />
                               </div>
                             )}
