@@ -5,16 +5,43 @@ export type OpenRouterContent =
       | { type: "image_url"; image_url: { url: string } }
     >;
 
+export interface OpenRouterToolCall {
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
 export interface OpenRouterMessage {
-  role: "system" | "user" | "assistant";
-  content: OpenRouterContent;
+  role: "system" | "user" | "assistant" | "tool";
+  content: OpenRouterContent | null;
+  tool_calls?: OpenRouterToolCall[];
+  tool_call_id?: string;
+}
+
+export interface OpenRouterToolDef {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
 }
 
 export async function callOpenRouter(options: {
   messages: OpenRouterMessage[];
   apiKeyOverride?: string;
   jsonMode?: boolean;
-}): Promise<{ ok: boolean; text?: string; error?: string; status: number }> {
+  tools?: OpenRouterToolDef[];
+}): Promise<{
+  ok: boolean;
+  text?: string;
+  toolCalls?: OpenRouterToolCall[];
+  error?: string;
+  status: number;
+}> {
   const apiKey =
     (typeof options.apiKeyOverride === "string" && options.apiKeyOverride.trim()) ||
     process.env.OPENROUTER_API_KEY?.trim();
@@ -50,6 +77,7 @@ export async function callOpenRouter(options: {
         model,
         messages: options.messages,
         ...(options.jsonMode ? { response_format: { type: "json_object" } } : {}),
+        ...(options.tools?.length ? { tools: options.tools, tool_choice: "auto" } : {}),
       }),
     });
 
@@ -59,12 +87,18 @@ export async function callOpenRouter(options: {
       return { ok: false, status: res.status, error: msg };
     }
 
-    const content = data?.choices?.[0]?.message?.content;
-    if (typeof content !== "string" || !content.trim()) {
+    const message = data?.choices?.[0]?.message;
+    const toolCalls: OpenRouterToolCall[] | undefined =
+      Array.isArray(message?.tool_calls) && message.tool_calls.length > 0
+        ? message.tool_calls
+        : undefined;
+    const content = typeof message?.content === "string" ? message.content : undefined;
+
+    if (!toolCalls && (!content || !content.trim())) {
       return { ok: false, status: 502, error: "AI ไม่ได้ส่งข้อความตอบกลับ" };
     }
 
-    return { ok: true, status: 200, text: content };
+    return { ok: true, status: 200, text: content || "", toolCalls };
   } catch (err) {
     return {
       ok: false,
