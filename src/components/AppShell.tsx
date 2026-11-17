@@ -58,15 +58,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div>
           <div
-            className={`h-16 flex items-center justify-between border-b border-outline-variant/20 ${
-              collapsed ? "lg:px-2.5 px-6" : "px-5"
+            className={`h-16 flex items-center border-b border-outline-variant/20 ${
+              collapsed ? "lg:justify-center lg:px-0 px-5 justify-between" : "px-5 justify-between"
             }`}
           >
-            <Link href="/" className="flex items-center gap-2.5 min-w-0">
+            <Link
+              href="/"
+              className={`flex items-center gap-2.5 min-w-0 ${collapsed ? "lg:hidden" : ""}`}
+            >
               <div className="w-8 h-8 rounded-lg bg-primary-container text-on-primary-container flex items-center justify-center font-bold shrink-0">
                 F
               </div>
-              <div className={`flex flex-col ${collapsed ? "lg:hidden" : ""}`}>
+              <div className="flex flex-col">
                 <span className="text-lg font-bold tracking-tight text-on-surface leading-tight">
                   Finora
                 </span>
