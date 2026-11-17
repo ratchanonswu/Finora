@@ -115,7 +115,6 @@ export default function AiAssistantPage() {
     clearChatMessages,
     undoChatTransaction,
     addTransaction,
-    addCategory,
     updateCategoryBudget,
     addRecurring,
     toggleRecurring,
@@ -241,7 +240,7 @@ export default function AiAssistantPage() {
           const out = runReadTool(tc.function.name, args, snapshot);
           history.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(out) });
         } else if (WRITE_TOOL_NAMES.has(tc.function.name)) {
-          // Process one write confirmation at a time so chained steps (e.g. add_category -> add_transaction) see updated state.
+          // Process one write confirmation at a time so chained steps (e.g. credit -> debit) see updated state.
           if (hasWrite) continue;
           const check = validateAndNormalizeWriteTool(tc.function.name, args, snapshot);
           if (!check.ok) {
@@ -252,8 +251,7 @@ export default function AiAssistantPage() {
             });
           } else {
             hasWrite = true;
-            const continueAfterConfirm =
-              tc.function.name === "add_category" || toolCalls.length > 1;
+            const continueAfterConfirm = toolCalls.length > 1;
             appendChatMessage({
               id: `t-${Date.now()}-${tc.id}`,
               role: "assistant",
@@ -344,16 +342,6 @@ export default function AiAssistantPage() {
       } else if (pt.name === "toggle_recurring") {
         toggleRecurring(String(args.recurringId));
         resultText = `อัปเดตสำเร็จ: ${check.summary}`;
-      } else if (pt.name === "add_category") {
-        const created = addCategory({
-          name: String(args.name),
-          type: args.type === "income" ? "income" : "expense",
-          budget: args.type === "income" ? 0 : Number(args.budget) || 0,
-          icon: String(args.icon || "label"),
-          color: String(args.color || "#0891B2"),
-        });
-        nextCategories = [...categories, created];
-        resultText = `สร้างหมวดหมู่สำเร็จ (${created.id}): ${check.summary}`;
       } else if (pt.name === "add_recurring_payment") {
         addRecurring({
           title: String(args.title),
@@ -905,53 +893,6 @@ export default function AiAssistantPage() {
                                   }
                                   className="w-32 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
                                 />
-                              </div>
-                            )}
-
-                            {pt.name === "add_category" && (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <input
-                                  type="text"
-                                  aria-label="ชื่อหมวดหมู่ใหม่"
-                                  value={String(pt.args.name || "")}
-                                  onChange={(e) =>
-                                    updateToolArgs({ ...pt.args, name: e.target.value })
-                                  }
-                                  className="flex-1 min-w-[140px] bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
-                                />
-                                <select
-                                  aria-label="ประเภทหมวดหมู่"
-                                  value={String(pt.args.type || "expense")}
-                                  onChange={(e) =>
-                                    updateToolArgs({
-                                      ...pt.args,
-                                      type: e.target.value,
-                                      budget: e.target.value === "income" ? 0 : pt.args.budget ?? 0,
-                                    })
-                                  }
-                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
-                                >
-                                  <option value="expense">หมวดรายจ่าย</option>
-                                  <option value="income">หมวดรายรับ</option>
-                                </select>
-                                {pt.args.type !== "income" && (
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="100"
-                                    placeholder="งบต่อเดือน"
-                                    aria-label="งบประมาณต่อเดือน"
-                                    value={pt.args.budget === "" ? "" : Number(pt.args.budget ?? 0)}
-                                    onChange={(e) =>
-                                      updateToolArgs({
-                                        ...pt.args,
-                                        budget:
-                                          e.target.value === "" ? "" : Number(e.target.value),
-                                      })
-                                    }
-                                    className="w-28 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
-                                  />
-                                )}
                               </div>
                             )}
 

@@ -86,26 +86,19 @@ const tooExpensive = validateAndNormalizeWriteTool(
 );
 assert.equal(tooExpensive.ok, false);
 
-// 10. add_category and add_recurring_payment validators handle defaults and duplicate protection
-const newCat = validateAndNormalizeWriteTool("add_category", { name: "สัตว์เลี้ยง", budget: 2000 }, snap);
-assert.equal(newCat.ok, true);
-if (newCat.ok) {
-  assert.equal(newCat.args.icon, "pets");
-  assert.equal(newCat.args.type, "expense");
-}
-const dupCat = validateAndNormalizeWriteTool("add_category", { name: "อาหาร & เครื่องดื่ม" }, snap);
-assert.equal(dupCat.ok, false);
-
+// 10. add_recurring_payment validator handles defaults and duplicate protection
 const newRec = validateAndNormalizeWriteTool("add_recurring_payment", { title: "YouTube Premium", amount: 179 }, snap);
 assert.equal(newRec.ok, true);
 if (newRec.ok) {
   assert.equal(newRec.args.cycle, "monthly");
   assert.match(String(newRec.args.nextDueDate), /^\d{4}-\d{2}-\d{2}$/);
 }
+const dupRec = validateAndNormalizeWriteTool("add_recurring_payment", { title: INITIAL_RECURRING[0].title, amount: 419 }, snap);
+assert.equal(dupRec.ok, false);
 
-// 11. Tool execution priority orders add_category and credit before expense/debit
+// 11. Tool execution priority orders credit/income and config before expense/debit
 assert.equal(
-  getToolExecutionPriority("add_category", {}) <
+  getToolExecutionPriority("add_recurring_payment", {}) <
     getToolExecutionPriority("add_transaction", { type: "expense" }),
   true
 );
