@@ -3,19 +3,27 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { useFinora } from "@/context/FinoraContext";
-import { formatTHB } from "@/lib/seed";
-
-interface ChatMessage {
-  id: string;
-  role: "user" | "assistant" | "error";
-  text: string;
-}
+import { formatTHB, parsePromptPayPayload } from "@/lib/seed";
+import { decodeQrImage } from "@/lib/qr-decoder";
+import type { ChatMessage, TransactionType } from "@/lib/types";
 
 const SUGGESTIONS = [
   "วิเคราะห์รายจ่ายเดือนนี้ของฉันให้หน่อย ควรลดหมวดไหน?",
   "ด้วยเงินคงเหลือและรายรับตอนนี้ ฉันควรออมเงินเดือนละเท่าไหร่ดี?",
   "ช่วยสรุปภาระค่าบริการตัดเงินอัตโนมัติ (Recurring) ของฉัน",
 ];
+
+function guessCategoryId(text: string, type: TransactionType): string {
+  if (type === "income") {
+    return /ปันผล|หุ้น|กองทุน|ดอกเบี้ย|invest|dividend/i.test(text) ? "investment" : "salary";
+  }
+  const lower = text.toLowerCase();
+  if (/bts|mrt|grab|taxi|oil|shell|ptt|เดินทาง|รถ/.test(lower)) return "transport";
+  if (/uniqlo|apple|mall|shop|lazada|shopee|central/.test(lower)) return "shopping";
+  if (/netflix|spotify|youtube|game|movie/.test(lower)) return "entertainment";
+  if (/condo|rent|ais|true|water|electric|บิล|ค่าไฟ|ค่าเช่า/.test(lower)) return "housing";
+  return "food";
+}
 
 // Parses **หัวข้อ**, ** หัวข้อ ** (with spaces), `code`, headings, and bullet lists without external deps.
 function renderInline(line: string): React.ReactNode[] {
@@ -86,16 +94,23 @@ function renderChatMarkdown(text: string): React.ReactNode {
 }
 
 export default function AiAssistantPage() {
-  const { bankBalance, transactions, categories, recurring, settings } = useFinora();
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      text: "สวัสดีครับ ผมคือผู้ช่วยการเงิน Finora AI (ขับเคลื่อนด้วย Google Gemini) สามารถถามคำถามเกี่ยวกับงบประมาณ รายรับรายจ่าย หรือขอคำแนะนำการออมจากข้อมูลจริงของคุณได้เลยครับ",
-    },
-  ]);
+  const {
+    bankBalance,
+    transactions,
+    categories,
+    recurring,
+    settings,
+    chatMessages,
+    appendChatMessage,
+    updateChatMessage,
+    clearChatMessages,
+    undoChatTransaction,
+    addTransaction,
+  } = useFinora();
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pendingAmounts, setPendingAmounts] = useState<Record<string, string>>({});
 
   const financialSummary = useMemo(() => {
     const income = transactions
@@ -128,8 +143,7 @@ export default function AiAssistantPage() {
     const text = promptText.trim();
     if (!text || loading) return;
 
-    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", text };
-    setMessages((prev) => [...prev, userMsg]);
+    appendChatMessage({ id: `u-${Date.now()}`, role: "user", text });
     setInput("");
     setLoading(true);
 
@@ -145,23 +159,204 @@ export default function AiAssistantPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setMessages((prev) => [
-          ...prev,
-          { id: `e-${Date.now()}`, role: "error", text: data.error || "ไม่สามารถเชื่อมต่อ AI ได้" },
-        ]);
+        appendChatMessage({
+          id: `e-${Date.now()}`,
+          role: "error",
+          text: data.error || "ไม่สามารถเชื่อมต่อ AI ได้",
+        });
       } else {
-        setMessages((prev) => [
-          ...prev,
-          { id: `a-${Date.now()}`, role: "assistant", text: data.reply },
-        ]);
+        appendChatMessage({
+          id: `a-${Date.now()}`,
+          role: "assistant",
+          text: data.reply,
+        });
       }
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { id: `e-${Date.now()}`, role: "error", text: "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย" },
-      ]);
+      appendChatMessage({
+        id: `e-${Date.now()}`,
+        role: "error",
+        text: "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย",
+      });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleQrOrSlipFile = async (file: File) => {
+    if (loading) return;
+    setLoading(true);
+
+    try {
+      const { qrRaw, imageBase64, thumbnailDataUrl } = await decodeQrImage(file);
+      appendChatMessage({
+        id: `u-${Date.now()}`,
+        role: "user",
+        text: `ส่งรูปภาพ QR / สลิป (${file.name})`,
+        thumbnailUrl: thumbnailDataUrl,
+      });
+
+      const tlv = qrRaw ? parsePromptPayPayload(qrRaw) : {};
+      let vision: {
+        isValidPaymentImage?: boolean;
+        type?: TransactionType;
+        merchant?: string;
+        promptPayId?: string;
+        amount?: number;
+        categoryId?: string;
+      } | null = null;
+
+      try {
+        const res = await fetch("/api/ai/qr", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageBase64,
+            mimeType: "image/jpeg",
+            qrRaw,
+            categories: categories.map((c) => ({ id: c.id, name: c.name, type: c.type })),
+            apiKeyOverride: settings.geminiApiKeyOverride,
+          }),
+        });
+        if (res.ok) {
+          vision = await res.json();
+        }
+      } catch {
+        // Vision OCR is optional when jsQR already decoded a valid QR barcode
+      }
+
+      if (!qrRaw && !vision?.isValidPaymentImage) {
+        appendChatMessage({
+          id: `e-${Date.now()}`,
+          role: "error",
+          text: "ไม่พบ QR Code หรือข้อมูลการชำระเงินในรูปภาพนี้ กรุณาอัปโหลดรูปป้าย QR หรือสลิปธนาคารที่ชัดเจนครับ",
+        });
+        return;
+      }
+
+      const txType: TransactionType = vision?.type === "income" ? "income" : "expense";
+      const merchant =
+        tlv.merchant ||
+        vision?.merchant ||
+        (tlv.isPromptPayOrSlip ? "ร้านค้า PromptPay" : qrRaw?.slice(0, 40) || "รายการสแกน QR");
+      const promptPayId =
+        tlv.promptPayId || vision?.promptPayId || (qrRaw ? qrRaw.slice(0, 20) : "-");
+      const amount =
+        typeof tlv.amount === "number" && tlv.amount > 0
+          ? tlv.amount
+          : typeof vision?.amount === "number" && vision.amount > 0
+          ? vision.amount
+          : 0;
+
+      const matchingCategories = categories.filter((c) => c.type === txType);
+      const validCategory =
+        vision?.categoryId && matchingCategories.some((c) => c.id === vision?.categoryId)
+          ? vision.categoryId
+          : guessCategoryId(merchant, txType);
+      const catName =
+        categories.find((c) => c.id === validCategory)?.name || validCategory;
+
+      if (amount > 0) {
+        const saveRes = await addTransaction({
+          title: merchant,
+          amount,
+          type: txType,
+          categoryId: validCategory,
+          channel: "สแกน QR / สลิป (AI Chat)",
+          date: new Date().toISOString(),
+        });
+
+        if (!saveRes.ok) {
+          appendChatMessage({
+            id: `e-${Date.now()}`,
+            role: "error",
+            text: `ตรวจสอบสลิปสำเร็จ (${merchant} ยอด ${formatTHB(amount)}) แต่บันทึกไม่สำเร็จ: ${saveRes.error}`,
+          });
+          return;
+        }
+
+        appendChatMessage({
+          id: `a-${Date.now()}`,
+          role: "assistant",
+          text: `ตรวจสอบรูปภาพเรียบร้อยแล้วครับ ผมจัดหมวดหมู่เป็น **${catName}** และบันทึกเป็น**${
+            txType === "income" ? "รายรับ" : "รายจ่าย"
+          }** จำนวน **${formatTHB(amount)}** ให้เรียบร้อยแล้ว`,
+          txAction: {
+            transactionId: saveRes.transactionId,
+            status: "saved",
+            type: txType,
+            merchant,
+            promptPayId,
+            amount,
+            categoryId: validCategory,
+          },
+        });
+      } else {
+        appendChatMessage({
+          id: `a-${Date.now()}`,
+          role: "assistant",
+          text: `สแกนป้าย QR ของ **${merchant}** สำเร็จครับ (จัดหมวดหมู่แนะนำ: **${catName}**) เนื่องจากใน QR ไม่ได้ระบุยอดเงินไว้ กรุณากรอกจำนวนเงินด้านล่างเพื่อบันทึกรายการครับ`,
+          txAction: {
+            status: "needs_amount",
+            type: txType,
+            merchant,
+            promptPayId,
+            amount: 0,
+            categoryId: validCategory,
+          },
+        });
+      }
+    } catch {
+      appendChatMessage({
+        id: `e-${Date.now()}`,
+        role: "error",
+        text: "ไม่สามารถอ่านไฟล์รูปภาพนี้ได้ กรุณาลองใหม่อีกครั้ง",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmPendingTx = async (msg: ChatMessage) => {
+    const action = msg.txAction;
+    if (!action) return;
+    const rawAmount = Number(pendingAmounts[msg.id] ?? action.amount);
+    if (!Number.isFinite(rawAmount) || rawAmount <= 0) return;
+
+    setLoading(true);
+    const saveRes = await addTransaction({
+      title: action.merchant.trim() || "รายการสแกน QR",
+      amount: rawAmount,
+      type: action.type,
+      categoryId: action.categoryId,
+      channel: "สแกน QR / สลิป (AI Chat)",
+      date: new Date().toISOString(),
+    });
+    setLoading(false);
+
+    if (!saveRes.ok) {
+      appendChatMessage({
+        id: `e-${Date.now()}`,
+        role: "error",
+        text: saveRes.error || "ไม่สามารถบันทึกรายการได้",
+      });
+      return;
+    }
+
+    updateChatMessage(msg.id, {
+      txAction: {
+        ...action,
+        amount: rawAmount,
+        transactionId: saveRes.transactionId,
+        status: "saved",
+      },
+    });
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
+    if (file) {
+      e.preventDefault();
+      handleQrOrSlipFile(file);
     }
   };
 
@@ -170,18 +365,25 @@ export default function AiAssistantPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-on-surface tracking-tight m-0">
-            ผู้ช่วย AI การเงินส่วนบุคคล (Gemini)
+            ผู้ช่วย AI &amp; สแกน QR / สลิปอัตโนมัติ
           </h1>
           <p className="text-sm text-on-surface-variant mt-1">
-            วิเคราะห์ข้อมูลรายรับ-รายจ่ายและยอดเงินปัจจุบันของคุณโดยตรง
+            ถามคำถามการเงิน หรือส่งรูป QR Code / สลิปธนาคารเพื่อให้บอทจัดหมวดหมู่และบันทึกรายรับ-รายจ่ายทันที
           </p>
         </div>
-        <Link
-          href="/settings"
-          className="text-xs font-semibold text-primary hover:underline self-start sm:self-auto"
-        >
-          ตั้งค่า Gemini API Key →
-        </Link>
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={clearChatMessages}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant/40 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+          >
+            <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+            <span>ล้างแชท</span>
+          </button>
+          <Link href="/settings" className="text-xs font-semibold text-primary hover:underline">
+            ตั้งค่า API Key →
+          </Link>
+        </div>
       </div>
 
       {/* Quick Suggestions */}
@@ -200,29 +402,162 @@ export default function AiAssistantPage() {
       </div>
 
       {/* Chat Stream */}
-      <div className="rounded-2xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col gap-4 min-h-[420px]">
-        <div className="flex-1 space-y-4 overflow-y-auto max-h-[520px] pr-1">
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-            >
+      <div className="rounded-2xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col gap-4 min-h-[460px]">
+        <div className="flex-1 space-y-4 overflow-y-auto max-h-[540px] pr-1">
+          {chatMessages.map((m) => {
+            const action = m.txAction;
+            const catName = action
+              ? categories.find((c) => c.id === action.categoryId)?.name || action.categoryId
+              : "";
+
+            return (
               <div
-                className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
-                  m.role === "user"
-                    ? "bg-primary-container text-on-primary-container font-medium whitespace-pre-wrap"
-                    : m.role === "error"
-                    ? "bg-error-container/20 border border-error/40 text-on-error-container whitespace-pre-wrap"
-                    : "bg-surface-container-low border border-outline-variant/20 text-on-surface"
-                }`}
+                key={m.id}
+                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                {m.role === "assistant" ? renderChatMarkdown(m.text) : m.text}
+                <div
+                  className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
+                    m.role === "user"
+                      ? "bg-primary-container text-on-primary-container font-medium whitespace-pre-wrap"
+                      : m.role === "error"
+                      ? "bg-error-container/20 border border-error/40 text-on-error-container whitespace-pre-wrap"
+                      : "bg-surface-container-low border border-outline-variant/20 text-on-surface"
+                  }`}
+                >
+                  {m.thumbnailUrl && (
+                    <img
+                      src={m.thumbnailUrl}
+                      alt="Uploaded QR or Slip"
+                      className="max-h-32 w-auto rounded-lg mb-2 border border-white/20 bg-white p-1"
+                    />
+                  )}
+
+                  {m.role === "assistant" ? renderChatMarkdown(m.text) : m.text}
+
+                  {/* Inline Transaction Action (Flattened with border divider to avoid nested cards) */}
+                  {action && (
+                    <div className="mt-3 pt-3 border-t border-outline-variant/30 text-xs space-y-2.5">
+                      {action.status === "saved" && (
+                        <>
+                          <div className="grid grid-cols-2 gap-y-1 text-on-surface-variant">
+                            <span>ประเภท:</span>
+                            <span
+                              className={`text-right font-semibold ${
+                                action.type === "income" ? "text-primary" : "text-secondary"
+                              }`}
+                            >
+                              {action.type === "income" ? "รายรับ (+)" : "รายจ่าย (-)"}
+                            </span>
+                            <span>รายการ / ร้านค้า:</span>
+                            <span className="text-right font-semibold text-on-surface">
+                              {action.merchant}
+                            </span>
+                            <span>หมวดหมู่:</span>
+                            <span className="text-right text-on-surface">{catName}</span>
+                            <span>จำนวนเงิน:</span>
+                            <span className="text-right font-mono font-bold text-on-surface">
+                              {formatTHB(action.amount)}
+                            </span>
+                          </div>
+                          <div className="pt-1 flex items-center justify-between">
+                            <span className="inline-flex items-center gap-1 text-primary font-semibold">
+                              <span className="material-symbols-outlined text-[15px]">
+                                check_circle
+                              </span>
+                              บันทึกในระบบแล้ว
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => undoChatTransaction(m.id)}
+                              className="text-error hover:underline font-medium"
+                            >
+                              ยกเลิกรายการ (Undo)
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {action.status === "undone" && (
+                        <div className="text-on-surface-variant italic">
+                          ยกเลิกรายการ {action.merchant} ({formatTHB(action.amount)}) เรียบร้อยแล้ว
+                        </div>
+                      )}
+
+                      {action.status === "needs_amount" && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-on-surface-variant">ประเภท &amp; หมวดหมู่:</span>
+                            <div className="flex items-center gap-1.5">
+                              <select
+                                value={action.type}
+                                onChange={(e) => {
+                                  const nextType = e.target.value as TransactionType;
+                                  const firstCat =
+                                    categories.find((c) => c.type === nextType)?.id || "food";
+                                  updateChatMessage(m.id, {
+                                    txAction: { ...action, type: nextType, categoryId: firstCat },
+                                  });
+                                }}
+                                className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
+                              >
+                                <option value="expense">รายจ่าย</option>
+                                <option value="income">รายรับ</option>
+                              </select>
+                              <select
+                                value={action.categoryId}
+                                onChange={(e) =>
+                                  updateChatMessage(m.id, {
+                                    txAction: { ...action, categoryId: e.target.value },
+                                  })
+                                }
+                                className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
+                              >
+                                {categories
+                                  .filter((c) => c.type === action.type)
+                                  .map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.name}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="1"
+                              step="0.01"
+                              placeholder="ระบุยอดเงิน (บาท)"
+                              value={pendingAmounts[m.id] ?? ""}
+                              onChange={(e) =>
+                                setPendingAmounts((prev) => ({
+                                  ...prev,
+                                  [m.id]: e.target.value,
+                                }))
+                              }
+                              className="flex-1 bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-1.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
+                            />
+                            <button
+                              type="button"
+                              disabled={loading || !(Number(pendingAmounts[m.id]) > 0)}
+                              onClick={() => handleConfirmPendingTx(m)}
+                              className="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+                            >
+                              บันทึกรายการ
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {loading && (
             <div className="text-xs text-on-surface-variant font-mono">
-              กำลังวิเคราะห์ข้อมูลการเงินด้วย Gemini...
+              กำลังประมวลผลด้วย Finora AI...
             </div>
           )}
         </div>
@@ -232,13 +567,37 @@ export default function AiAssistantPage() {
             e.preventDefault();
             sendPrompt(input);
           }}
-          className="pt-3 border-t border-outline-variant/30 flex gap-2"
+          className="pt-3 border-t border-outline-variant/30 flex items-center gap-2"
         >
+          <label
+            title="อัปโหลดรูปภาพ QR Code หรือสลิปโอนเงิน"
+            className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs font-semibold text-on-surface hover:border-primary/60 transition-colors shrink-0 ${
+              loading ? "opacity-50 pointer-events-none" : ""
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px] text-primary">
+              qr_code_scanner
+            </span>
+            <span className="hidden sm:inline">ส่ง QR / สลิป</span>
+            <input
+              type="file"
+              accept="image/*"
+              disabled={loading}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (f) handleQrOrSlipFile(f);
+              }}
+              className="hidden"
+            />
+          </label>
+
           <input
             type="text"
             value={input}
+            onPaste={handlePaste}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="พิมพ์คำถามเกี่ยวกับการเงินของคุณ..."
+            placeholder="พิมพ์คำถาม หรือวางรูป QR/สลิป (Ctrl+V)..."
             className="flex-1 bg-surface-container-low border border-outline-variant/40 rounded-lg px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
           />
           <button
