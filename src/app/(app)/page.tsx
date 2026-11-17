@@ -56,13 +56,13 @@ export default function DashboardPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           <Link
-            href="/qr-scanner"
+            href="/ai-assistant"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-surface-container border border-outline-variant/40 text-sm font-medium text-on-surface hover:bg-surface-container-high"
           >
             <span className="material-symbols-outlined text-[18px] text-primary">
               qr_code_scanner
             </span>
-            <span>สแกน QR จ่ายเงิน</span>
+            <span>สแกน QR / ถาม AI</span>
           </Link>
           <button
             type="button"

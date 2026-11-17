@@ -21,13 +21,13 @@ Finora/
 │   │   │   ├── page.tsx                # Dashboard
 │   │   │   ├── transactions/page.tsx   # Income & Expenses ledger
 │   │   │   ├── recurring/page.tsx      # Recurring payments
-│   │   │   ├── qr-scanner/page.tsx     # PromptPay QR scanner & payment
 │   │   │   ├── categories/page.tsx     # Categories & monthly budgets
 │   │   │   ├── virtual-bank/page.tsx   # Virtual Bank wallet & transfers
-│   │   │   ├── ai-assistant/page.tsx   # Gemini AI Financial Advisor
+│   │   │   ├── ai-assistant/page.tsx   # Gemini AI Advisor & QR/Slip Auto-Scanner
 │   │   │   └── settings/page.tsx       # Profile, theme, linked wallet, AI key
 │   │   └── api/
-│   │       ├── ai/chat/route.ts        # Google Gemini (@google/genai) endpoint
+│   │       ├── ai/chat/route.ts        # Google Gemini (@google/genai) chat endpoint
+│   │       ├── ai/qr/route.ts          # Google Gemini Vision QR & Slip OCR endpoint
 │   │       └── virtual-bank/route.ts   # Virtual Bank GET/POST service
 │   ├── components/
 │   │   ├── AppShell.tsx                # Sidebar, top bar, theme toggle

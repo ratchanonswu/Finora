@@ -11,10 +11,9 @@ const NAV_ITEMS = [
   { href: "/", label: "ภาพรวมการเงิน", icon: "space_dashboard" },
   { href: "/transactions", label: "รายรับรายจ่าย", icon: "receipt_long" },
   { href: "/recurring", label: "ตัดเงินอัตโนมัติ", icon: "autorenew" },
-  { href: "/qr-scanner", label: "สแกน QR Code", icon: "qr_code_scanner" },
   { href: "/categories", label: "จัดการหมวดหมู่", icon: "category" },
   { href: "/virtual-bank", label: "ธนาคารจำลอง", icon: "account_balance" },
-  { href: "/ai-assistant", label: "ผู้ช่วย AI", icon: "auto_awesome", badge: "AI" },
+  { href: "/ai-assistant", label: "ผู้ช่วย AI & สแกน QR", icon: "auto_awesome", badge: "AI" },
   { href: "/settings", label: "ตั้งค่าระบบ", icon: "settings" },
 ];
 
