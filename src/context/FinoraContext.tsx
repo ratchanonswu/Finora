@@ -19,8 +19,16 @@ import {
   INITIAL_SETTINGS,
   INITIAL_TRANSACTIONS,
   INITIAL_USER,
+  advanceDueDate,
   isBaseCategory,
 } from "@/lib/seed";
+
+export interface MonthlyRolloverResult {
+  salaryCredited: number;
+  billsPaid: number;
+  billsTotal: number;
+  billsSkipped: number;
+}
 
 interface FinoraState {
   theme: ThemeMode;
@@ -65,6 +73,7 @@ interface FinoraContextValue extends FinoraState {
   ) => Promise<{ ok: boolean; error?: string }>;
   updateSettings: (patch: Partial<AppSettings>) => void;
   updateUser: (patch: Partial<UserProfile>) => void;
+  runMonthlyRollover: () => MonthlyRolloverResult;
 }
 
 const STORAGE_KEY = "finora_state_v1";
@@ -109,7 +118,11 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
             return seed ? { ...c, color: seed.color } : c;
           });
         }
-        setState((prev) => ({ ...prev, ...parsed }));
+        setState((prev) => ({
+          ...prev,
+          ...parsed,
+          settings: { ...INITIAL_SETTINGS, ...(parsed.settings || {}) },
+        }));
       }
       const savedChat = sessionStorage.getItem(CHAT_SESSION_KEY);
       if (savedChat) {
@@ -362,6 +375,103 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       user: { ...prev.user, ...patch },
     }));
 
+  const runMonthlyRollover = (): MonthlyRolloverResult => {
+    const nowMs = Date.now();
+    const txDate = new Date(nowMs).toISOString();
+    const resetIso = new Date(nowMs + 10).toISOString();
+    const salary = Math.max(
+      0,
+      Number(state.settings.monthlySalary ?? INITIAL_SETTINGS.monthlySalary) || 0
+    );
+
+    let balance = state.bankBalance;
+    const newTxs: Transaction[] = [];
+    const newLedger: BankLedgerEntry[] = [];
+
+    if (salary > 0) {
+      balance += salary;
+      const ref = `PAY-${nowMs.toString().slice(-6)}`;
+      newTxs.push({
+        id: `tx-pay-${nowMs}`,
+        ref,
+        title: "เงินเดือนประจำรอบเดือน",
+        amount: salary,
+        type: "income",
+        categoryId: "salary",
+        channel: "Virtual Bank Auto-Credit",
+        date: txDate,
+        status: "completed",
+      });
+      newLedger.push({
+        id: `l-pay-${nowMs}`,
+        ref,
+        type: "credit",
+        title: "เงินเดือนโอนเข้าบัญชีอัตโนมัติ",
+        counterparty: "Payroll Auto-Credit",
+        amount: salary,
+        balanceAfter: balance,
+        date: txDate,
+      });
+    }
+
+    let billsPaid = 0;
+    let billsTotal = 0;
+    let billsSkipped = 0;
+
+    const updatedRecurring = state.recurring.map((r, idx) => {
+      if (!r.active) return r;
+      if (balance < r.amount) {
+        billsSkipped += 1;
+        return r;
+      }
+      balance -= r.amount;
+      billsPaid += 1;
+      billsTotal += r.amount;
+      const ref = `REC-${nowMs.toString().slice(-6)}-${idx + 1}`;
+      newTxs.push({
+        id: `tx-rec-${nowMs}-${idx}`,
+        ref,
+        title: r.title,
+        amount: r.amount,
+        type: "expense",
+        categoryId: r.categoryId,
+        channel: "Virtual Bank Auto-Debit",
+        date: txDate,
+        status: "completed",
+      });
+      newLedger.push({
+        id: `l-rec-${nowMs}-${idx}`,
+        ref,
+        type: "debit",
+        title: `หักบัญชีอัตโนมัติ: ${r.title}`,
+        counterparty: r.title,
+        amount: r.amount,
+        balanceAfter: balance,
+        date: txDate,
+      });
+      return { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) };
+    });
+
+    setState((prev) => ({
+      ...prev,
+      bankBalance: balance,
+      transactions: [...newTxs.reverse(), ...prev.transactions],
+      ledger: [...newLedger.reverse(), ...prev.ledger],
+      recurring: updatedRecurring,
+      settings: {
+        ...prev.settings,
+        quotaResetAt: resetIso,
+      },
+    }));
+
+    return {
+      salaryCredited: salary,
+      billsPaid,
+      billsTotal,
+      billsSkipped,
+    };
+  };
+
   return (
     <FinoraContext.Provider
       value={{
@@ -390,6 +500,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         executeBankAction,
         updateSettings,
         updateUser,
+        runMonthlyRollover,
       }}
     >
       {children}
