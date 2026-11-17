@@ -63,6 +63,8 @@ export interface AppSettings {
   aiAutoCategorize: boolean;
   aiConfidenceThreshold: number;
   geminiApiKeyOverride: string;
+  monthlySalary: number;
+  quotaResetAt?: string;
 }
 
 export interface ChatTxAction {

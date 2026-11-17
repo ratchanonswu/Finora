@@ -121,7 +121,26 @@ export const INITIAL_SETTINGS: AppSettings = {
   aiAutoCategorize: true,
   aiConfidenceThreshold: 85,
   geminiApiKeyOverride: "",
+  monthlySalary: 55000,
 };
+
+export function isInCurrentQuotaCycle(txDate: string, quotaResetAt?: string): boolean {
+  if (!quotaResetAt) return true;
+  return new Date(txDate).getTime() > new Date(quotaResetAt).getTime();
+}
+
+export function advanceDueDate(dateStr: string, cycle: "monthly" | "weekly" | "yearly"): string {
+  const [y, m, day] = dateStr.split("-").map(Number);
+  if (!y || !m || !day) return dateStr;
+  const d = new Date(y, m - 1, day);
+  if (cycle === "weekly") d.setDate(d.getDate() + 7);
+  else if (cycle === "yearly") d.setFullYear(d.getFullYear() + 1);
+  else d.setMonth(d.getMonth() + 1);
+  const yy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
 
 export function formatTHB(amount: number): string {
   return `฿${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
