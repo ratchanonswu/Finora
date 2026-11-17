@@ -9,6 +9,7 @@ import {
   describeWriteTool,
   READ_TOOL_NAMES,
   runReadTool,
+  validateAndNormalizeWriteTool,
   WRITE_TOOL_NAMES,
 } from "@/lib/ai-tools";
 import type { OpenRouterMessage, OpenRouterToolCall } from "@/lib/openrouter";
@@ -136,9 +137,17 @@ export default function AiAssistantPage() {
         const sum = transactions
           .filter((t) => t.categoryId === c.id)
           .reduce((s, t) => s + t.amount, 0);
-        return `- ${c.name}: ใช้ไป ${formatTHB(sum)} (งบ ${formatTHB(c.budget)})`;
+        return `- [${c.id}] ${c.name}: ใช้ไป ${formatTHB(sum)} (งบ ${formatTHB(c.budget)})`;
       })
       .join("\n");
+    const incomeCats = categories
+      .filter((c) => c.type === "income")
+      .map((c) => `[${c.id}] ${c.name}`)
+      .join(", ");
+    const recList =
+      recurring
+        .map((r) => `[${r.id}] ${r.title} (${formatTHB(r.amount)}, ${r.active ? "เปิด" : "พัก"})`)
+        .join(", ") || "ไม่มี";
 
     return [
       `วันที่ปัจจุบัน: ${new Date().toLocaleDateString("th-TH", { dateStyle: "long" })}`,
@@ -146,13 +155,21 @@ export default function AiAssistantPage() {
       `รายรับรวม: ${formatTHB(income)}`,
       `รายจ่ายรวม: ${formatTHB(expense)}`,
       `รายจ่ายประจำ (Recurring ที่เปิดอยู่): ${formatTHB(recSum)}/เดือน`,
-      `รายละเอียดตามหมวดหมู่:\n${catBreakdown}`,
+      `รายการ Recurring: ${recList}`,
+      `หมวดรายจ่ายที่มี:\n${catBreakdown}`,
+      `หมวดรายรับที่มี: ${incomeCats}`,
     ].join("\n");
   }, [bankBalance, transactions, categories, recurring]);
 
   const runToolLoop = async (initialHistory: OpenRouterMessage[]) => {
     const history = [...initialHistory];
-    const snapshot = { bankBalance, transactions, categories, recurring };
+    const snapshot = {
+      bankBalance,
+      transactions,
+      categories,
+      recurring,
+      autoDebitOnExpense: settings.autoDebitOnExpense,
+    };
 
     for (let step = 0; step < 4; step++) {
       const res = await fetch("/api/ai/chat", {
@@ -199,20 +216,28 @@ export default function AiAssistantPage() {
           const out = runReadTool(tc.function.name, args, snapshot);
           history.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(out) });
         } else if (WRITE_TOOL_NAMES.has(tc.function.name)) {
-          hasWrite = true;
-          const summary = describeWriteTool(tc.function.name, args, snapshot);
-          appendChatMessage({
-            id: `t-${Date.now()}-${tc.id}`,
-            role: "assistant",
-            text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
-            pendingTool: {
-              toolCallId: tc.id,
-              name: tc.function.name,
-              args,
-              summary,
-              status: "pending",
-            },
-          });
+          const check = validateAndNormalizeWriteTool(tc.function.name, args, snapshot);
+          if (!check.ok) {
+            history.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              content: JSON.stringify({ error: check.error }),
+            });
+          } else {
+            hasWrite = true;
+            appendChatMessage({
+              id: `t-${Date.now()}-${tc.id}`,
+              role: "assistant",
+              text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
+              pendingTool: {
+                toolCallId: tc.id,
+                name: tc.function.name,
+                args: check.args,
+                summary: check.summary,
+                status: "pending",
+              },
+            });
+          }
         }
       }
 
@@ -249,40 +274,60 @@ export default function AiAssistantPage() {
     const pt = msg.pendingTool;
     if (!pt || pt.status !== "pending" || loading) return;
 
+    const snapshot = {
+      bankBalance,
+      transactions,
+      categories,
+      recurring,
+      autoDebitOnExpense: settings.autoDebitOnExpense,
+    };
+    const check = validateAndNormalizeWriteTool(pt.name, pt.args, snapshot);
+    if (!check.ok) {
+      appendChatMessage({
+        id: `e-${Date.now()}`,
+        role: "error",
+        text: check.error,
+      });
+      return;
+    }
+
     setLoading(true);
     let resultText = "";
     try {
+      const args = check.args;
       if (pt.name === "add_transaction") {
         const res = await addTransaction({
-          type: pt.args.type === "income" ? "income" : "expense",
-          title: String(pt.args.title || "รายการจาก AI"),
-          amount: Number(pt.args.amount) || 0,
-          categoryId: String(pt.args.categoryId || (pt.args.type === "income" ? "salary" : "food")),
-          channel: String(pt.args.channel || "Virtual Bank Wallet"),
+          type: args.type === "income" ? "income" : "expense",
+          title: String(args.title || "รายการจาก AI"),
+          amount: Number(args.amount) || 0,
+          categoryId: String(args.categoryId || (args.type === "income" ? "salary" : "food")),
+          channel: String(args.channel || "Virtual Bank Wallet"),
           date: new Date().toISOString(),
         });
         resultText = res.ok
-          ? `บันทึกสำเร็จ: ${pt.summary}`
+          ? `บันทึกสำเร็จ: ${check.summary}`
           : `บันทึกไม่สำเร็จ: ${res.error}`;
       } else if (pt.name === "update_category_budget") {
-        updateCategoryBudget(String(pt.args.categoryId), Number(pt.args.budget) || 0);
-        resultText = `อัปเดตสำเร็จ: ${pt.summary}`;
+        updateCategoryBudget(String(args.categoryId), Number(args.budget) || 0);
+        resultText = `อัปเดตสำเร็จ: ${check.summary}`;
       } else if (pt.name === "toggle_recurring") {
-        toggleRecurring(String(pt.args.recurringId));
-        resultText = `อัปเดตสำเร็จ: ${pt.summary}`;
+        toggleRecurring(String(args.recurringId));
+        resultText = `อัปเดตสำเร็จ: ${check.summary}`;
       } else if (pt.name === "virtual_bank_transfer") {
         const res = await executeBankAction(
-          pt.args.type === "credit" ? "credit" : "debit",
-          Number(pt.args.amount) || 0,
-          String(pt.args.title || ""),
-          String(pt.args.counterparty || "Finora Sandbox")
+          args.type === "credit" ? "credit" : "debit",
+          Number(args.amount) || 0,
+          String(args.title || ""),
+          String(args.counterparty || "Finora Sandbox")
         );
         resultText = res.ok
-          ? `ทำรายการสำเร็จ: ${pt.summary}`
+          ? `ทำรายการสำเร็จ: ${check.summary}`
           : `ทำรายการไม่สำเร็จ: ${res.error}`;
       }
 
-      updateChatMessage(msg.id, { pendingTool: { ...pt, status: "confirmed" } });
+      updateChatMessage(msg.id, {
+        pendingTool: { ...pt, args, summary: check.summary, status: "confirmed" },
+      });
       appendChatMessage({
         id: `a-${Date.now()}`,
         role: "assistant",
@@ -678,26 +723,140 @@ export default function AiAssistantPage() {
                   {m.pendingTool && (
                     <div className="mt-3 pt-3 border-t border-outline-variant/30 text-xs space-y-2.5">
                       <div className="font-semibold text-on-surface">{m.pendingTool.summary}</div>
-                      {m.pendingTool.status === "pending" && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={loading}
-                            onClick={() => handleConfirmTool(m)}
-                            className="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container font-semibold hover:opacity-90 disabled:opacity-50"
-                          >
-                            ยืนยันดำเนินการ
-                          </button>
-                          <button
-                            type="button"
-                            disabled={loading}
-                            onClick={() => handleCancelTool(m)}
-                            className="px-3.5 py-1.5 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-on-surface"
-                          >
-                            ยกเลิก
-                          </button>
-                        </div>
-                      )}
+                      {m.pendingTool.status === "pending" && (() => {
+                        const pt = m.pendingTool;
+                        const updateToolArgs = (nextArgs: Record<string, unknown>) => {
+                          updateChatMessage(m.id, {
+                            pendingTool: {
+                              ...pt,
+                              args: nextArgs,
+                              summary: describeWriteTool(pt.name, nextArgs, {
+                                bankBalance,
+                                transactions,
+                                categories,
+                                recurring,
+                                autoDebitOnExpense: settings.autoDebitOnExpense,
+                              }),
+                            },
+                          });
+                        };
+
+                        return (
+                          <div className="space-y-2">
+                            {pt.name === "add_transaction" && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <select
+                                  aria-label="เลือกหมวดหมู่"
+                                  value={String(pt.args.categoryId || "")}
+                                  onChange={(e) =>
+                                    updateToolArgs({ ...pt.args, categoryId: e.target.value })
+                                  }
+                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                >
+                                  {categories
+                                    .filter(
+                                      (c) =>
+                                        c.type === (pt.args.type === "income" ? "income" : "expense")
+                                    )
+                                    .map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.name}
+                                      </option>
+                                    ))}
+                                </select>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="0.01"
+                                  aria-label="จำนวนเงิน"
+                                  value={pt.args.amount === "" ? "" : Number(pt.args.amount ?? 0)}
+                                  onChange={(e) =>
+                                    updateToolArgs({
+                                      ...pt.args,
+                                      amount: e.target.value === "" ? "" : Number(e.target.value),
+                                    })
+                                  }
+                                  className="w-28 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                            )}
+
+                            {pt.name === "update_category_budget" && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <select
+                                  aria-label="เลือกหมวดหมู่รายจ่าย"
+                                  value={String(pt.args.categoryId || "")}
+                                  onChange={(e) =>
+                                    updateToolArgs({ ...pt.args, categoryId: e.target.value })
+                                  }
+                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                >
+                                  {categories
+                                    .filter((c) => c.type === "expense")
+                                    .map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.name}
+                                      </option>
+                                    ))}
+                                </select>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="100"
+                                  aria-label="งบประมาณต่อเดือน"
+                                  value={pt.args.budget === "" ? "" : Number(pt.args.budget ?? 0)}
+                                  onChange={(e) =>
+                                    updateToolArgs({
+                                      ...pt.args,
+                                      budget: e.target.value === "" ? "" : Number(e.target.value),
+                                    })
+                                  }
+                                  className="w-32 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                            )}
+
+                            {pt.name === "virtual_bank_transfer" && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-on-surface-variant">จำนวนเงิน:</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="0.01"
+                                  aria-label="จำนวนเงินโอน"
+                                  value={pt.args.amount === "" ? "" : Number(pt.args.amount ?? 0)}
+                                  onChange={(e) =>
+                                    updateToolArgs({
+                                      ...pt.args,
+                                      amount: e.target.value === "" ? "" : Number(e.target.value),
+                                    })
+                                  }
+                                  className="w-32 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2 pt-0.5">
+                              <button
+                                type="button"
+                                disabled={loading}
+                                onClick={() => handleConfirmTool(m)}
+                                className="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container font-semibold hover:opacity-90 disabled:opacity-50"
+                              >
+                                ยืนยันดำเนินการ
+                              </button>
+                              <button
+                                type="button"
+                                disabled={loading}
+                                onClick={() => handleCancelTool(m)}
+                                className="px-3.5 py-1.5 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-on-surface"
+                              >
+                                ยกเลิก
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {m.pendingTool.status === "confirmed" && (
                         <span className="inline-flex items-center gap-1 text-primary font-semibold">
                           <span className="material-symbols-outlined text-[15px]">check_circle</span>
