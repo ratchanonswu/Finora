@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useFinora } from "@/context/FinoraContext";
 
 interface AuthShellProps {
@@ -19,7 +20,22 @@ export function AuthShell({
   footerBadge,
   children,
 }: AuthShellProps) {
-  const { theme, toggleTheme } = useFinora();
+  const router = useRouter();
+  const { hydrated, user, theme, toggleTheme } = useFinora();
+
+  useEffect(() => {
+    if (hydrated && user.isLoggedIn) {
+      router.replace("/");
+    }
+  }, [hydrated, user.isLoggedIn, router]);
+
+  if (!hydrated || user.isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center text-sm text-on-surface-variant">
+        กำลังตรวจสอบสถานะการเข้าสู่ระบบ...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-on-surface flex items-center justify-center p-4 sm:p-6 lg:p-10 relative">

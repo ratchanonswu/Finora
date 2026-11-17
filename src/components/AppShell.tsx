@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useFinora } from "@/context/FinoraContext";
@@ -26,17 +26,31 @@ const NAV_ITEMS = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, toggleTheme, bankBalance, user, logoutUser, setTxModalOpen } = useFinora();
+  const { hydrated, theme, toggleTheme, bankBalance, user, logoutUser, setTxModalOpen } = useFinora();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (hydrated && !user.isLoggedIn) {
+      router.replace("/login");
+    }
+  }, [hydrated, user.isLoggedIn, router]);
 
   const currentNav =
     [AI_NAV_ITEM, ...NAV_ITEMS].find((item) => item.href === pathname) || NAV_ITEMS[0];
 
   const handleLogout = () => {
     logoutUser();
-    router.push("/login");
+    router.replace("/login");
   };
+
+  if (!hydrated || !user.isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center text-sm text-on-surface-variant">
+        กำลังตรวจสอบสถานะการเข้าสู่ระบบ...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-on-surface flex">
