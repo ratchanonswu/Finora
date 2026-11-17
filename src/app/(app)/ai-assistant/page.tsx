@@ -5,6 +5,13 @@ import Link from "next/link";
 import { useFinora } from "@/context/FinoraContext";
 import { formatTHB, parsePromptPayPayload } from "@/lib/seed";
 import { decodeQrImage } from "@/lib/qr-decoder";
+import {
+  describeWriteTool,
+  READ_TOOL_NAMES,
+  runReadTool,
+  WRITE_TOOL_NAMES,
+} from "@/lib/ai-tools";
+import type { OpenRouterMessage, OpenRouterToolCall } from "@/lib/openrouter";
 import type { ChatMessage, TransactionType } from "@/lib/types";
 
 const SUGGESTIONS = [
@@ -106,6 +113,9 @@ export default function AiAssistantPage() {
     clearChatMessages,
     undoChatTransaction,
     addTransaction,
+    updateCategoryBudget,
+    toggleRecurring,
+    executeBankAction,
   } = useFinora();
 
   const [input, setInput] = useState("");
@@ -131,6 +141,7 @@ export default function AiAssistantPage() {
       .join("\n");
 
     return [
+      `วันที่ปัจจุบัน: ${new Date().toLocaleDateString("th-TH", { dateStyle: "long" })}`,
       `ยอดเงินคงเหลือ Virtual Wallet: ${formatTHB(bankBalance)}`,
       `รายรับรวม: ${formatTHB(income)}`,
       `รายจ่ายรวม: ${formatTHB(expense)}`,
@@ -139,20 +150,16 @@ export default function AiAssistantPage() {
     ].join("\n");
   }, [bankBalance, transactions, categories, recurring]);
 
-  const sendPrompt = async (promptText: string) => {
-    const text = promptText.trim();
-    if (!text || loading) return;
+  const runToolLoop = async (initialHistory: OpenRouterMessage[]) => {
+    const history = [...initialHistory];
+    const snapshot = { bankBalance, transactions, categories, recurring };
 
-    appendChatMessage({ id: `u-${Date.now()}`, role: "user", text });
-    setInput("");
-    setLoading(true);
-
-    try {
+    for (let step = 0; step < 4; step++) {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: text,
+          messages: history,
           apiKeyOverride: settings.geminiApiKeyOverride,
           financialSummary,
         }),
@@ -164,13 +171,69 @@ export default function AiAssistantPage() {
           role: "error",
           text: data.error || "ไม่สามารถเชื่อมต่อ AI ได้",
         });
-      } else {
+        return;
+      }
+
+      const toolCalls: OpenRouterToolCall[] | undefined = data.toolCalls;
+      if (!toolCalls || toolCalls.length === 0) {
         appendChatMessage({
           id: `a-${Date.now()}`,
           role: "assistant",
           text: data.reply,
         });
+        return;
       }
+
+      history.push({ role: "assistant", content: data.reply || null, tool_calls: toolCalls });
+
+      let hasWrite = false;
+      for (const tc of toolCalls) {
+        let args: Record<string, unknown> = {};
+        try {
+          args = JSON.parse(tc.function.arguments || "{}");
+        } catch {
+          args = {};
+        }
+
+        if (READ_TOOL_NAMES.has(tc.function.name)) {
+          const out = runReadTool(tc.function.name, args, snapshot);
+          history.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(out) });
+        } else if (WRITE_TOOL_NAMES.has(tc.function.name)) {
+          hasWrite = true;
+          const summary = describeWriteTool(tc.function.name, args, snapshot);
+          appendChatMessage({
+            id: `t-${Date.now()}-${tc.id}`,
+            role: "assistant",
+            text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
+            pendingTool: {
+              toolCallId: tc.id,
+              name: tc.function.name,
+              args,
+              summary,
+              status: "pending",
+            },
+          });
+        }
+      }
+
+      if (hasWrite) return;
+    }
+  };
+
+  const sendPrompt = async (promptText: string) => {
+    const text = promptText.trim();
+    if (!text || loading) return;
+
+    appendChatMessage({ id: `u-${Date.now()}`, role: "user", text });
+    setInput("");
+    setLoading(true);
+
+    try {
+      const prior: OpenRouterMessage[] = chatMessages
+        .filter((m) => m.id !== "welcome" && (m.role === "user" || m.role === "assistant"))
+        .slice(-8)
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.text }));
+      await runToolLoop([...prior, { role: "user", content: text }]);
     } catch {
       appendChatMessage({
         id: `e-${Date.now()}`,
@@ -180,6 +243,60 @@ export default function AiAssistantPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleConfirmTool = async (msg: ChatMessage) => {
+    const pt = msg.pendingTool;
+    if (!pt || pt.status !== "pending" || loading) return;
+
+    setLoading(true);
+    let resultText = "";
+    try {
+      if (pt.name === "add_transaction") {
+        const res = await addTransaction({
+          type: pt.args.type === "income" ? "income" : "expense",
+          title: String(pt.args.title || "รายการจาก AI"),
+          amount: Number(pt.args.amount) || 0,
+          categoryId: String(pt.args.categoryId || (pt.args.type === "income" ? "salary" : "food")),
+          channel: String(pt.args.channel || "Virtual Bank Wallet"),
+          date: new Date().toISOString(),
+        });
+        resultText = res.ok
+          ? `บันทึกสำเร็จ: ${pt.summary}`
+          : `บันทึกไม่สำเร็จ: ${res.error}`;
+      } else if (pt.name === "update_category_budget") {
+        updateCategoryBudget(String(pt.args.categoryId), Number(pt.args.budget) || 0);
+        resultText = `อัปเดตสำเร็จ: ${pt.summary}`;
+      } else if (pt.name === "toggle_recurring") {
+        toggleRecurring(String(pt.args.recurringId));
+        resultText = `อัปเดตสำเร็จ: ${pt.summary}`;
+      } else if (pt.name === "virtual_bank_transfer") {
+        const res = await executeBankAction(
+          pt.args.type === "credit" ? "credit" : "debit",
+          Number(pt.args.amount) || 0,
+          String(pt.args.title || ""),
+          String(pt.args.counterparty || "Finora Sandbox")
+        );
+        resultText = res.ok
+          ? `ทำรายการสำเร็จ: ${pt.summary}`
+          : `ทำรายการไม่สำเร็จ: ${res.error}`;
+      }
+
+      updateChatMessage(msg.id, { pendingTool: { ...pt, status: "confirmed" } });
+      appendChatMessage({
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        text: `${resultText} เรียบร้อยแล้วค่ะ`,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelTool = (msg: ChatMessage) => {
+    const pt = msg.pendingTool;
+    if (!pt || pt.status !== "pending") return;
+    updateChatMessage(msg.id, { pendingTool: { ...pt, status: "cancelled" } });
   };
 
   const handleQrOrSlipFile = async (file: File) => {
@@ -554,6 +671,41 @@ export default function AiAssistantPage() {
                             </button>
                           </div>
                         </div>
+                      )}
+                    </div>
+                  )}
+                  {/* Write Tool Confirmation Block (Flattened with border divider) */}
+                  {m.pendingTool && (
+                    <div className="mt-3 pt-3 border-t border-outline-variant/30 text-xs space-y-2.5">
+                      <div className="font-semibold text-on-surface">{m.pendingTool.summary}</div>
+                      {m.pendingTool.status === "pending" && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => handleConfirmTool(m)}
+                            className="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container font-semibold hover:opacity-90 disabled:opacity-50"
+                          >
+                            ยืนยันดำเนินการ
+                          </button>
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => handleCancelTool(m)}
+                            className="px-3.5 py-1.5 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-on-surface"
+                          >
+                            ยกเลิก
+                          </button>
+                        </div>
+                      )}
+                      {m.pendingTool.status === "confirmed" && (
+                        <span className="inline-flex items-center gap-1 text-primary font-semibold">
+                          <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                          ยืนยันและดำเนินการเรียบร้อยแล้ว
+                        </span>
+                      )}
+                      {m.pendingTool.status === "cancelled" && (
+                        <span className="text-on-surface-variant italic">ยกเลิกการดำเนินการนี้แล้ว</span>
                       )}
                     </div>
                   )}
