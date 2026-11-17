@@ -7,6 +7,7 @@ import { formatTHB, parsePromptPayPayload } from "@/lib/seed";
 import { decodeQrImage } from "@/lib/qr-decoder";
 import {
   describeWriteTool,
+  getToolExecutionPriority,
   READ_TOOL_NAMES,
   runReadTool,
   validateAndNormalizeWriteTool,
@@ -217,14 +218,24 @@ export default function AiAssistantPage() {
 
       history.push({ role: "assistant", content: data.reply || null, tool_calls: toolCalls });
 
+      const parsedCalls = toolCalls
+        .map((tc) => {
+          let args: Record<string, unknown> = {};
+          try {
+            args = JSON.parse(tc.function.arguments || "{}");
+          } catch {
+            args = {};
+          }
+          return { tc, args };
+        })
+        .sort(
+          (a, b) =>
+            getToolExecutionPriority(a.tc.function.name, a.args) -
+            getToolExecutionPriority(b.tc.function.name, b.args)
+        );
+
       let hasWrite = false;
-      for (const tc of toolCalls) {
-        let args: Record<string, unknown> = {};
-        try {
-          args = JSON.parse(tc.function.arguments || "{}");
-        } catch {
-          args = {};
-        }
+      for (const { tc, args } of parsedCalls) {
 
         if (READ_TOOL_NAMES.has(tc.function.name)) {
           const out = runReadTool(tc.function.name, args, snapshot);

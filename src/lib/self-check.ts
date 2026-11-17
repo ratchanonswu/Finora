@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
-import { runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
+import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
 import { CATEGORY_PALETTE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload } from "./seed.ts";
 
 // 1. Valid credit increases balance
@@ -103,4 +103,16 @@ if (newRec.ok) {
   assert.match(String(newRec.args.nextDueDate), /^\d{4}-\d{2}-\d{2}$/);
 }
 
-console.log("Finora self-check passed (10/10 checks)");
+// 11. Tool execution priority orders add_category and credit before expense/debit
+assert.equal(
+  getToolExecutionPriority("add_category", {}) <
+    getToolExecutionPriority("add_transaction", { type: "expense" }),
+  true
+);
+assert.equal(
+  getToolExecutionPriority("virtual_bank_transfer", { type: "credit" }) <
+    getToolExecutionPriority("virtual_bank_transfer", { type: "debit" }),
+  true
+);
+
+console.log("Finora self-check passed (11/11 checks)");

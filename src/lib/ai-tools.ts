@@ -27,6 +27,26 @@ export const WRITE_TOOL_NAMES = new Set([
   "virtual_bank_transfer",
 ]);
 
+// Orders parallel tool calls by dependency: reads -> add_category -> income/credit -> config -> expense/debit.
+export function getToolExecutionPriority(name: string, args: Record<string, unknown>): number {
+  if (READ_TOOL_NAMES.has(name)) return 0;
+  if (name === "add_category") return 1;
+  if (
+    (name === "virtual_bank_transfer" && args.type === "credit") ||
+    (name === "add_transaction" && args.type === "income")
+  ) {
+    return 2;
+  }
+  if (
+    name === "update_category_budget" ||
+    name === "add_recurring_payment" ||
+    name === "toggle_recurring"
+  ) {
+    return 3;
+  }
+  return 4;
+}
+
 const VALID_CATEGORY_ICONS = new Set([
   "label",
   "fitness_center",
