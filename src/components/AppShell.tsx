@@ -17,7 +17,7 @@ const AI_NAV_ITEM = {
 const NAV_ITEMS = [
   { href: "/", label: "ภาพรวมการเงิน", icon: "space_dashboard" },
   { href: "/transactions", label: "รายรับรายจ่าย", icon: "receipt_long" },
-  { href: "/recurring", label: "ตัดเงินอัตโนมัติ", icon: "autorenew" },
+  { href: "/recurring", label: "ตัด/รับเงินอัตโนมัติ", icon: "autorenew" },
   { href: "/categories", label: "จัดการหมวดหมู่", icon: "category" },
   { href: "/settings", label: "ตั้งค่าระบบ", icon: "settings" },
 ];
