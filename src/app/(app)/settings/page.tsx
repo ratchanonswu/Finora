@@ -230,6 +230,13 @@ export default function SettingsPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setSimulateDate((d) => addDaysIso(d, 2))}
+                  className="px-2.5 py-1.5 rounded-lg border border-outline-variant/40 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                >
+                  +2 วัน
+                </button>
+                <button
+                  type="button"
                   onClick={() => setSimulateDate((d) => addDaysIso(d, 7))}
                   className="px-2.5 py-1.5 rounded-lg border border-outline-variant/40 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
                 >

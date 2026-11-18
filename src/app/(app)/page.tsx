@@ -5,13 +5,27 @@ import Link from "next/link";
 import { useFinora } from "@/context/FinoraContext";
 import { formatTHB, formatThaiDate, isInCurrentQuotaCycle } from "@/lib/seed";
 
-const MONTHLY_SERIES = [
-  { month: "ต.ค.", income: 74000, expense: 41000 },
-  { month: "พ.ย.", income: 78000, expense: 39000 },
-  { month: "ธ.ค.", income: 92000, expense: 52000 },
-  { month: "ม.ค.", income: 81000, expense: 35000 },
-  { month: "ก.พ.", income: 84000, expense: 37000 },
-  { month: "มี.ค.*", income: 89320, expense: 32450 },
+const THAI_MONTHS_SHORT = [
+  "ม.ค.",
+  "ก.พ.",
+  "มี.ค.",
+  "เม.ย.",
+  "พ.ค.",
+  "มิ.ย.",
+  "ก.ค.",
+  "ส.ค.",
+  "ก.ย.",
+  "ต.ค.",
+  "พ.ย.",
+  "ธ.ค.",
+];
+
+const HISTORICAL_BASE = [
+  { income: 52000, expense: 31000 },
+  { income: 50000, expense: 29000 },
+  { income: 55000, expense: 34000 },
+  { income: 50000, expense: 28000 },
+  { income: 53000, expense: 32000 },
 ];
 
 export default function DashboardPage() {
@@ -27,6 +41,39 @@ export default function DashboardPage() {
     const savingsRate = income > 0 ? Math.max(0, Math.round(((income - expense) / income) * 100)) : 0;
     return { income, expense, net: income - expense, savingsRate };
   }, [transactions]);
+
+  const { monthlySeries, chartRangeLabel, maxChartVal } = useMemo(() => {
+    const now = new Date();
+    const series = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const label = THAI_MONTHS_SHORT[d.getMonth()];
+      if (i === 0) {
+        series.push({
+          month: `${label}*`,
+          year: d.getFullYear(),
+          income: stats.income,
+          expense: stats.expense,
+        });
+      } else {
+        const base = HISTORICAL_BASE[5 - i - 1];
+        series.push({
+          month: label,
+          year: d.getFullYear(),
+          income: base.income,
+          expense: base.expense,
+        });
+      }
+    }
+    const first = series[0];
+    const last = series[series.length - 1];
+    const maxVal = Math.max(60000, ...series.map((s) => Math.max(s.income, s.expense)));
+    return {
+      monthlySeries: series,
+      chartRangeLabel: `${first.month} ${first.year} - ${last.month.replace("*", "")} ${last.year}`,
+      maxChartVal: maxVal,
+    };
+  }, [stats.income, stats.expense]);
 
   const categoryTotals = useMemo(() => {
     const expenseTx = transactions.filter(
@@ -213,7 +260,7 @@ export default function DashboardPage() {
               <h2 className="text-base font-semibold text-on-surface m-0">
                 เปรียบเทียบรายรับและรายจ่าย (6 เดือน)
               </h2>
-              <p className="text-xs text-on-surface-variant mt-0.5">ต.ค. 2024 - มี.ค. 2025</p>
+              <p className="text-xs text-on-surface-variant mt-0.5">{chartRangeLabel}</p>
             </div>
             <div className="flex items-center gap-4 text-xs">
               <span className="inline-flex items-center gap-1.5">
@@ -226,17 +273,17 @@ export default function DashboardPage() {
           </div>
 
           <div className="h-52 flex items-end justify-between gap-3 pt-4">
-            {MONTHLY_SERIES.map((m) => (
+            {monthlySeries.map((m) => (
               <div key={m.month} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
                 <div className="flex items-end gap-1.5 h-full w-full justify-center">
                   <div
                     className="w-3.5 sm:w-5 bg-primary rounded-t animate-bar-grow hover:opacity-85 transition-opacity"
-                    style={{ height: `${Math.round((m.income / 100000) * 100)}%` }}
+                    style={{ height: `${Math.max(4, Math.round((m.income / maxChartVal) * 100))}%` }}
                     title={`รายรับ: ${formatTHB(m.income)}`}
                   />
                   <div
                     className="w-3.5 sm:w-5 bg-secondary rounded-t animate-bar-grow hover:opacity-85 transition-opacity"
-                    style={{ height: `${Math.round((m.expense / 100000) * 100)}%` }}
+                    style={{ height: `${Math.max(4, Math.round((m.expense / maxChartVal) * 100))}%` }}
                     title={`รายจ่าย: ${formatTHB(m.expense)}`}
                   />
                 </div>

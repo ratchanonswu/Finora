@@ -158,6 +158,24 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<FinoraState>;
+        const hasLegacy2025Seed =
+          (Array.isArray(parsed.recurring) &&
+            parsed.recurring.some((r) => String(r.nextDueDate || "").startsWith("2025-"))) ||
+          (Array.isArray(parsed.transactions) &&
+            parsed.transactions.some((t) => String(t.date || "").startsWith("2025-")));
+
+        if (hasLegacy2025Seed) {
+          parsed.categories = DEFAULT_STATE.categories;
+          parsed.transactions = DEFAULT_STATE.transactions;
+          parsed.recurring = DEFAULT_STATE.recurring;
+          parsed.bankBalance = DEFAULT_STATE.bankBalance;
+          parsed.ledger = DEFAULT_STATE.ledger;
+          parsed.settings = {
+            ...INITIAL_SETTINGS,
+            geminiApiKeyOverride: parsed.settings?.geminiApiKeyOverride || "",
+          };
+        }
+
         // Saved demo data predates the per-category palette; refresh seed category colors.
         if (Array.isArray(parsed.categories)) {
           parsed.categories = parsed.categories.map((c) => {
