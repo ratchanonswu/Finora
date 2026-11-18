@@ -203,8 +203,11 @@ export default function SettingsPage() {
                 role="status"
                 className="text-xs text-primary bg-primary-container/15 border border-primary/30 rounded-lg px-3.5 py-2.5 font-medium"
               >
-                ทดสอบครบรอบเดือนสำเร็จ: เติมเงินเดือน +{formatTHB(rolloverResult.salaryCredited)} • ตัดบิลอัตโนมัติ{" "}
-                {rolloverResult.billsPaid} รายการ ({formatTHB(rolloverResult.billsTotal)})
+                ทดสอบครบรอบเดือนสำเร็จ: เติมเงินเดือน +{formatTHB(rolloverResult.salaryCredited)}
+                {rolloverResult.recurringIncomeCount > 0
+                  ? ` • รับรายรับประจำ ${rolloverResult.recurringIncomeCount} รายการ (+${formatTHB(rolloverResult.recurringIncomeTotal)})`
+                  : ""}
+                {" "}• ตัดบิลอัตโนมัติ {rolloverResult.billsPaid} รายการ ({formatTHB(rolloverResult.billsTotal)})
                 {rolloverResult.billsSkipped > 0
                   ? ` • ข้าม ${rolloverResult.billsSkipped} รายการ (ยอดเงินไม่พอ)`
                   : ""}
