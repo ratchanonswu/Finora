@@ -143,18 +143,27 @@ export default function CategoriesPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {cat.type === "expense" && (
-                    <>
-                      <label className="text-xs text-on-surface-variant">งบประมาณ:</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={cat.budget}
-                        onChange={(e) => updateCategoryBudget(cat.id, Number(e.target.value) || 0)}
-                        className="w-28 bg-surface-container-low border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-sm font-mono text-right text-on-surface"
-                      />
-                    </>
-                  )}
+                  {cat.type === "expense" &&
+                    (cat.id === "recurring" ? (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/30 text-xs text-on-surface-variant">
+                        <span className="material-symbols-outlined text-[15px] text-primary">lock</span>
+                        <span className="font-mono font-semibold text-on-surface">
+                          {formatTHB(cat.budget)}
+                        </span>
+                        <span>(คำนวณจาก Recurring)</span>
+                      </div>
+                    ) : (
+                      <>
+                        <label className="text-xs text-on-surface-variant">งบประมาณ:</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={cat.budget}
+                          onChange={(e) => updateCategoryBudget(cat.id, Number(e.target.value) || 0)}
+                          className="w-28 bg-surface-container-low border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-sm font-mono text-right text-on-surface"
+                        />
+                      </>
+                    ))}
                   {!base && (
                     <button
                       type="button"

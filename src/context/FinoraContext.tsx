@@ -20,6 +20,7 @@ import {
   INITIAL_TRANSACTIONS,
   INITIAL_USER,
   advanceDueDate,
+  computeRecurringMonthlyBudget,
   isBaseCategory,
 } from "@/lib/seed";
 
@@ -107,6 +108,26 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
   },
 ];
 
+function syncCategoriesWithRecurring(
+  categories: Category[],
+  recurring: RecurringPayment[]
+): Category[] {
+  const recurringBudget = computeRecurringMonthlyBudget(recurring);
+  const seedRecurring = INITIAL_CATEGORIES.find((c) => c.id === "recurring");
+  const hasRecurringCat = categories.some((c) => c.id === "recurring");
+  if (!hasRecurringCat && seedRecurring) {
+    const expenseInsertIdx = categories.findIndex((c) => c.type === "income");
+    const nextCat = { ...seedRecurring, budget: recurringBudget };
+    if (expenseInsertIdx === -1) return [...categories, nextCat];
+    return [
+      ...categories.slice(0, expenseInsertIdx),
+      nextCat,
+      ...categories.slice(expenseInsertIdx),
+    ];
+  }
+  return categories.map((c) => (c.id === "recurring" ? { ...c, budget: recurringBudget } : c));
+}
+
 const DEFAULT_STATE: FinoraState = {
   theme: "light",
   user: INITIAL_USER,
@@ -141,6 +162,14 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
             return seed ? { ...c, color: seed.color } : c;
           });
         }
+        if (parsed.recurring) {
+          parsed.recurring = parsed.recurring.map((r) => ({ ...r, categoryId: "recurring" }));
+        }
+        const loadedRecurring = parsed.recurring ?? DEFAULT_STATE.recurring;
+        parsed.categories = syncCategoriesWithRecurring(
+          parsed.categories ?? DEFAULT_STATE.categories,
+          loadedRecurring
+        );
         if (parsed.user) {
           activeUser = parsed.user;
         }
@@ -210,7 +239,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   const registerUser = (email: string, name: string) => {
     setState((prev) => ({
       ...prev,
-      categories: INITIAL_CATEGORIES,
+      categories: syncCategoriesWithRecurring(INITIAL_CATEGORIES, []),
       transactions: [],
       recurring: [],
       bankBalance: 0,
@@ -369,29 +398,48 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
-  const updateCategoryBudget = (id: string, budget: number) =>
+  const updateCategoryBudget = (id: string, budget: number) => {
+    if (id === "recurring") return;
     setState((prev) => ({
       ...prev,
       categories: prev.categories.map((c) => (c.id === id ? { ...c, budget } : c)),
     }));
+  };
 
   const addRecurring = (rec: Omit<RecurringPayment, "id">) =>
-    setState((prev) => ({
-      ...prev,
-      recurring: [...prev.recurring, { ...rec, id: `rec-${Date.now()}` }],
-    }));
+    setState((prev) => {
+      const nextRecurring = [
+        ...prev.recurring,
+        { ...rec, categoryId: "recurring", id: `rec-${Date.now()}` },
+      ];
+      return {
+        ...prev,
+        recurring: nextRecurring,
+        categories: syncCategoriesWithRecurring(prev.categories, nextRecurring),
+      };
+    });
 
   const toggleRecurring = (id: string) =>
-    setState((prev) => ({
-      ...prev,
-      recurring: prev.recurring.map((r) => (r.id === id ? { ...r, active: !r.active } : r)),
-    }));
+    setState((prev) => {
+      const nextRecurring = prev.recurring.map((r) =>
+        r.id === id ? { ...r, active: !r.active } : r
+      );
+      return {
+        ...prev,
+        recurring: nextRecurring,
+        categories: syncCategoriesWithRecurring(prev.categories, nextRecurring),
+      };
+    });
 
   const deleteRecurring = (id: string) =>
-    setState((prev) => ({
-      ...prev,
-      recurring: prev.recurring.filter((r) => r.id !== id),
-    }));
+    setState((prev) => {
+      const nextRecurring = prev.recurring.filter((r) => r.id !== id);
+      return {
+        ...prev,
+        recurring: nextRecurring,
+        categories: syncCategoriesWithRecurring(prev.categories, nextRecurring),
+      };
+    });
 
   const updateRecurringDate = (id: string, nextDueDate: string) =>
     setState((prev) => ({

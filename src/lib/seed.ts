@@ -21,9 +21,18 @@ export const INITIAL_CATEGORIES: Category[] = [
   { id: "housing", name: "ที่อยู่อาศัย & บิล", icon: "home", color: "#0284C7", budget: 12000, type: "expense" },
   { id: "transport", name: "การเดินทาง & น้ำมัน", icon: "directions_car", color: "#4F46E5", budget: 6000, type: "expense" },
   { id: "entertainment", name: "ความบันเทิง & สมาชิก", icon: "subscriptions", color: "#DB2777", budget: 4000, type: "expense" },
+  { id: "recurring", name: "รายจ่ายประจำ (Recurring)", icon: "autorenew", color: "#0D9488", budget: 12818, type: "expense" },
   { id: "salary", name: "เงินเดือน & โบนัส", icon: "payments", color: "#059669", budget: 0, type: "income" },
   { id: "investment", name: "เงินปันผล & การลงทุน", icon: "show_chart", color: "#CA8A04", budget: 0, type: "income" },
 ];
+
+export function computeRecurringMonthlyBudget(recurring: RecurringPayment[]): number {
+  return Math.round(
+    recurring
+      .filter((r) => r.active)
+      .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0)
+  );
+}
 
 export const BASE_CATEGORY_IDS = new Set(INITIAL_CATEGORIES.map((c) => c.id));
 
@@ -57,7 +66,7 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     title: "Netflix Subscription",
     amount: 419,
     type: "expense",
-    categoryId: "entertainment",
+    categoryId: "recurring",
     channel: "Virtual Bank Auto-Debit",
     date: "2025-03-01T00:01:00+07:00",
     status: "completed",
@@ -98,10 +107,10 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
 ];
 
 export const INITIAL_RECURRING: RecurringPayment[] = [
-  { id: "rec-1", title: "Netflix Premium Ultra HD", amount: 419, categoryId: "entertainment", cycle: "monthly", nextDueDate: "2025-04-01", active: true, icon: "movie" },
-  { id: "rec-2", title: "ค่าเช่าคอนโด Ashton Asoke", amount: 11500, categoryId: "housing", cycle: "monthly", nextDueDate: "2025-04-05", active: true, icon: "apartment" },
-  { id: "rec-3", title: "AIS Fibre 1Gbps + Mobile", amount: 899, categoryId: "housing", cycle: "monthly", nextDueDate: "2025-04-10", active: true, icon: "wifi" },
-  { id: "rec-4", title: "Spotify Duo", amount: 189, categoryId: "entertainment", cycle: "monthly", nextDueDate: "2025-04-15", active: false, icon: "music_note" },
+  { id: "rec-1", title: "Netflix Premium Ultra HD", amount: 419, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-01", active: true, icon: "movie" },
+  { id: "rec-2", title: "ค่าเช่าคอนโด Ashton Asoke", amount: 11500, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-05", active: true, icon: "apartment" },
+  { id: "rec-3", title: "AIS Fibre 1Gbps + Mobile", amount: 899, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-10", active: true, icon: "wifi" },
+  { id: "rec-4", title: "Spotify Duo", amount: 189, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-15", active: false, icon: "music_note" },
 ];
 
 export const INITIAL_BANK_BALANCE = 124500;

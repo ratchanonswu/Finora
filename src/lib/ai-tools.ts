@@ -534,12 +534,19 @@ export function validateAndNormalizeWriteTool(
     const cat = resolveCategory(rawArgs.categoryId, categories, "expense");
     if (!cat) {
       const validExpenseCats = categories
-        .filter((c) => c.type === "expense")
+        .filter((c) => c.type === "expense" && c.id !== "recurring")
         .map((c) => `${c.id} (${c.name})`)
         .join(", ");
       return {
         ok: false,
         error: `ไม่พบหมวดหมู่รายจ่าย "${String(rawArgs.categoryId || "")}" หมวดหมู่รายจ่ายที่ตั้งงบได้คือ: ${validExpenseCats}`,
+      };
+    }
+    if (cat.id === "recurring") {
+      return {
+        ok: false,
+        error:
+          "งบประมาณหมวดรายจ่ายประจำ (Recurring) คำนวณอัตโนมัติจากรายการที่เปิดใช้งาน ไม่สามารถแก้ไขโดยตรงได้",
       };
     }
 
@@ -616,29 +623,10 @@ export function validateAndNormalizeWriteTool(
       ? rawDate
       : defaultNextMonthFirstDay();
 
-    const rawCat = String(rawArgs.categoryId || "").trim();
-    const cat = rawCat
-      ? resolveCategory(rawCat, categories, "expense")
-      : resolveCategory("", categories, "expense", title) ||
-        categories.find((c) => c.id === "entertainment") ||
-        categories.find((c) => c.type === "expense") ||
-        null;
-
-    if (!cat) {
-      const validList = categories
-        .filter((c) => c.type === "expense")
-        .map((c) => `${c.id} (${c.name})`)
-        .join(", ");
-      return {
-        ok: false,
-        error: `ไม่พบหมวดหมู่รายจ่าย "${rawCat}" สำหรับรายการตัดเงินอัตโนมัติ หมวดหมู่ที่มีคือ: ${validList}`,
-      };
-    }
-
     const normalized = {
       title,
       amount,
-      categoryId: cat.id,
+      categoryId: "recurring",
       cycle,
       nextDueDate,
       icon: "autorenew",
