@@ -452,16 +452,18 @@ export default function AiAssistantPage() {
         toggleRecurring(String(args.recurringId));
         resultText = `อัปเดตสำเร็จ: ${check.summary}`;
       } else if (pt.name === "add_recurring_payment") {
+        const isInc = args.type === "income";
         addRecurring({
           title: String(args.title),
           amount: Number(args.amount) || 0,
-          categoryId: String(args.categoryId || "entertainment"),
+          type: isInc ? "income" : "expense",
+          categoryId: String(args.categoryId || (isInc ? "salary" : "recurring")),
           cycle: args.cycle === "weekly" || args.cycle === "yearly" ? args.cycle : "monthly",
           nextDueDate: String(args.nextDueDate),
           active: true,
-          icon: String(args.icon || "autorenew"),
+          icon: String(args.icon || (isInc ? "payments" : "autorenew")),
         });
-        resultText = `เพิ่มรายการตัดเงินอัตโนมัติสำเร็จ: ${check.summary}`;
+        resultText = `เพิ่ม${isInc ? "รายรับประจำ" : "รายการตัดเงินอัตโนมัติ"}สำเร็จ: ${check.summary}`;
       } else if (pt.name === "virtual_bank_transfer") {
         const res = await executeBankAction(
           args.type === "credit" ? "credit" : "debit",
@@ -1048,6 +1050,41 @@ export default function AiAssistantPage() {
 
                             {pt.name === "add_recurring_payment" && (
                               <div className="flex flex-wrap items-center gap-2">
+                                <select
+                                  aria-label="ประเภทรายการประจำ"
+                                  value={pt.args.type === "income" ? "income" : "expense"}
+                                  onChange={(e) => {
+                                    const nextType = e.target.value === "income" ? "income" : "expense";
+                                    updateToolArgs({
+                                      ...pt.args,
+                                      type: nextType,
+                                      categoryId: nextType === "income" ? "salary" : "recurring",
+                                      icon: nextType === "income" ? "payments" : "autorenew",
+                                    });
+                                  }}
+                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                >
+                                  <option value="expense">รายจ่ายประจำ</option>
+                                  <option value="income">รายรับประจำ</option>
+                                </select>
+                                {pt.args.type === "income" && (
+                                  <select
+                                    aria-label="หมวดหมู่รายรับประจำ"
+                                    value={String(pt.args.categoryId || "salary")}
+                                    onChange={(e) =>
+                                      updateToolArgs({ ...pt.args, categoryId: e.target.value })
+                                    }
+                                    className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                  >
+                                    {categories
+                                      .filter((c) => c.type === "income")
+                                      .map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          {c.name}
+                                        </option>
+                                      ))}
+                                  </select>
+                                )}
                                 <select
                                   aria-label="รอบการตัดเงิน"
                                   value={String(pt.args.cycle || "monthly")}

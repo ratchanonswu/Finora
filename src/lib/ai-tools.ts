@@ -156,7 +156,7 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "get_financial_overview",
-      description: "ดูยอดเงิน Virtual Bank คงเหลือ, รายรับรวม, รายจ่ายรวม, และยอดสุทธิปัจจุบัน",
+      description: "ดูยอดเงิน Virtual Wallet คงเหลือ, รายรับรวม, รายจ่ายรวม, และยอดสุทธิปัจจุบัน",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -191,7 +191,8 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "get_recurring_payments",
-      description: "ดูรายการตัดเงินอัตโนมัติ (Recurring) ทั้งหมด สถานะ และวันครบกำหนดถัดไป",
+      description:
+        "ดูรายการประจำ (Recurring) ทั้งรายจ่ายประจำและรายรับประจำ สถานะ และวันครบกำหนดถัดไป",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -278,7 +279,7 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     function: {
       name: "virtual_bank_transfer",
       description:
-        "เติมเงินเข้า (credit) หรือโอน/จ่ายออก (debit) ในบัญชี Virtual Bank (ต้องรอผู้ใช้ยืนยัน)",
+        "เติมเงินเข้า (credit) หรือโอน/จ่ายออก (debit) ในกระเป๋า Virtual Wallet (ต้องรอผู้ใช้ยืนยัน)",
       parameters: {
         type: "object",
         properties: {
@@ -295,24 +296,36 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "add_recurring_payment",
-      description: "สร้างรายการตัดเงินอัตโนมัติ (Recurring) ใหม่ (ต้องรอผู้ใช้ยืนยัน)",
+      description:
+        "สร้างรายการประจำ (Recurring) ใหม่ รองรับทั้งรายจ่ายประจำ (expense) และรายรับประจำ (income) (ต้องรอผู้ใช้ยืนยัน)",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "ชื่อบริการหรือบิล เช่น YouTube Premium, ค่าอินเทอร์เน็ต" },
+          type: {
+            type: "string",
+            enum: ["expense", "income"],
+            description:
+              "ประเภทรายการประจำ: expense (รายจ่ายประจำ เช่น บิล/สมาชิก) หรือ income (รายรับประจำ เช่น เงินเดือนประจำ)",
+          },
+          title: {
+            type: "string",
+            description: "ชื่อรายการ เช่น YouTube Premium, ค่าอินเทอร์เน็ต, เงินเดือนประจำ",
+          },
           amount: { type: "number", description: "จำนวนเงินต่อรอบ (บาท, มากกว่า 0)" },
           categoryId: {
             type: "string",
-            description: "รหัสหมวดหมู่รายจ่ายที่มีในระบบ เช่น entertainment, housing, food, shopping, transport",
+            description:
+              "รหัสหมวดหมู่รายรับเมื่อ type เป็น income (เช่น salary, investment); สำหรับรายจ่ายประจำระบบใช้หมวด recurring อัตโนมัติ",
           },
           cycle: {
             type: "string",
             enum: ["monthly", "weekly", "yearly"],
-            description: "รอบการตัดเงิน (ค่าเริ่มต้น monthly)",
+            description: "รอบรายการประจำ (ค่าเริ่มต้น monthly)",
           },
           nextDueDate: {
             type: "string",
-            description: "วันครบกำหนดถัดไปในรูปแบบ YYYY-MM-DD (ถ้าไม่ระบุจะใช้วันที่ 1 ของเดือนถัดไป)",
+            description:
+              "วันครบกำหนดถัดไปในรูปแบบ YYYY-MM-DD (ถ้าไม่ระบุจะใช้วันที่ 1 ของเดือนถัดไป)",
           },
         },
         required: ["title", "amount"],
@@ -363,16 +376,18 @@ export function runReadTool(
 
   if (name === "get_categories") {
     return {
-      categories: categories.map((c) => {
-        const spent = transactions
-          .filter(
-            (t) =>
-              t.categoryId === c.id &&
-              isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
-          )
-          .reduce((s, t) => s + t.amount, 0);
-        return { id: c.id, name: c.name, type: c.type, budget: c.budget, spent };
-      }),
+      categories: categories
+        .filter((c) => c.id !== "recurring")
+        .map((c) => {
+          const spent = transactions
+            .filter(
+              (t) =>
+                t.categoryId === c.id &&
+                isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+            )
+            .reduce((s, t) => s + t.amount, 0);
+          return { id: c.id, name: c.name, type: c.type, budget: c.budget, spent };
+        }),
     };
   }
 
@@ -458,16 +473,18 @@ export function describeWriteTool(
   }
   if (name === "virtual_bank_transfer") {
     const actionLabel =
-      args.type === "credit" ? "เติมเงินเข้า Virtual Bank" : "โอนเงินออกจาก Virtual Bank";
+      args.type === "credit" ? "เติมเงินเข้า Virtual Wallet" : "โอนเงินออกจาก Virtual Wallet";
     return `${actionLabel} จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (${String(args.title || "")})`;
   }
   if (name === "add_recurring_payment") {
+    const isIncome = args.type === "income";
+    const typeLabel = isIncome ? "รายรับประจำ" : "รายการตัดเงินอัตโนมัติ";
     const cycleLabel =
       args.cycle === "weekly" ? "รายสัปดาห์" : args.cycle === "yearly" ? "รายปี" : "รายเดือน";
     const cat =
       snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
       String(args.categoryId || "");
-    return `เพิ่มรายการตัดเงินอัตโนมัติ "${String(args.title || "")}" ฿${Number(args.amount || 0).toLocaleString("en-US")} (${cycleLabel}, หมวด: ${cat}, ครบกำหนด: ${String(args.nextDueDate || "")})`;
+    return `เพิ่ม${typeLabel} "${String(args.title || "")}" ฿${Number(args.amount || 0).toLocaleString("en-US")} (${cycleLabel}, หมวด: ${cat}, ครบกำหนด: ${String(args.nextDueDate || "")})`;
   }
   return `ดำเนินการ ${name}`;
 }
@@ -628,13 +645,21 @@ export function validateAndNormalizeWriteTool(
       ? rawDate
       : defaultNextMonthFirstDay();
 
+    const recType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
+    let categoryId = "recurring";
+    if (recType === "income") {
+      const cat = resolveCategory(rawArgs.categoryId, categories, "income", title);
+      categoryId = cat?.id || "salary";
+    }
+
     const normalized = {
       title,
       amount,
-      categoryId: "recurring",
+      type: recType,
+      categoryId,
       cycle,
       nextDueDate,
-      icon: "autorenew",
+      icon: recType === "income" ? "payments" : "autorenew",
     };
     return {
       ok: true,
