@@ -16,7 +16,9 @@ export function TransactionModal() {
 
   if (!isTxModalOpen) return null;
 
-  const filteredCategories = categories.filter((c) => c.type === type);
+  const filteredCategories = categories.filter(
+    (c) => c.type === type && c.id !== "recurring"
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

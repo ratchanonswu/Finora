@@ -598,7 +598,9 @@ export default function AiAssistantPage() {
           ? vision.amount
           : 0;
 
-      const matchingCategories = categories.filter((c) => c.type === txType);
+      const matchingCategories = categories.filter(
+        (c) => c.type === txType && c.id !== "recurring"
+      );
       const validCategory =
         vision?.categoryId && matchingCategories.some((c) => c.id === vision?.categoryId)
           ? vision.categoryId
@@ -867,7 +869,7 @@ export default function AiAssistantPage() {
                                   className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
                                 >
                                   {categories
-                                    .filter((c) => c.type === action.type)
+                                    .filter((c) => c.type === action.type && c.id !== "recurring")
                                     .map((c) => (
                                       <option key={c.id} value={c.id}>
                                         {c.name}
@@ -955,6 +957,7 @@ export default function AiAssistantPage() {
                                   {categories
                                     .filter(
                                       (c) =>
+                                        c.id !== "recurring" &&
                                         c.type === (pt.args.type === "income" ? "income" : "expense")
                                     )
                                     .map((c) => (

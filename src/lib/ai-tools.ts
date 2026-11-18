@@ -106,7 +106,8 @@ export function resolveCategory(
   expectedType?: TransactionType,
   fallbackText?: string
 ): Category | null {
-  const pool = expectedType ? categories.filter((c) => c.type === expectedType) : categories;
+  const nonRecurring = categories.filter((c) => c.id !== "recurring");
+  const pool = expectedType ? nonRecurring.filter((c) => c.type === expectedType) : nonRecurring;
   const candidates = [String(raw || "").trim(), String(fallbackText || "").trim()].filter(Boolean);
 
   for (const input of candidates) {
