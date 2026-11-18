@@ -26,6 +26,8 @@ import {
 
 export interface MonthlyRolloverResult {
   salaryCredited: number;
+  recurringIncomeCount: number;
+  recurringIncomeTotal: number;
   billsPaid: number;
   billsTotal: number;
   billsSkipped: number;
@@ -67,7 +69,7 @@ interface FinoraContextValue extends FinoraState {
   deleteRecurring: (id: string) => void;
   updateRecurringDate: (id: string, nextDueDate: string) => void;
   payRecurringItem: (id: string) => Promise<{ ok: boolean; error?: string }>;
-  payAllActiveRecurring: () => Promise<{
+  payAllActiveRecurring: (targetType?: "expense" | "income") => Promise<{
     ok: boolean;
     error?: string;
     count?: number;
@@ -456,13 +458,15 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
 
   const payRecurringItem = async (id: string): Promise<{ ok: boolean; error?: string }> => {
     const item = state.recurring.find((r) => r.id === id);
-    if (!item) return { ok: false, error: "ไม่พบรายการตัดเงินอัตโนมัติ" };
+    if (!item) return { ok: false, error: "ไม่พบรายการอัตโนมัติ" };
+
+    const isIncome = (item.type ?? "expense") === "income";
 
     if (state.settings.autoDebitOnExpense) {
       const bankRes = await executeBankAction(
-        "debit",
+        isIncome ? "credit" : "debit",
         item.amount,
-        `ชำระรายจ่ายประจำ: ${item.title}`,
+        isIncome ? `รับรายรับประจำ: ${item.title}` : `ชำระรายจ่ายประจำ: ${item.title}`,
         item.title
       );
       if (!bankRes.ok) return bankRes;
@@ -471,12 +475,14 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
     const nowMs = Date.now();
     const newTx: Transaction = {
       id: `tx-rec-${nowMs}`,
-      ref: `REC-${nowMs.toString().slice(-6)}`,
+      ref: `${isIncome ? "INC" : "REC"}-${nowMs.toString().slice(-6)}`,
       title: item.title,
       amount: item.amount,
-      type: "expense",
-      categoryId: "recurring",
-      channel: "ตัดยอดรายจ่ายประจำ (Recurring)",
+      type: isIncome ? "income" : "expense",
+      categoryId: isIncome ? item.categoryId || "salary" : "recurring",
+      channel: isIncome
+        ? "รับยอดรายรับประจำ (Recurring)"
+        : "ตัดยอดรายจ่ายประจำ (Recurring)",
       date: new Date(nowMs).toISOString(),
       status: "completed",
     };
@@ -492,34 +498,48 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
     return { ok: true };
   };
 
-  const payAllActiveRecurring = async (): Promise<{
+  const payAllActiveRecurring = async (
+    targetType: "expense" | "income" = "expense"
+  ): Promise<{
     ok: boolean;
     error?: string;
     count?: number;
     total?: number;
   }> => {
-    const activeItems = state.recurring.filter((r) => r.active);
+    const activeItems = state.recurring.filter(
+      (r) => r.active && (r.type ?? "expense") === targetType
+    );
     if (activeItems.length === 0) {
       return { ok: false, error: "ไม่มีรายการที่เปิดใช้งานอยู่" };
     }
 
+    const isIncome = targetType === "income";
     const total = activeItems.reduce((sum, r) => sum + r.amount, 0);
-    const batchTitle = `ชำระรายจ่ายประจำรวม (${activeItems.length} รายการ)`;
+    const batchTitle = isIncome
+      ? `รับรายรับประจำรวม (${activeItems.length} รายการ)`
+      : `ชำระรายจ่ายประจำรวม (${activeItems.length} รายการ)`;
 
     if (state.settings.autoDebitOnExpense && total > 0) {
-      const bankRes = await executeBankAction("debit", total, batchTitle, "Recurring Batch");
+      const bankRes = await executeBankAction(
+        isIncome ? "credit" : "debit",
+        total,
+        batchTitle,
+        isIncome ? "Recurring Income Batch" : "Recurring Batch"
+      );
       if (!bankRes.ok) return bankRes;
     }
 
     const nowMs = Date.now();
     const newTx: Transaction = {
       id: `tx-rec-batch-${nowMs}`,
-      ref: `REC-${nowMs.toString().slice(-6)}`,
+      ref: `${isIncome ? "INC" : "REC"}-${nowMs.toString().slice(-6)}`,
       title: batchTitle,
       amount: total,
-      type: "expense",
-      categoryId: "recurring",
-      channel: "ตัดยอดรายจ่ายประจำรวม (Recurring)",
+      type: isIncome ? "income" : "expense",
+      categoryId: isIncome ? "salary" : "recurring",
+      channel: isIncome
+        ? "รับยอดรายรับประจำรวม (Recurring)"
+        : "ตัดยอดรายจ่ายประจำรวม (Recurring)",
       date: new Date(nowMs).toISOString(),
       status: "completed",
     };
@@ -528,7 +548,9 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       transactions: [newTx, ...prev.transactions],
       recurring: prev.recurring.map((r) =>
-        r.active ? { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) } : r
+        r.active && (r.type ?? "expense") === targetType
+          ? { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) }
+          : r
       ),
     }));
 
@@ -586,12 +608,45 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
+    let recurringIncomeCount = 0;
+    let recurringIncomeTotal = 0;
     let billsPaid = 0;
     let billsTotal = 0;
     let billsSkipped = 0;
 
-    const updatedRecurring = state.recurring.map((r, idx) => {
-      if (!r.active) return r;
+    // Credit active recurring incomes first so funds are available for recurring bills.
+    const afterIncome = state.recurring.map((r, idx) => {
+      if (!r.active || (r.type ?? "expense") !== "income") return r;
+      balance += r.amount;
+      recurringIncomeCount += 1;
+      recurringIncomeTotal += r.amount;
+      const ref = `INC-${nowMs.toString().slice(-6)}-${idx + 1}`;
+      newTxs.push({
+        id: `tx-inc-${nowMs}-${idx}`,
+        ref,
+        title: r.title,
+        amount: r.amount,
+        type: "income",
+        categoryId: r.categoryId || "salary",
+        channel: "Virtual Bank Auto-Credit",
+        date: txDate,
+        status: "completed",
+      });
+      newLedger.push({
+        id: `l-inc-${nowMs}-${idx}`,
+        ref,
+        type: "credit",
+        title: `รับรายรับประจำอัตโนมัติ: ${r.title}`,
+        counterparty: r.title,
+        amount: r.amount,
+        balanceAfter: balance,
+        date: txDate,
+      });
+      return { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) };
+    });
+
+    const updatedRecurring = afterIncome.map((r, idx) => {
+      if (!r.active || (r.type ?? "expense") !== "expense") return r;
       if (balance < r.amount) {
         billsSkipped += 1;
         return r;
@@ -638,6 +693,8 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
 
     return {
       salaryCredited: salary,
+      recurringIncomeCount,
+      recurringIncomeTotal,
       billsPaid,
       billsTotal,
       billsSkipped,
