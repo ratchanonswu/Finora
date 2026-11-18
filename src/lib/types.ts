@@ -28,6 +28,7 @@ export interface RecurringPayment {
   id: string;
   title: string;
   amount: number;
+  type?: TransactionType;
   categoryId: string;
   cycle: "monthly" | "weekly" | "yearly";
   nextDueDate: string; // YYYY-MM-DD

@@ -378,14 +378,19 @@ export function runReadTool(
 
   if (name === "get_recurring_payments") {
     const activeMonthlyTotal = recurring
-      .filter((r) => r.active)
+      .filter((r) => r.active && (r.type ?? "expense") === "expense")
+      .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
+    const activeMonthlyIncomeTotal = recurring
+      .filter((r) => r.active && r.type === "income")
       .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
     return {
       activeMonthlyTotal,
+      activeMonthlyIncomeTotal,
       items: recurring.map((r) => ({
         id: r.id,
         title: r.title,
         amount: r.amount,
+        type: r.type ?? "expense",
         cycle: r.cycle,
         nextDueDate: r.nextDueDate,
         active: r.active,

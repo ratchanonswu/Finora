@@ -29,7 +29,7 @@ export const INITIAL_CATEGORIES: Category[] = [
 export function computeRecurringMonthlyBudget(recurring: RecurringPayment[]): number {
   return Math.round(
     recurring
-      .filter((r) => r.active)
+      .filter((r) => r.active && (r.type ?? "expense") === "expense")
       .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0)
   );
 }
