@@ -86,13 +86,20 @@ const tooExpensive = validateAndNormalizeWriteTool(
 );
 assert.equal(tooExpensive.ok, false);
 
-const cashBypass = validateAndNormalizeWriteTool(
+const cashWithinBalance = validateAndNormalizeWriteTool(
   "add_transaction",
-  { type: "expense", title: "Cash Market", amount: 25000, categoryId: "food", channel: "เงินสด" },
+  { type: "expense", title: "Cash Market", amount: 100, categoryId: "food", channel: "cash" },
   snap
 );
-assert.equal(cashBypass.ok, true);
-if (cashBypass.ok) assert.equal(cashBypass.args.channel, "เงินสด");
+assert.equal(cashWithinBalance.ok, true);
+if (cashWithinBalance.ok) assert.equal(cashWithinBalance.args.channel, "เงินสด");
+
+const cashOverdraft = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "Cash Laptop", amount: 25000, categoryId: "food", channel: "เงินสด" },
+  snap
+);
+assert.equal(cashOverdraft.ok, false);
 
 // 10. add_recurring_payment validator handles defaults and duplicate protection
 const newRec = validateAndNormalizeWriteTool("add_recurring_payment", { title: "YouTube Premium", amount: 179 }, snap);

@@ -489,7 +489,7 @@ export function validateAndNormalizeWriteTool(
     if (!Number.isFinite(amount) || amount <= 0) {
       return { ok: false, error: "จำนวนเงิน (amount) ต้องเป็นตัวเลขที่มากกว่า 0 บาท" };
     }
-    if (!isCash && txType === "expense" && autoDebitOnExpense && amount > bankBalance) {
+    if (txType === "expense" && autoDebitOnExpense && amount > bankBalance) {
       return {
         ok: false,
         error: `ยอดเงินใน Virtual Wallet คงเหลือ ฿${bankBalance.toLocaleString("en-US")} ไม่เพียงพอสำหรับรายจ่าย ฿${amount.toLocaleString("en-US")}`,
