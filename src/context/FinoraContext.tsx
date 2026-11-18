@@ -165,26 +165,37 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<FinoraState>;
         // Saved demo data predates the per-category palette; refresh seed category colors.
-        if (parsed.categories) {
+        if (Array.isArray(parsed.categories)) {
           parsed.categories = parsed.categories.map((c) => {
             const seed = INITIAL_CATEGORIES.find((s) => s.id === c.id);
             return seed ? { ...c, color: seed.color } : c;
           });
+        } else {
+          delete parsed.categories;
         }
-        if (parsed.recurring) {
+        if (Array.isArray(parsed.recurring)) {
           parsed.recurring = parsed.recurring.map((r) => ({ ...r, categoryId: "recurring" }));
+        } else {
+          delete parsed.recurring;
         }
+        if (!Array.isArray(parsed.transactions)) delete parsed.transactions;
+        if (!Array.isArray(parsed.ledger)) delete parsed.ledger;
+
         const loadedRecurring = parsed.recurring ?? DEFAULT_STATE.recurring;
         parsed.categories = syncCategoriesWithRecurring(
           parsed.categories ?? DEFAULT_STATE.categories,
           loadedRecurring
         );
-        if (parsed.user) {
-          activeUser = parsed.user;
-        }
+        const mergedUser: UserProfile = {
+          ...INITIAL_USER,
+          ...(parsed.user && typeof parsed.user === "object" ? parsed.user : {}),
+          isLoggedIn: Boolean(parsed.user?.isLoggedIn),
+        };
+        activeUser = mergedUser;
         setState((prev) => ({
           ...prev,
           ...parsed,
+          user: mergedUser,
           settings: { ...INITIAL_SETTINGS, ...(parsed.settings || {}) },
         }));
       }
