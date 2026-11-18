@@ -23,15 +23,9 @@ import {
   computeRecurringMonthlyBudget,
   isBaseCategory,
 } from "@/lib/seed";
+import { simulateRolloverToDate, type MonthlyRolloverResult } from "@/lib/rollover";
 
-export interface MonthlyRolloverResult {
-  salaryCredited: number;
-  recurringIncomeCount: number;
-  recurringIncomeTotal: number;
-  billsPaid: number;
-  billsTotal: number;
-  billsSkipped: number;
-}
+export type { MonthlyRolloverResult };
 
 interface FinoraState {
   theme: ThemeMode;
@@ -83,7 +77,7 @@ interface FinoraContextValue extends FinoraState {
   ) => Promise<{ ok: boolean; error?: string }>;
   updateSettings: (patch: Partial<AppSettings>) => void;
   updateUser: (patch: Partial<UserProfile>) => void;
-  runMonthlyRollover: () => MonthlyRolloverResult;
+  runMonthlyRollover: (targetDate?: string) => MonthlyRolloverResult;
 }
 
 const STORAGE_KEY = "finora_state_v1";
@@ -580,136 +574,32 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       user: { ...prev.user, ...patch },
     }));
 
-  const runMonthlyRollover = (): MonthlyRolloverResult => {
-    const nowMs = Date.now();
-    const txDate = new Date(nowMs).toISOString();
-    const resetIso = new Date(nowMs + 10).toISOString();
-    const salary = Math.max(
-      0,
-      Number(state.settings.monthlySalary ?? INITIAL_SETTINGS.monthlySalary) || 0
-    );
+  const runMonthlyRollover = (targetDate?: string): MonthlyRolloverResult => {
+    const resolvedDate =
+      targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate)
+        ? targetDate
+        : new Date().toISOString().slice(0, 10);
 
-    let balance = state.bankBalance;
-    const newTxs: Transaction[] = [];
-    const newLedger: BankLedgerEntry[] = [];
-
-    if (salary > 0) {
-      balance += salary;
-      const ref = `PAY-${nowMs.toString().slice(-6)}`;
-      newTxs.push({
-        id: `tx-pay-${nowMs}`,
-        ref,
-        title: "เงินเดือนประจำรอบเดือน",
-        amount: salary,
-        type: "income",
-        categoryId: "salary",
-        channel: "Virtual Bank Auto-Credit",
-        date: txDate,
-        status: "completed",
-      });
-      newLedger.push({
-        id: `l-pay-${nowMs}`,
-        ref,
-        type: "credit",
-        title: "เงินเดือนโอนเข้าบัญชีอัตโนมัติ",
-        counterparty: "Payroll Auto-Credit",
-        amount: salary,
-        balanceAfter: balance,
-        date: txDate,
-      });
-    }
-
-    let recurringIncomeCount = 0;
-    let recurringIncomeTotal = 0;
-    let billsPaid = 0;
-    let billsTotal = 0;
-    let billsSkipped = 0;
-
-    // Credit active recurring incomes first so funds are available for recurring bills.
-    const afterIncome = state.recurring.map((r, idx) => {
-      if (!r.active || (r.type ?? "expense") !== "income") return r;
-      balance += r.amount;
-      recurringIncomeCount += 1;
-      recurringIncomeTotal += r.amount;
-      const ref = `INC-${nowMs.toString().slice(-6)}-${idx + 1}`;
-      newTxs.push({
-        id: `tx-inc-${nowMs}-${idx}`,
-        ref,
-        title: r.title,
-        amount: r.amount,
-        type: "income",
-        categoryId: r.categoryId || "salary",
-        channel: "Virtual Bank Auto-Credit",
-        date: txDate,
-        status: "completed",
-      });
-      newLedger.push({
-        id: `l-inc-${nowMs}-${idx}`,
-        ref,
-        type: "credit",
-        title: `รับรายรับประจำอัตโนมัติ: ${r.title}`,
-        counterparty: r.title,
-        amount: r.amount,
-        balanceAfter: balance,
-        date: txDate,
-      });
-      return { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) };
-    });
-
-    const updatedRecurring = afterIncome.map((r, idx) => {
-      if (!r.active || (r.type ?? "expense") !== "expense") return r;
-      if (balance < r.amount) {
-        billsSkipped += 1;
-        return r;
-      }
-      balance -= r.amount;
-      billsPaid += 1;
-      billsTotal += r.amount;
-      const ref = `REC-${nowMs.toString().slice(-6)}-${idx + 1}`;
-      newTxs.push({
-        id: `tx-rec-${nowMs}-${idx}`,
-        ref,
-        title: r.title,
-        amount: r.amount,
-        type: "expense",
-        categoryId: r.categoryId,
-        channel: "Virtual Bank Auto-Debit",
-        date: txDate,
-        status: "completed",
-      });
-      newLedger.push({
-        id: `l-rec-${nowMs}-${idx}`,
-        ref,
-        type: "debit",
-        title: `หักบัญชีอัตโนมัติ: ${r.title}`,
-        counterparty: r.title,
-        amount: r.amount,
-        balanceAfter: balance,
-        date: txDate,
-      });
-      return { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) };
+    const out = simulateRolloverToDate({
+      targetDate: resolvedDate,
+      bankBalance: state.bankBalance,
+      recurring: state.recurring,
+      settings: state.settings,
     });
 
     setState((prev) => ({
       ...prev,
-      bankBalance: balance,
-      transactions: [...newTxs.reverse(), ...prev.transactions],
-      ledger: [...newLedger.reverse(), ...prev.ledger],
-      recurring: updatedRecurring,
+      bankBalance: out.bankBalance,
+      transactions: [...out.newTransactions, ...prev.transactions],
+      ledger: [...out.newLedger, ...prev.ledger],
+      recurring: out.updatedRecurring,
       settings: {
         ...prev.settings,
-        quotaResetAt: resetIso,
+        ...out.settingsPatch,
       },
     }));
 
-    return {
-      salaryCredited: salary,
-      recurringIncomeCount,
-      recurringIncomeTotal,
-      billsPaid,
-      billsTotal,
-      billsSkipped,
-    };
+    return out.result;
   };
 
   return (

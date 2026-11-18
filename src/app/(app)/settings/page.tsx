@@ -4,6 +4,29 @@ import React, { useState } from "react";
 import { useFinora, type MonthlyRolloverResult } from "@/context/FinoraContext";
 import { formatTHB } from "@/lib/seed";
 
+function addDaysIso(dateStr: string, days: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return dateStr;
+  const dt = new Date(y, m - 1, d + days);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
+    dt.getDate()
+  ).padStart(2, "0")}`;
+}
+
+function endOfMonthIso(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  if (!y || !m || !d) return dateStr;
+  const lastDay = new Date(y, m, 0).getDate();
+  if (d >= lastDay) {
+    const nextMonthLast = new Date(y, m + 1, 0);
+    return `${nextMonthLast.getFullYear()}-${String(nextMonthLast.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(nextMonthLast.getDate()).padStart(2, "0")}`;
+  }
+  return `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+}
+
 export default function SettingsPage() {
   const {
     theme,
@@ -12,6 +35,7 @@ export default function SettingsPage() {
     updateUser,
     settings,
     updateSettings,
+    recurring,
     bankBalance,
     logoutUser,
     runMonthlyRollover,
@@ -22,6 +46,13 @@ export default function SettingsPage() {
   const [geminiKey, setGeminiKey] = useState(settings.geminiApiKeyOverride);
   const [savedNotice, setSavedNotice] = useState(false);
   const [rolloverResult, setRolloverResult] = useState<MonthlyRolloverResult | null>(null);
+  const [simulateDate, setSimulateDate] = useState(() => {
+    const nextDue = recurring
+      .filter((r) => r.active && /^\d{4}-\d{2}-\d{2}$/.test(r.nextDueDate))
+      .map((r) => r.nextDueDate)
+      .sort()[0];
+    return nextDue || new Date().toISOString().slice(0, 10);
+  });
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +63,7 @@ export default function SettingsPage() {
   };
 
   const handleTestRollover = () => {
-    const res = runMonthlyRollover();
+    const res = runMonthlyRollover(simulateDate);
     setRolloverResult(res);
   };
 
@@ -145,62 +176,148 @@ export default function SettingsPage() {
             />
           </label>
 
-          <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <label
-                htmlFor="monthly-salary-input"
-                className="text-sm font-semibold text-on-surface block"
-              >
-                เงินเดือนประจำ (THB)
-              </label>
-              <div className="text-xs text-on-surface-variant">
-                เติมเข้า Finora Virtual Wallet อัตโนมัติเมื่อครบรอบเดือน
+          <div className="p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <label
+                  htmlFor="monthly-salary-input"
+                  className="text-sm font-semibold text-on-surface block"
+                >
+                  เงินเดือนประจำ (THB)
+                </label>
+                <div className="text-xs text-on-surface-variant">
+                  เติมเข้า Finora Virtual Wallet อัตโนมัติเมื่อถึงวันที่กำหนดของเดือน
+                </div>
+              </div>
+              <input
+                id="monthly-salary-input"
+                type="number"
+                min="0"
+                value={settings.monthlySalary}
+                onChange={(e) =>
+                  updateSettings({ monthlySalary: Math.max(0, Number(e.target.value) || 0) })
+                }
+                className="w-40 bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-right text-on-surface"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-outline-variant/20">
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  htmlFor="salary-payday-input"
+                  className="text-xs font-medium text-on-surface-variant"
+                >
+                  วันที่เงินเดือนเข้า (1–31)
+                </label>
+                <input
+                  id="salary-payday-input"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={settings.salaryPayday ?? 25}
+                  onChange={(e) =>
+                    updateSettings({
+                      salaryPayday: Math.max(1, Math.min(31, Number(e.target.value) || 1)),
+                    })
+                  }
+                  className="w-20 bg-surface-container-low border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-right text-on-surface"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  htmlFor="quota-reset-day-input"
+                  className="text-xs font-medium text-on-surface-variant"
+                >
+                  วันที่รีเซ็ตโควต้าหมวดหมู่ (1–31)
+                </label>
+                <input
+                  id="quota-reset-day-input"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={settings.quotaResetDay ?? 1}
+                  onChange={(e) =>
+                    updateSettings({
+                      quotaResetDay: Math.max(1, Math.min(31, Number(e.target.value) || 1)),
+                    })
+                  }
+                  className="w-20 bg-surface-container-low border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-right text-on-surface"
+                />
               </div>
             </div>
-            <input
-              id="monthly-salary-input"
-              type="number"
-              min="0"
-              value={settings.monthlySalary}
-              onChange={(e) =>
-                updateSettings({ monthlySalary: Math.max(0, Number(e.target.value) || 0) })
-              }
-              className="w-40 bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-right text-on-surface"
-            />
           </div>
 
           <div className="p-4 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <div className="text-sm font-semibold text-on-surface">
-                  ทดสอบครบรอบเดือน (Test Monthly Rollover)
+                  จำลองวันครบรอบเดือน (Simulate Rollover Date)
                 </div>
                 <div className="text-xs text-on-surface-variant">
-                  จำลองครบรอบเดือน: เติมเงินเดือน ตัดบิล Recurring ที่เปิดใช้งาน และรีเซ็ตโควต้าหมวดหมู่เป็น ฿0
+                  เลือกวันที่ต้องการจำลอง ระบบจะรันเงินเดือน บิล Recurring และรีเซ็ตโควต้าที่ถึงกำหนดเรียงตามวันที่จริง
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleTestRollover}
-                className="px-4 py-2 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 shrink-0 self-start sm:self-center"
-              >
-                รันครบรอบเดือนจำลอง (Test)
-              </button>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <input
+                  type="date"
+                  aria-label="วันที่จำลอง"
+                  value={simulateDate}
+                  onChange={(e) => setSimulateDate(e.target.value)}
+                  className="bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-1.5 text-xs font-mono text-on-surface"
+                />
+                <button
+                  type="button"
+                  onClick={() => setSimulateDate((d) => addDaysIso(d, 1))}
+                  className="px-2.5 py-1.5 rounded-lg border border-outline-variant/40 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                >
+                  +1 วัน
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSimulateDate((d) => addDaysIso(d, 7))}
+                  className="px-2.5 py-1.5 rounded-lg border border-outline-variant/40 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                >
+                  +7 วัน
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSimulateDate((d) => endOfMonthIso(d))}
+                  className="px-2.5 py-1.5 rounded-lg border border-outline-variant/40 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                >
+                  สิ้นเดือน
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTestRollover}
+                  className="px-4 py-2 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90"
+                >
+                  รันจำลองถึงวันที่นี้
+                </button>
+              </div>
             </div>
             {rolloverResult && (
               <div
                 role="status"
                 className="text-xs text-primary bg-primary-container/15 border border-primary/30 rounded-lg px-3.5 py-2.5 font-medium animate-page-in"
               >
-                ทดสอบครบรอบเดือนสำเร็จ: เติมเงินเดือน +{formatTHB(rolloverResult.salaryCredited)}
+                จำลองถึงวันที่ {rolloverResult.simulatedDate}:
+                {rolloverResult.salaryCredited > 0
+                  ? ` เติมเงินเดือน ${rolloverResult.salaryCount} รอบ (+${formatTHB(
+                      rolloverResult.salaryCredited
+                    )}) •`
+                  : " ยังไม่ถึงวันเงินเดือนเข้า (หรือเติมในรอบเดือนนี้แล้ว) •"}
                 {rolloverResult.recurringIncomeCount > 0
-                  ? ` • รับรายรับประจำ ${rolloverResult.recurringIncomeCount} รายการ (+${formatTHB(rolloverResult.recurringIncomeTotal)})`
+                  ? ` รับรายรับประจำ ${rolloverResult.recurringIncomeCount} รายการ (+${formatTHB(
+                      rolloverResult.recurringIncomeTotal
+                    )}) •`
                   : ""}
-                {" "}• ตัดบิลอัตโนมัติ {rolloverResult.billsPaid} รายการ ({formatTHB(rolloverResult.billsTotal)})
+                {" "}ตัดบิลอัตโนมัติ {rolloverResult.billsPaid} รายการ ({formatTHB(rolloverResult.billsTotal)})
                 {rolloverResult.billsSkipped > 0
                   ? ` • ข้าม ${rolloverResult.billsSkipped} รายการ (ยอดเงินไม่พอ)`
                   : ""}
-                {" "}• รีเซ็ตโควต้าทุกหมวดหมู่เป็น ฿0 แล้ว
+                {rolloverResult.quotaResetCount > 0
+                  ? ` • รีเซ็ตโควต้าหมวดหมู่ ${rolloverResult.quotaResetCount} รอบแล้ว`
+                  : ""}
               </div>
             )}
           </div>
