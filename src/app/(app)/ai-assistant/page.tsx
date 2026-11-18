@@ -536,7 +536,7 @@ export default function AiAssistantPage() {
       appendChatMessage({
         id: `u-${Date.now()}`,
         role: "user",
-        text: `ส่งรูปภาพ QR / สลิป (${file.name})`,
+        text: "ส่งรูปภาพ QR / สลิป",
         thumbnailUrl: thumbnailDataUrl,
       });
 
