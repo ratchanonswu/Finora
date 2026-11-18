@@ -229,8 +229,8 @@ export default function DashboardPage() {
                 <span className="font-mono font-semibold">{formatTHB(bankBalance)}</span>
               </p>
             </div>
-            <Link href="/virtual-bank" className="text-xs text-primary hover:underline">
-              โอน / เติมเงินจำลอง →
+            <Link href="/transactions" className="text-xs text-primary hover:underline">
+              บันทึกรายรับ-รายจ่าย →
             </Link>
           </div>
         </div>

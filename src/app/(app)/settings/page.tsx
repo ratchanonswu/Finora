@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFinora, type MonthlyRolloverResult } from "@/context/FinoraContext";
 import { formatTHB } from "@/lib/seed";
@@ -124,17 +123,9 @@ export default function SettingsPage() {
               เลขที่บัญชี: 782-2-90145-8 • พร้อมใช้งาน
             </p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <span className="text-[11px] text-outline block">ยอดเงินคงเหลือ</span>
-              <span className="font-mono font-bold text-primary">{formatTHB(bankBalance)}</span>
-            </div>
-            <Link
-              href="/virtual-bank"
-              className="px-3.5 py-2 rounded-lg bg-surface-container-high text-xs font-semibold text-on-surface hover:bg-surface-container-highest"
-            >
-              ดูสมุดบัญชี
-            </Link>
+          <div className="text-right">
+            <span className="text-[11px] text-outline block">ยอดเงินคงเหลือ</span>
+            <span className="font-mono font-bold text-primary">{formatTHB(bankBalance)}</span>
           </div>
         </div>
 

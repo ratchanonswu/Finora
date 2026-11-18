@@ -19,7 +19,6 @@ const NAV_ITEMS = [
   { href: "/transactions", label: "รายรับรายจ่าย", icon: "receipt_long" },
   { href: "/recurring", label: "ตัดเงินอัตโนมัติ", icon: "autorenew" },
   { href: "/categories", label: "จัดการหมวดหมู่", icon: "category" },
-  { href: "/virtual-bank", label: "ธนาคารจำลอง", icon: "account_balance" },
   { href: "/settings", label: "ตั้งค่าระบบ", icon: "settings" },
 ];
 
@@ -183,10 +182,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Virtual Wallet Summary Widget */}
         <div className="p-3 sm:p-4">
-          <Link
-            href="/virtual-bank"
+          <div
             title={collapsed ? `Virtual Wallet: ${formatTHB(bankBalance)}` : undefined}
-            className={`block rounded-xl bg-surface-container border border-outline-variant/30 hover:border-primary/50 transition-colors ${
+            className={`block rounded-xl bg-surface-container border border-outline-variant/30 ${
               collapsed ? "lg:p-3 p-4" : "p-4"
             }`}
           >
@@ -210,12 +208,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="text-xl font-bold tracking-tight text-on-surface">
                 {formatTHB(bankBalance)}
               </div>
-              <div className="mt-1.5 flex items-center justify-between text-[11px] text-on-surface-variant">
+              <div className="mt-1.5 text-[11px] text-on-surface-variant">
                 <span className="font-mono">782-2-90145-8</span>
-                <span>ดูสมุดบัญชี →</span>
               </div>
             </div>
-          </Link>
+          </div>
         </div>
       </aside>
 
