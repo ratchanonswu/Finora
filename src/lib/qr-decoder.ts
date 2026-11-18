@@ -95,9 +95,36 @@ export async function decodeQrImage(file: File): Promise<{
     mimeType = "image/jpeg";
   }
 
+  let nativeQr: string | null = null;
+  try {
+    type NativeBarcodeDetector = {
+      detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
+    };
+    const BarcodeDetectorCtor = (
+      globalThis as unknown as {
+        BarcodeDetector?: new (opts?: { formats: string[] }) => NativeBarcodeDetector;
+      }
+    ).BarcodeDetector;
+    if (BarcodeDetectorCtor) {
+      const detector = new BarcodeDetectorCtor({ formats: ["qr_code"] });
+      const hits = await detector.detect(img);
+      nativeQr = hits.find((h) => h.rawValue?.trim())?.rawValue?.trim() || null;
+    }
+  } catch {
+    // Fall back to jsQR multi-pass decoding if native BarcodeDetector fails
+  }
+
   const qrRaw =
+    nativeQr ||
     runPass(0, 0, iw, ih, 1200, false) ||
     runPass(0, 0, iw, ih, 1800, true) ||
+    // Bottom-right quadrant (K+, SCB, KTB, BBL slip verification Mini-QR)
+    runPass(iw * 0.45, ih * 0.55, iw * 0.55, ih * 0.45, 1200, false) ||
+    runPass(iw * 0.45, ih * 0.55, iw * 0.55, ih * 0.45, 1200, true) ||
+    // Bottom half (slips with bottom-left or bottom-center QR)
+    runPass(0, ih * 0.5, iw, ih * 0.5, 1400, false) ||
+    runPass(0, ih * 0.5, iw, ih * 0.5, 1400, true) ||
+    // Center crop (standee / merchant QR signs)
     runPass(iw * 0.15, ih * 0.15, iw * 0.7, ih * 0.7, 1400, false) ||
     runPass(iw * 0.15, ih * 0.15, iw * 0.7, ih * 0.7, 1400, true);
 
