@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/AuthShell";
 import { useFinora } from "@/context/FinoraContext";
 
@@ -25,7 +24,6 @@ const HIGHLIGHTS = [
 ];
 
 export default function LoginPage() {
-  const router = useRouter();
   const { loginUser } = useFinora();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,7 +49,6 @@ export default function LoginPage() {
     }
     setError("");
     loginUser(email.trim());
-    router.push("/");
   };
 
   return (

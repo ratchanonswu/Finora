@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/AuthShell";
 import { useFinora } from "@/context/FinoraContext";
 import { INITIAL_USER } from "@/lib/seed";
@@ -26,7 +25,6 @@ const HIGHLIGHTS = [
 ];
 
 export default function RegisterPage() {
-  const router = useRouter();
   const { user, registerUser } = useFinora();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -86,7 +84,6 @@ export default function RegisterPage() {
 
     setError("");
     registerUser(email.trim(), name.trim());
-    router.push("/");
   };
 
   return (
