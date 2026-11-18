@@ -238,10 +238,16 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isCashChannel = (channel?: string) => {
+    const normalized = (channel || "").trim().toLowerCase();
+    return normalized === "เงินสด" || normalized === "cash";
+  };
+
   const addTransaction = async (
     tx: Omit<Transaction, "id" | "ref" | "status">
   ): Promise<{ ok: boolean; error?: string; transactionId?: string }> => {
-    if (tx.type === "expense" && state.settings.autoDebitOnExpense) {
+    const skipBank = isCashChannel(tx.channel);
+    if (!skipBank && tx.type === "expense" && state.settings.autoDebitOnExpense) {
       const bankRes = await executeBankAction(
         "debit",
         tx.amount,
@@ -249,7 +255,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         tx.channel || "Finora Expense"
       );
       if (!bankRes.ok) return bankRes;
-    } else if (tx.type === "income" && state.settings.autoDebitOnExpense) {
+    } else if (!skipBank && tx.type === "income" && state.settings.autoDebitOnExpense) {
       await executeBankAction("credit", tx.amount, tx.title, tx.channel || "Finora Income");
     }
 

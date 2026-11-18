@@ -177,7 +177,13 @@ export function TransactionModal() {
               <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
               <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
               <option value="Virtual Card">Virtual Card</option>
+              <option value="เงินสด">เงินสด</option>
             </select>
+            {channel === "เงินสด" && (
+              <p className="mt-1.5 text-xs text-on-surface-variant">
+                บันทึกรายการเงินสดโดยไม่หักหรือเพิ่มยอดใน Virtual Bank
+              </p>
+            )}
           </div>
 
           <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
