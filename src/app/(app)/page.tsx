@@ -15,7 +15,7 @@ const MONTHLY_SERIES = [
 ];
 
 export default function DashboardPage() {
-  const { user, bankBalance, transactions, categories, settings, setTxModalOpen } = useFinora();
+  const { user, bankBalance, transactions, categories, settings } = useFinora();
 
   const stats = useMemo(() => {
     const income = transactions
@@ -34,7 +34,7 @@ export default function DashboardPage() {
     );
     const total = expenseTx.reduce((s, t) => s + t.amount, 0) || 1;
     return categories
-      .filter((c) => c.type === "expense")
+      .filter((c) => c.type === "expense" && c.id !== "recurring")
       .map((c) => {
         const sum = expenseTx
           .filter((t) => t.categoryId === c.id)
@@ -47,45 +47,24 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* Welcome Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-on-surface tracking-tight m-0">
-            สวัสดี{user.name}
-          </h1>
-          <p className="text-sm text-on-surface-variant mt-1">
-            ภาพรวมสินทรัพย์ส่วนบุคคลและสถานะกระเป๋าเงินจำลองแบบเรียลไทม์
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Link
-            href="/ai-assistant"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-surface-container border border-outline-variant/40 text-sm font-medium text-on-surface hover:bg-surface-container-high"
-          >
-            <span className="material-symbols-outlined text-[18px] text-primary">
-              qr_code_scanner
-            </span>
-            <span>สแกน QR / ถาม AI</span>
-          </Link>
-          <button
-            type="button"
-            onClick={() => setTxModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 shadow-sm"
-          >
-            <span className="material-symbols-outlined text-[18px]">add_circle</span>
-            <span>บันทึกธุรกรรม</span>
-          </button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-on-surface tracking-tight m-0">
+          สวัสดี, {user.name}
+        </h1>
+        <p className="text-sm text-on-surface-variant mt-1">
+          ภาพรวมสินทรัพย์ส่วนบุคคลและสถานะกระเป๋าเงินจำลองแบบเรียลไทม์
+        </p>
       </div>
 
       {/* 4 Summary Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col justify-between">
+        <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col justify-between transition-colors hover:border-outline-variant/60">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
                 ยอดเงิน Virtual Wallet
               </span>
-              <div className="text-2xl font-bold text-on-surface tracking-tight mt-1">
+              <div className="text-2xl font-bold font-mono text-on-surface tracking-tight mt-1">
                 {formatTHB(bankBalance)}
               </div>
             </div>
@@ -95,17 +74,17 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4 text-xs text-primary font-medium flex items-center gap-1">
             <span className="material-symbols-outlined text-[15px]">verified</span>
-            <span>ซิงค์กับ Virtual Bank แล้ว</span>
+            <span className="font-mono">782-2-90145-8 • พร้อมใช้งาน</span>
           </div>
         </div>
 
-        <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col justify-between">
+        <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col justify-between transition-colors hover:border-outline-variant/60">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
                 รายรับทั้งหมด
               </span>
-              <div className="text-2xl font-bold text-primary tracking-tight mt-1">
+              <div className="text-2xl font-bold font-mono text-primary tracking-tight mt-1">
                 {formatTHB(stats.income)}
               </div>
             </div>
@@ -118,13 +97,13 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col justify-between">
+        <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col justify-between transition-colors hover:border-outline-variant/60">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
                 รายจ่ายทั้งหมด
               </span>
-              <div className="text-2xl font-bold text-secondary tracking-tight mt-1">
+              <div className="text-2xl font-bold font-mono text-secondary tracking-tight mt-1">
                 {formatTHB(stats.expense)}
               </div>
             </div>
@@ -137,13 +116,13 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col justify-between">
+        <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col justify-between transition-colors hover:border-outline-variant/60">
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
                 อัตราการออม (Savings Rate)
               </span>
-              <div className="text-2xl font-bold text-tertiary tracking-tight mt-1">
+              <div className="text-2xl font-bold font-mono text-tertiary tracking-tight mt-1">
                 {stats.savingsRate}%
               </div>
             </div>
@@ -152,7 +131,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="mt-4 text-xs text-on-surface-variant">
-            กระแสเงินสดสุทธิ {formatTHB(stats.net)}
+            กระแสเงินสดสุทธิ <span className="font-mono">{formatTHB(stats.net)}</span>
           </div>
         </div>
       </div>
@@ -182,8 +161,8 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-outline-variant/30 border-t border-outline-variant/30 pt-2">
-          <div className="py-3 md:pr-5 flex flex-col justify-between gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-outline-variant/30 border-t border-outline-variant/30 pt-2">
+          <div className="py-3 md:pr-6 flex flex-col justify-between gap-2">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-secondary">
                 หมวดใช้จ่ายสูงสุด
@@ -193,7 +172,7 @@ export default function DashboardPage() {
                 <span className="font-mono font-semibold">
                   {formatTHB(categoryTotals[0]?.sum || 0)}
                 </span>{" "}
-                ({categoryTotals[0]?.pct || 0}% ของรายจ่าย)
+                ({categoryTotals[0]?.pct || 0}% ของรายจ่ายรอบนี้)
               </p>
             </div>
             <Link href="/categories" className="text-xs text-primary hover:underline">
@@ -201,14 +180,18 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          <div className="py-3 md:px-5 flex flex-col justify-between gap-2">
+          <div className="py-3 md:pl-6 flex flex-col justify-between gap-2">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-tertiary">
                 สถานะสภาพคล่อง
               </span>
               <p className="text-sm text-on-surface mt-1 leading-relaxed">
-                กระแสเงินสดสุทธิเดือนนี้เป็นบวก{" "}
-                <span className="font-mono font-semibold text-primary">
+                กระแสเงินสดสุทธิ{stats.net >= 0 ? "เป็นบวก" : "ติดลบ"}{" "}
+                <span
+                  className={`font-mono font-semibold ${
+                    stats.net >= 0 ? "text-primary" : "text-secondary"
+                  }`}
+                >
                   {formatTHB(stats.net)}
                 </span>{" "}
                 พร้อมอัตราการออม {stats.savingsRate}%
@@ -216,21 +199,6 @@ export default function DashboardPage() {
             </div>
             <Link href="/transactions" className="text-xs text-primary hover:underline">
               ดูรายการทั้งหมด →
-            </Link>
-          </div>
-
-          <div className="py-3 md:pl-5 flex flex-col justify-between gap-2">
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
-                Virtual Bank Balance
-              </span>
-              <p className="text-sm text-on-surface mt-1 leading-relaxed">
-                ยอดเงินคงเหลือในกระเป๋าจำลองปัจจุบันอยู่ที่{" "}
-                <span className="font-mono font-semibold">{formatTHB(bankBalance)}</span>
-              </p>
-            </div>
-            <Link href="/transactions" className="text-xs text-primary hover:underline">
-              บันทึกรายรับ-รายจ่าย →
             </Link>
           </div>
         </div>
@@ -262,12 +230,12 @@ export default function DashboardPage() {
               <div key={m.month} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
                 <div className="flex items-end gap-1.5 h-full w-full justify-center">
                   <div
-                    className="w-3.5 sm:w-5 bg-primary rounded-t transition-all"
+                    className="w-3.5 sm:w-5 bg-primary rounded-t animate-bar-grow hover:opacity-85 transition-opacity"
                     style={{ height: `${Math.round((m.income / 100000) * 100)}%` }}
                     title={`รายรับ: ${formatTHB(m.income)}`}
                   />
                   <div
-                    className="w-3.5 sm:w-5 bg-secondary rounded-t transition-all"
+                    className="w-3.5 sm:w-5 bg-secondary rounded-t animate-bar-grow hover:opacity-85 transition-opacity"
                     style={{ height: `${Math.round((m.expense / 100000) * 100)}%` }}
                     title={`รายจ่าย: ${formatTHB(m.expense)}`}
                   />
@@ -305,7 +273,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
                   <div
-                    className="h-full rounded-full transition-all duration-300"
+                    className="h-full rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${cat.pct}%`, backgroundColor: cat.color }}
                   />
                 </div>
@@ -339,13 +307,21 @@ export default function DashboardPage() {
               {transactions.slice(0, 5).map((tx) => {
                 const cat = categories.find((c) => c.id === tx.categoryId);
                 return (
-                  <tr key={tx.id} className="hover:bg-surface-container-low/50">
+                  <tr key={tx.id} className="hover:bg-surface-container-low/50 transition-colors duration-150">
                     <td className="py-3.5 pr-4">
                       <div className="font-semibold text-on-surface">{tx.title}</div>
                       <div className="text-[11px] font-mono text-outline">{tx.ref}</div>
                     </td>
                     <td className="py-3.5 px-4 text-xs text-on-surface-variant">
-                      {cat?.name || tx.categoryId}
+                      <span className="inline-flex items-center gap-1.5">
+                        {cat?.color && (
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                        )}
+                        <span>{cat?.name || tx.categoryId}</span>
+                      </span>
                     </td>
                     <td className="py-3.5 px-4 text-xs text-on-surface-variant">{tx.channel}</td>
                     <td className="py-3.5 px-4 text-xs font-mono text-on-surface-variant">
