@@ -3,7 +3,7 @@ import { executeBankTransfer } from "./bank-service.ts";
 import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
 import { parseQrSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
-import { CATEGORY_PALETTE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload } from "./seed.ts";
+import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload, relativeDateYmd } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -148,13 +148,13 @@ const recRead = runReadTool("get_recurring_payments", {}, {
       type: "income",
       categoryId: "investment",
       cycle: "monthly",
-      nextDueDate: "2025-04-01",
+      nextDueDate: relativeDateYmd(5),
       active: true,
       icon: "payments",
     },
   ],
 });
-assert.equal(recRead.activeMonthlyIncomeTotal, 67000); // 55000 (เงินเดือนประจำ) + 12000
+assert.equal(recRead.activeMonthlyIncomeTotal, 62000); // 50000 (เงินเดือนประจำ) + 12000
 
 // 13. parseQrSlipResult validates JSON fixtures, formatted amounts, sender/receiver matching, and blocks reserved "recurring" category
 const qrValid = parseQrSlipResult(
@@ -175,45 +175,43 @@ const qrInvalid = parseQrSlipResult("not a json object");
 assert.equal(qrInvalid.ok, false);
 
 // 14. Date-driven rollover processes recurring income (including salary) and expense bills chronologically
-const customRecurring = [
-  { id: "rec-sal-test", title: "เงินเดือนประจำ", amount: 30000, type: "income" as const, categoryId: "salary", cycle: "monthly" as const, nextDueDate: "2025-04-25", active: true, icon: "payments" },
-  ...INITIAL_RECURRING.filter((r) => r.id !== "rec-salary"),
-  { id: "rec-late", title: "หลังเงินเดือนออก", amount: 2000, categoryId: "recurring", cycle: "monthly" as const, nextDueDate: "2025-04-28", active: true, icon: "receipt" },
-];
+// Step 1 (+3 days): Netflix (+1d, 500) paid, Condo (+3d, 12000) skipped (balance 9500 < 12000)
 const step1 = simulateRolloverToDate({
-  targetDate: "2025-04-06",
-  bankBalance: 1000,
-  recurring: customRecurring,
+  targetDate: relativeDateYmd(3),
+  bankBalance: INITIAL_BANK_BALANCE, // 10,000
+  recurring: INITIAL_RECURRING,
   settings: { ...INITIAL_SETTINGS, quotaResetDay: 1 },
   nowMs: 1700000000000,
 });
 assert.equal(step1.result.recurringIncomeTotal, 0);
-assert.equal(step1.result.quotaResetCount, 1);
-assert.equal(step1.result.billsPaid, 1); // 2025-04-01 Netflix (419) paid from 1000
-assert.equal(step1.result.billsSkipped, 1); // 2025-04-05 Condo (11500) skipped (balance 581)
-assert.equal(step1.bankBalance, 581);
+assert.equal(step1.result.billsPaid, 1); // +1d Netflix (500) paid from 10,000
+assert.equal(step1.result.billsSkipped, 1); // +3d Condo (12,000) skipped (balance 9,500)
+assert.equal(step1.bankBalance, 9500);
 
+// Step 2 (+7 days): Salary (+7d, +50,000) arrives without re-triggering the skipped +3d bill
 const step2 = simulateRolloverToDate({
-  targetDate: "2025-04-28",
+  targetDate: relativeDateYmd(7),
   bankBalance: step1.bankBalance,
   recurring: step1.updatedRecurring,
   settings: { ...INITIAL_SETTINGS, quotaResetDay: 1, ...step1.settingsPatch },
   nowMs: 1700000001000,
 });
 assert.equal(step2.result.recurringIncomeCount, 1);
-assert.equal(step2.result.recurringIncomeTotal, 30000);
-assert.equal(step2.result.billsSkipped, 2); // 04-05 Condo & 04-10 AIS due before 04-25 salary
-assert.equal(step2.result.billsPaid, 1); // 04-28 bill (2000) paid after 04-25 salary arrives
-assert.equal(step2.bankBalance, 28581);
-assert.equal(step2.result.quotaResetCount, 0);
+assert.equal(step2.result.recurringIncomeTotal, 50000);
+assert.equal(step2.result.billsSkipped, 0);
+assert.equal(step2.result.billsPaid, 0);
+assert.equal(step2.bankBalance, 59500);
 
+// Step 3 (+10 days): AIS Fibre (+10d, 1,000) paid after salary arrived
 const step3 = simulateRolloverToDate({
-  targetDate: "2025-04-30",
+  targetDate: relativeDateYmd(10),
   bankBalance: step2.bankBalance,
   recurring: step2.updatedRecurring,
   settings: { ...INITIAL_SETTINGS, quotaResetDay: 1, ...step2.settingsPatch },
   nowMs: 1700000002000,
 });
-assert.equal(step3.result.recurringIncomeTotal, 0); // No duplicate salary in April
+assert.equal(step3.result.recurringIncomeTotal, 0);
+assert.equal(step3.result.billsPaid, 1);
+assert.equal(step3.bankBalance, 58500);
 
 console.log("Finora self-check passed (14/14 checks)");

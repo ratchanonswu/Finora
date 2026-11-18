@@ -172,6 +172,7 @@ export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
     if (balance < item.amount) {
       billsSkipped += 1;
       skippedItems.add(item.id);
+      item.nextDueDate = advanceDueDate(ev.date, item.cycle);
       return;
     }
 

@@ -14,14 +14,27 @@ export const INITIAL_USER: UserProfile = {
   isLoggedIn: false,
 };
 
+export function relativeDateYmd(offsetDays: number): string {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offsetDays);
+  const yy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+function relativeDateIso(offsetDays: number, timeStr = "12:00:00"): string {
+  return `${relativeDateYmd(offsetDays)}T${timeStr}+07:00`;
+}
+
 // Each category gets its own hue; red/green stay reserved for expense/income amounts.
 export const INITIAL_CATEGORIES: Category[] = [
-  { id: "food", name: "อาหาร & เครื่องดื่ม", icon: "restaurant", color: "#EA580C", budget: 15000, type: "expense" },
-  { id: "shopping", name: "ช้อปปิ้ง & ไลฟ์สไตล์", icon: "shopping_bag", color: "#8B5CF6", budget: 10000, type: "expense" },
-  { id: "housing", name: "ที่อยู่อาศัย & บิล", icon: "home", color: "#0284C7", budget: 12000, type: "expense" },
-  { id: "transport", name: "การเดินทาง & น้ำมัน", icon: "directions_car", color: "#4F46E5", budget: 6000, type: "expense" },
-  { id: "entertainment", name: "ความบันเทิง & สมาชิก", icon: "subscriptions", color: "#DB2777", budget: 4000, type: "expense" },
-  { id: "recurring", name: "รายจ่ายประจำ (Recurring)", icon: "autorenew", color: "#0D9488", budget: 12818, type: "expense" },
+  { id: "food", name: "อาหาร & เครื่องดื่ม", icon: "restaurant", color: "#EA580C", budget: 10000, type: "expense" },
+  { id: "shopping", name: "ช้อปปิ้ง & ไลฟ์สไตล์", icon: "shopping_bag", color: "#8B5CF6", budget: 8000, type: "expense" },
+  { id: "housing", name: "ที่อยู่อาศัย & บิล", icon: "home", color: "#0284C7", budget: 15000, type: "expense" },
+  { id: "transport", name: "การเดินทาง & น้ำมัน", icon: "directions_car", color: "#4F46E5", budget: 5000, type: "expense" },
+  { id: "entertainment", name: "ความบันเทิง & สมาชิก", icon: "subscriptions", color: "#DB2777", budget: 3000, type: "expense" },
+  { id: "recurring", name: "รายจ่ายประจำ (Recurring)", icon: "autorenew", color: "#0D9488", budget: 13500, type: "expense" },
   { id: "salary", name: "เงินเดือน & โบนัส", icon: "payments", color: "#059669", budget: 0, type: "income" },
   { id: "investment", name: "เงินปันผล & การลงทุน", icon: "show_chart", color: "#CA8A04", budget: 0, type: "income" },
 ];
@@ -51,75 +64,77 @@ export function nextCategoryColor(used: string[]): string {
 export const INITIAL_TRANSACTIONS: Transaction[] = [
   {
     id: "tx-1",
-    ref: "TXN-20250302-1102",
+    ref: "TXN-1001",
     title: "Gourmet Market Paragon",
-    amount: 2450,
+    amount: 1500,
     type: "expense",
     categoryId: "food",
     channel: "สแกน PromptPay QR",
-    date: "2025-03-02T18:30:00+07:00",
+    date: relativeDateIso(-1, "18:30:00"),
     status: "completed",
   },
   {
     id: "tx-2",
-    ref: "REC-20250301-4431",
-    title: "Netflix Subscription",
-    amount: 419,
+    ref: "TXN-1002",
+    title: "เติมน้ำมัน PTT Station",
+    amount: 1000,
     type: "expense",
-    categoryId: "recurring",
-    channel: "Virtual Bank Auto-Debit",
-    date: "2025-03-01T00:01:00+07:00",
+    categoryId: "transport",
+    channel: "สแกน PromptPay QR",
+    date: relativeDateIso(-2, "10:15:00"),
     status: "completed",
   },
   {
     id: "tx-3",
-    ref: "TXN-20250228-9842",
-    title: "เงินเดือนประจำ (บจก. เทค อินโนเวชั่น)",
-    amount: 85000,
-    type: "income",
-    categoryId: "salary",
-    channel: "Virtual Bank Wallet",
-    date: "2025-02-28T09:00:00+07:00",
+    ref: "TXN-1003",
+    title: "Uniqlo Central World",
+    amount: 2500,
+    type: "expense",
+    categoryId: "shopping",
+    channel: "Virtual Card",
+    date: relativeDateIso(-3, "14:15:00"),
     status: "completed",
   },
   {
     id: "tx-4",
-    ref: "TXN-20250227-7729",
-    title: "Apple Store Central World",
-    amount: 8900,
-    type: "expense",
-    categoryId: "shopping",
-    channel: "Virtual Card",
-    date: "2025-02-27T14:15:00+07:00",
+    ref: "DIV-1004",
+    title: "เงินปันผลกองทุนรวม K-USXNDQ",
+    amount: 5000,
+    type: "income",
+    categoryId: "investment",
+    channel: "Virtual Bank Wallet",
+    date: relativeDateIso(-4, "11:20:00"),
     status: "completed",
   },
   {
     id: "tx-5",
-    ref: "DIV-20250225-0193",
-    title: "เงินปันผลกองทุนรวม K-USXNDQ",
-    amount: 4320,
+    ref: "INC-1005",
+    title: "เงินโอนตั้งต้นเข้ากระเป๋า",
+    amount: 10000,
     type: "income",
-    categoryId: "investment",
-    channel: "โอนเข้าบัญชีจำลอง",
-    date: "2025-02-25T11:20:00+07:00",
+    categoryId: "salary",
+    channel: "Virtual Bank Wallet",
+    date: relativeDateIso(-5, "09:00:00"),
     status: "completed",
   },
 ];
 
 export const INITIAL_RECURRING: RecurringPayment[] = [
-  { id: "rec-salary", title: "เงินเดือนประจำ", amount: 55000, type: "income", categoryId: "salary", cycle: "monthly", nextDueDate: "2025-04-25", active: true, icon: "payments" },
-  { id: "rec-1", title: "Netflix Premium Ultra HD", amount: 419, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-01", active: true, icon: "movie" },
-  { id: "rec-2", title: "ค่าเช่าคอนโด Ashton Asoke", amount: 11500, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-05", active: true, icon: "apartment" },
-  { id: "rec-3", title: "AIS Fibre 1Gbps + Mobile", amount: 899, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-10", active: true, icon: "wifi" },
-  { id: "rec-4", title: "Spotify Duo", amount: 189, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-15", active: false, icon: "music_note" },
+  { id: "rec-1", title: "Netflix Premium Ultra HD", amount: 500, categoryId: "recurring", cycle: "monthly", nextDueDate: relativeDateYmd(1), active: true, icon: "movie" },
+  { id: "rec-2", title: "ค่าเช่าคอนโด Ashton Asoke", amount: 12000, categoryId: "recurring", cycle: "monthly", nextDueDate: relativeDateYmd(3), active: true, icon: "apartment" },
+  { id: "rec-salary", title: "เงินเดือนประจำ", amount: 50000, type: "income", categoryId: "salary", cycle: "monthly", nextDueDate: relativeDateYmd(7), active: true, icon: "payments" },
+  { id: "rec-3", title: "AIS Fibre 1Gbps + Mobile", amount: 1000, categoryId: "recurring", cycle: "monthly", nextDueDate: relativeDateYmd(10), active: true, icon: "wifi" },
+  { id: "rec-4", title: "Spotify Duo", amount: 200, categoryId: "recurring", cycle: "monthly", nextDueDate: relativeDateYmd(15), active: false, icon: "music_note" },
 ];
 
-export const INITIAL_BANK_BALANCE = 124500;
+export const INITIAL_BANK_BALANCE = 10000;
 
 export const INITIAL_LEDGER: BankLedgerEntry[] = [
-  { id: "l-1", ref: "VB-20250302-01", type: "debit", title: "ชำระเงิน PromptPay QR", counterparty: "Gourmet Market Paragon", amount: 2450, balanceAfter: 124500, date: "2025-03-02T18:30:00+07:00" },
-  { id: "l-2", ref: "VB-20250301-02", type: "debit", title: "หักบัญชีอัตโนมัติ", counterparty: "Netflix Thailand", amount: 419, balanceAfter: 126950, date: "2025-03-01T00:01:00+07:00" },
-  { id: "l-3", ref: "VB-20250228-03", type: "credit", title: "เงินเดือนโอนเข้าบัญชี", counterparty: "Tech Innovation Co., Ltd.", amount: 85000, balanceAfter: 127369, date: "2025-02-28T09:00:00+07:00" },
+  { id: "l-1", ref: "VB-1001", type: "debit", title: "ชำระเงิน PromptPay QR", counterparty: "Gourmet Market Paragon", amount: 1500, balanceAfter: 10000, date: relativeDateIso(-1, "18:30:00") },
+  { id: "l-2", ref: "VB-1002", type: "debit", title: "ชำระเงิน PromptPay QR", counterparty: "PTT Station", amount: 1000, balanceAfter: 11500, date: relativeDateIso(-2, "10:15:00") },
+  { id: "l-3", ref: "VB-1003", type: "debit", title: "ชำระเงิน Virtual Card", counterparty: "Uniqlo Central World", amount: 2500, balanceAfter: 12500, date: relativeDateIso(-3, "14:15:00") },
+  { id: "l-4", ref: "VB-1004", type: "credit", title: "เงินปันผลโอนเข้าบัญชี", counterparty: "K-USXNDQ Dividend", amount: 5000, balanceAfter: 15000, date: relativeDateIso(-4, "11:20:00") },
+  { id: "l-5", ref: "VB-1005", type: "credit", title: "เงินโอนตั้งต้นเข้ากระเป๋า", counterparty: "Finora Initial Deposit", amount: 10000, balanceAfter: 10000, date: relativeDateIso(-5, "09:00:00") },
 ];
 
 export const INITIAL_SETTINGS: AppSettings = {
