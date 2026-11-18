@@ -14,6 +14,10 @@ export default function CategoriesPage() {
   const [customColor, setCustomColor] = useState<string | null>(null);
 
   const newColor = customColor ?? nextCategoryColor(categories.map((c) => c.color));
+  const isIncomeTab = type === "income";
+  const expenseCats = categories.filter((c) => c.type === "expense" && c.id !== "recurring");
+  const incomeCats = categories.filter((c) => c.type === "income" && c.id !== "recurring");
+  const visibleCats = isIncomeTab ? incomeCats : expenseCats;
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,7 +26,7 @@ export default function CategoriesPage() {
       name: name.trim(),
       icon,
       color: newColor,
-      budget: Number(budget) || 0,
+      budget: isIncomeTab ? 0 : Number(budget) || 0,
       type,
     });
     setName("");
@@ -36,44 +40,61 @@ export default function CategoriesPage() {
           จัดการหมวดหมู่และงบประมาณ
         </h1>
         <p className="text-sm text-on-surface-variant mt-1">
-          กำหนดเพดานงบประมาณรายเดือนสำหรับแต่ละหมวดหมู่เพื่อควบคุมรายจ่ายอย่างมีประสิทธิภาพ
+          {isIncomeTab
+            ? "จัดการหมวดหมู่แหล่งรายรับและติดตามยอดรายรับรวมในแต่ละหมวด"
+            : "กำหนดเพดานงบประมาณรายเดือนสำหรับแต่ละหมวดหมู่เพื่อควบคุมรายจ่ายอย่างมีประสิทธิภาพ"}
         </p>
+      </div>
+
+      {/* Mode Tabs */}
+      <div className="inline-flex self-start p-1 rounded-xl bg-surface-container border border-outline-variant/30 gap-1">
+        <button
+          type="button"
+          onClick={() => setType("expense")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+            !isIncomeTab
+              ? "bg-secondary text-on-secondary shadow-sm"
+              : "text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          หมวดรายจ่าย ({expenseCats.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setType("income")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+            isIncomeTab
+              ? "bg-primary-container text-on-primary-container shadow-sm"
+              : "text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          หมวดรายรับ ({incomeCats.length})
+        </button>
       </div>
 
       {/* Add Category Form */}
       <form
         onSubmit={handleAdd}
-        className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 grid grid-cols-1 md:grid-cols-5 gap-3 items-end"
+        className={`rounded-xl bg-surface-container border border-outline-variant/30 p-5 grid grid-cols-1 gap-3 items-end ${
+          isIncomeTab ? "md:grid-cols-3" : "md:grid-cols-4"
+        }`}
       >
         <div>
           <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-            ชื่อหมวดหมู่ใหม่
+            {isIncomeTab ? "ชื่อหมวดรายรับใหม่" : "ชื่อหมวดรายจ่ายใหม่"}
           </label>
           <input
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="เช่น สุขภาพ & ฟิตเนส"
+            placeholder={isIncomeTab ? "เช่น งานฟรีแลนซ์, ค่าเช่า" : "เช่น สุขภาพ & ฟิตเนส"}
             className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
           />
         </div>
-        <div>
-          <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-            ประเภท
-          </label>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as "expense" | "income")}
-            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
-          >
-            <option value="expense">รายจ่าย (Expense)</option>
-            <option value="income">รายรับ (Income)</option>
-          </select>
-        </div>
         <IconColorPicker
           id="cat-icon-label"
-          label="ไอคอน"
+          label="ไอคอน & สี"
           colorSectionLabel="สีหมวดหมู่"
           dialogLabel="เลือกสีและไอคอนหมวดหมู่"
           icon={icon}
@@ -81,31 +102,31 @@ export default function CategoriesPage() {
           onIconChange={setIcon}
           onColorChange={setCustomColor}
         />
-        <div>
-          <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-            งบประมาณต่อเดือน (THB)
-          </label>
-          <input
-            type="number"
-            min="0"
-            value={budget}
-            onChange={(e) => setBudget(e.target.value)}
-            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-on-surface"
-          />
-        </div>
+        {!isIncomeTab && (
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+              งบประมาณต่อเดือน (THB)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-on-surface"
+            />
+          </div>
+        )}
         <button
           type="submit"
           className="py-2 px-4 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90"
         >
-          + เพิ่มหมวดหมู่
+          {isIncomeTab ? "+ เพิ่มหมวดรายรับ" : "+ เพิ่มหมวดรายจ่าย"}
         </button>
       </form>
 
       {/* Category List (Flattened with dividers) */}
       <div className="rounded-2xl bg-surface-container border border-outline-variant/30 divide-y divide-outline-variant/20">
-        {categories
-          .filter((cat) => cat.id !== "recurring")
-          .map((cat) => {
+        {visibleCats.map((cat) => {
           const spent = transactions
             .filter(
               (t) =>
