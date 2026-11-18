@@ -59,6 +59,35 @@ function renderInline(line: string): React.ReactNode[] {
   });
 }
 
+type TableAlign = "left" | "center" | "right";
+
+function splitTableRow(line: string): string[] {
+  let trimmed = line.trim();
+  if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+  if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+  return trimmed.split("|").map((cell) => cell.trim());
+}
+
+function parseTableSeparator(line: string): TableAlign[] | null {
+  if (!line.includes("|")) return null;
+  const cells = splitTableRow(line);
+  if (cells.length === 0) return null;
+  const alignments: TableAlign[] = [];
+  for (const cell of cells) {
+    if (!/^:?-{2,}:?$/.test(cell)) return null;
+    if (cell.startsWith(":") && cell.endsWith(":")) alignments.push("center");
+    else if (cell.endsWith(":")) alignments.push("right");
+    else alignments.push("left");
+  }
+  return alignments;
+}
+
+function tableAlignClass(align: TableAlign | undefined): string {
+  if (align === "center") return "text-center";
+  if (align === "right") return "text-right";
+  return "text-left";
+}
+
 function renderChatMarkdown(text: string): React.ReactNode {
   const blocks = text.split(/(```[\s\S]*?```)/g);
   return blocks.map((block, bIdx) => {
@@ -73,30 +102,102 @@ function renderChatMarkdown(text: string): React.ReactNode {
         </pre>
       );
     }
-    return (
-      <div key={bIdx} className="space-y-1">
-        {block.split("\n").map((line, lIdx) => {
-          const trimmed = line.trim();
-          if (!trimmed) return <div key={lIdx} className="h-1.5" />;
-          const headingMatch = trimmed.match(/^#{1,4}\s+(.+)$/);
-          if (headingMatch) {
-            return (
-              <div key={lIdx} className="font-bold text-on-surface pt-1.5 pb-0.5">
-                {renderInline(headingMatch[1])}
+
+    const lines = block.split("\n");
+    const elements: React.ReactNode[] = [];
+    let i = 0;
+
+    while (i < lines.length) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (i + 1 < lines.length && trimmed.includes("|")) {
+        const alignments = parseTableSeparator(lines[i + 1]);
+        if (alignments) {
+          const headers = splitTableRow(line);
+          if (headers.length === alignments.length) {
+            const rows: string[][] = [];
+            let j = i + 2;
+            while (
+              j < lines.length &&
+              lines[j].trim().includes("|") &&
+              !parseTableSeparator(lines[j])
+            ) {
+              rows.push(splitTableRow(lines[j]));
+              j++;
+            }
+
+            elements.push(
+              <div
+                key={`tbl-${i}`}
+                className="my-2 overflow-x-auto rounded-lg border border-outline-variant/30 bg-surface-container"
+              >
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-outline-variant/30 bg-surface-container-high/60">
+                      {headers.map((header, hIdx) => (
+                        <th
+                          key={hIdx}
+                          className={`px-3 py-2 font-semibold text-on-surface whitespace-nowrap ${tableAlignClass(alignments[hIdx])}`}
+                        >
+                          {renderInline(header)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/20">
+                    {rows.map((row, rIdx) => (
+                      <tr key={rIdx} className="hover:bg-surface-container-high/30">
+                        {headers.map((_, cIdx) => (
+                          <td
+                            key={cIdx}
+                            className={`px-3 py-2 text-on-surface ${tableAlignClass(alignments[cIdx])}`}
+                          >
+                            {renderInline(row[cIdx] ?? "")}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             );
+            i = j;
+            continue;
           }
+        }
+      }
+
+      if (!trimmed) {
+        elements.push(<div key={i} className="h-1.5" />);
+      } else {
+        const headingMatch = trimmed.match(/^#{1,4}\s+(.+)$/);
+        if (headingMatch) {
+          elements.push(
+            <div key={i} className="font-bold text-on-surface pt-1.5 pb-0.5">
+              {renderInline(headingMatch[1])}
+            </div>
+          );
+        } else {
           const bulletMatch = trimmed.match(/^([*\-•])\s+(.+)$/);
           if (bulletMatch) {
-            return (
-              <div key={lIdx} className="flex items-start gap-2 pl-1">
+            elements.push(
+              <div key={i} className="flex items-start gap-2 pl-1">
                 <span className="text-primary select-none">•</span>
                 <span>{renderInline(bulletMatch[2])}</span>
               </div>
             );
+          } else {
+            elements.push(<div key={i}>{renderInline(line)}</div>);
           }
-          return <div key={lIdx}>{renderInline(line)}</div>;
-        })}
+        }
+      }
+      i++;
+    }
+
+    return (
+      <div key={bIdx} className="space-y-1">
+        {elements}
       </div>
     );
   });
