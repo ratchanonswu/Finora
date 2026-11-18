@@ -436,9 +436,15 @@ export default function AiAssistantPage() {
           channel: String(args.channel || "Virtual Bank Wallet"),
           date: new Date().toISOString(),
         });
-        resultText = res.ok
-          ? `บันทึกสำเร็จ: ${check.summary}`
-          : `บันทึกไม่สำเร็จ: ${res.error}`;
+        if (!res.ok) {
+          appendChatMessage({
+            id: `e-${Date.now()}`,
+            role: "error",
+            text: `บันทึกไม่สำเร็จ: ${res.error || "ไม่สามารถบันทึกรายการได้"}`,
+          });
+          return;
+        }
+        resultText = `บันทึกสำเร็จ: ${check.summary}`;
       } else if (pt.name === "update_category_budget") {
         updateCategoryBudget(String(args.categoryId), Number(args.budget) || 0);
         resultText = `อัปเดตสำเร็จ: ${check.summary}`;
@@ -463,9 +469,15 @@ export default function AiAssistantPage() {
           String(args.title || ""),
           String(args.counterparty || "Finora Sandbox")
         );
-        resultText = res.ok
-          ? `ทำรายการสำเร็จ: ${check.summary}`
-          : `ทำรายการไม่สำเร็จ: ${res.error}`;
+        if (!res.ok) {
+          appendChatMessage({
+            id: `e-${Date.now()}`,
+            role: "error",
+            text: `ทำรายการไม่สำเร็จ: ${res.error || "ไม่สามารถทำรายการได้"}`,
+          });
+          return;
+        }
+        resultText = `ทำรายการสำเร็จ: ${check.summary}`;
       }
 
       updateChatMessage(msg.id, {
@@ -496,6 +508,12 @@ export default function AiAssistantPage() {
           nextCategories
         );
       }
+    } catch {
+      appendChatMessage({
+        id: `e-${Date.now()}`,
+        role: "error",
+        text: "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย",
+      });
     } finally {
       setLoading(false);
     }
@@ -926,6 +944,19 @@ export default function AiAssistantPage() {
                                         {c.name}
                                       </option>
                                     ))}
+                                </select>
+                                <select
+                                  aria-label="ช่องทางการชำระเงิน"
+                                  value={String(pt.args.channel || "Virtual Bank Wallet")}
+                                  onChange={(e) =>
+                                    updateToolArgs({ ...pt.args, channel: e.target.value })
+                                  }
+                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                >
+                                  <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
+                                  <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
+                                  <option value="Virtual Card">Virtual Card</option>
+                                  <option value="เงินสด">เงินสด</option>
                                 </select>
                                 <input
                                   type="number"
