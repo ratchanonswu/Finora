@@ -30,6 +30,14 @@ export interface OpenRouterToolDef {
   };
 }
 
+export interface LLMMetrics {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  latencyMs: number;
+}
+
 export async function callOpenRouter(options: {
   messages: OpenRouterMessage[];
   apiKeyOverride?: string;
@@ -39,6 +47,7 @@ export async function callOpenRouter(options: {
   ok: boolean;
   text?: string;
   toolCalls?: OpenRouterToolCall[];
+  metrics?: LLMMetrics;
   error?: string;
   status: number;
 }> {
@@ -65,6 +74,7 @@ export async function callOpenRouter(options: {
   }
 
   try {
+    const startMs = Date.now();
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -98,7 +108,16 @@ export async function callOpenRouter(options: {
       return { ok: false, status: 502, error: "AI ไม่ได้ส่งข้อความตอบกลับ" };
     }
 
-    return { ok: true, status: 200, text: content || "", toolCalls };
+    const metrics: LLMMetrics = {
+      model: String(data?.model || model),
+      inputTokens: Number(data?.usage?.prompt_tokens || 0),
+      outputTokens: Number(data?.usage?.completion_tokens || 0),
+      totalTokens: Number(data?.usage?.total_tokens || 0),
+      latencyMs: Date.now() - startMs,
+    };
+    console.info("[LLM]", metrics);
+
+    return { ok: true, status: 200, text: content || "", toolCalls, metrics };
   } catch (err) {
     return {
       ok: false,
