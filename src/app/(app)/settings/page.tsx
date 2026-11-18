@@ -192,7 +192,7 @@ export default function SettingsPage() {
             {rolloverResult && (
               <div
                 role="status"
-                className="text-xs text-primary bg-primary-container/15 border border-primary/30 rounded-lg px-3.5 py-2.5 font-medium"
+                className="text-xs text-primary bg-primary-container/15 border border-primary/30 rounded-lg px-3.5 py-2.5 font-medium animate-page-in"
               >
                 ทดสอบครบรอบเดือนสำเร็จ: เติมเงินเดือน +{formatTHB(rolloverResult.salaryCredited)}
                 {rolloverResult.recurringIncomeCount > 0

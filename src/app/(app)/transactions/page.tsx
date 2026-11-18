@@ -109,13 +109,21 @@ export default function TransactionsPage() {
                 {filtered.map((tx) => {
                   const cat = categories.find((c) => c.id === tx.categoryId);
                   return (
-                    <tr key={tx.id} className="hover:bg-surface-container-low/50">
+                    <tr key={tx.id} className="hover:bg-surface-container-low/50 transition-colors duration-150">
                       <td className="py-3.5 pr-4">
                         <div className="font-semibold text-on-surface">{tx.title}</div>
                         <div className="text-[11px] font-mono text-outline">{tx.ref}</div>
                       </td>
                       <td className="py-3.5 px-4 text-xs text-on-surface-variant">
-                        {cat?.name || tx.categoryId}
+                        <span className="inline-flex items-center gap-1.5">
+                          {cat?.color && (
+                            <span
+                              className="w-2 h-2 rounded-full shrink-0"
+                              style={{ backgroundColor: cat.color }}
+                            />
+                          )}
+                          <span>{cat?.name || tx.categoryId}</span>
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-xs text-on-surface-variant">{tx.channel}</td>
                       <td className="py-3.5 px-4 text-xs font-mono text-on-surface-variant">

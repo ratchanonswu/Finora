@@ -192,7 +192,7 @@ export default function CategoriesPage() {
                   </div>
                   <div className="w-full h-2 rounded-full bg-surface-container-highest overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${over ? "bg-error" : ""}`}
+                      className={`h-full rounded-full transition-all duration-500 ease-out ${over ? "bg-error" : ""}`}
                       style={{ width: `${pct}%`, backgroundColor: over ? undefined : cat.color }}
                     />
                   </div>

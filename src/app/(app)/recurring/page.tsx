@@ -195,7 +195,7 @@ export default function RecurringPage() {
 
       {feedback && (
         <div
-          className={`p-3.5 rounded-xl border text-sm flex items-center justify-between gap-3 ${
+          className={`p-3.5 rounded-xl border text-sm flex items-center justify-between gap-3 animate-page-in ${
             feedback.ok
               ? "border-primary/40 bg-primary-container/20 text-on-surface"
               : "border-error/40 bg-error-container/20 text-on-error-container"
@@ -225,7 +225,7 @@ export default function RecurringPage() {
       {showForm && (
         <form
           onSubmit={handleCreate}
-          className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end"
+          className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end animate-page-in"
         >
           <div className="lg:col-span-2">
             <label className="block text-xs font-semibold text-on-surface-variant mb-1">
