@@ -65,7 +65,12 @@ export interface AppSettings {
   aiConfidenceThreshold: number;
   geminiApiKeyOverride: string;
   monthlySalary: number;
+  salaryPayday?: number;
+  quotaResetDay?: number;
   quotaResetAt?: string;
+  lastSalaryMonth?: string;
+  lastQuotaResetMonth?: string;
+  lastSimulatedDate?: string;
 }
 
 export interface ChatTxAction {

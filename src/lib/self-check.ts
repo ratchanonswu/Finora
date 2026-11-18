@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
 import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
 import { parseQrSlipResult } from "./prompts.ts";
-import { CATEGORY_PALETTE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload } from "./seed.ts";
+import { simulateRolloverToDate } from "./rollover.ts";
+import { CATEGORY_PALETTE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -173,4 +174,45 @@ if (qrValid.ok) {
 const qrInvalid = parseQrSlipResult("not a json object");
 assert.equal(qrInvalid.ok, false);
 
-console.log("Finora self-check passed (13/13 checks)");
+// 14. Date-driven rollover processes due items chronologically, respects salaryPayday, and prevents duplicate salary in the same month
+const customRecurring = [
+  ...INITIAL_RECURRING,
+  { id: "rec-late", title: "หลังเงินเดือนออก", amount: 2000, categoryId: "recurring", cycle: "monthly" as const, nextDueDate: "2025-04-28", active: true, icon: "receipt" },
+];
+const step1 = simulateRolloverToDate({
+  targetDate: "2025-04-06",
+  bankBalance: 1000,
+  recurring: customRecurring,
+  settings: { ...INITIAL_SETTINGS, monthlySalary: 30000, salaryPayday: 25, quotaResetDay: 1 },
+  nowMs: 1700000000000,
+});
+assert.equal(step1.result.salaryCredited, 0);
+assert.equal(step1.result.quotaResetCount, 1);
+assert.equal(step1.result.billsPaid, 1); // 2025-04-01 Netflix (419) paid from 1000
+assert.equal(step1.result.billsSkipped, 1); // 2025-04-05 Condo (11500) skipped (balance 581)
+assert.equal(step1.bankBalance, 581);
+
+const step2 = simulateRolloverToDate({
+  targetDate: "2025-04-28",
+  bankBalance: step1.bankBalance,
+  recurring: step1.updatedRecurring,
+  settings: { ...INITIAL_SETTINGS, monthlySalary: 30000, salaryPayday: 25, quotaResetDay: 1, ...step1.settingsPatch },
+  nowMs: 1700000001000,
+});
+assert.equal(step2.result.salaryCredited, 30000);
+assert.equal(step2.result.salaryCount, 1);
+assert.equal(step2.result.billsSkipped, 2); // 04-05 Condo & 04-10 AIS due before 04-25 payday
+assert.equal(step2.result.billsPaid, 1); // 04-28 bill (2000) paid after 04-25 salary arrives
+assert.equal(step2.bankBalance, 28581);
+assert.equal(step2.result.quotaResetCount, 0);
+
+const step3 = simulateRolloverToDate({
+  targetDate: "2025-04-30",
+  bankBalance: step2.bankBalance,
+  recurring: step2.updatedRecurring,
+  settings: { ...INITIAL_SETTINGS, monthlySalary: 30000, salaryPayday: 25, quotaResetDay: 1, ...step2.settingsPatch },
+  nowMs: 1700000002000,
+});
+assert.equal(step3.result.salaryCredited, 0); // No duplicate salary in April
+
+console.log("Finora self-check passed (14/14 checks)");

@@ -131,6 +131,8 @@ export const INITIAL_SETTINGS: AppSettings = {
   aiConfidenceThreshold: 85,
   geminiApiKeyOverride: "",
   monthlySalary: 55000,
+  salaryPayday: 25,
+  quotaResetDay: 1,
 };
 
 export function isInCurrentQuotaCycle(txDate: string, quotaResetAt?: string): boolean {
