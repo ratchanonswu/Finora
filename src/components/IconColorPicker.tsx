@@ -101,7 +101,7 @@ export function IconColorPicker({
             role="dialog"
             aria-label={dialogLabel}
             onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-            className="absolute z-50 left-0 top-full mt-2 w-80 rounded-xl bg-surface-container border border-outline-variant/40 shadow-xl p-3.5 space-y-3"
+            className="absolute z-50 left-0 top-full mt-2 w-80 rounded-xl bg-surface-container border border-outline-variant/40 shadow-xl p-3.5 space-y-3 origin-top-left animate-modal-in"
           >
             <div>
               <span className="block text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider mb-2">
