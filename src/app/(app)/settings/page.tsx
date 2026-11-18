@@ -176,75 +176,31 @@ export default function SettingsPage() {
             />
           </label>
 
-          <div className="p-4 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <label
-                  htmlFor="monthly-salary-input"
-                  className="text-sm font-semibold text-on-surface block"
-                >
-                  เงินเดือนประจำ (THB)
-                </label>
-                <div className="text-xs text-on-surface-variant">
-                  เติมเข้า Finora Virtual Wallet อัตโนมัติเมื่อถึงวันที่กำหนดของเดือน
-                </div>
-              </div>
-              <input
-                id="monthly-salary-input"
-                type="number"
-                min="0"
-                value={settings.monthlySalary}
-                onChange={(e) =>
-                  updateSettings({ monthlySalary: Math.max(0, Number(e.target.value) || 0) })
-                }
-                className="w-40 bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-right text-on-surface"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-outline-variant/20">
-              <div className="flex items-center justify-between gap-3">
-                <label
-                  htmlFor="salary-payday-input"
-                  className="text-xs font-medium text-on-surface-variant"
-                >
-                  วันที่เงินเดือนเข้า (1–31)
-                </label>
-                <input
-                  id="salary-payday-input"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={settings.salaryPayday ?? 25}
-                  onChange={(e) =>
-                    updateSettings({
-                      salaryPayday: Math.max(1, Math.min(31, Number(e.target.value) || 1)),
-                    })
-                  }
-                  className="w-20 bg-surface-container-low border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-right text-on-surface"
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <label
-                  htmlFor="quota-reset-day-input"
-                  className="text-xs font-medium text-on-surface-variant"
-                >
-                  วันที่รีเซ็ตโควต้าหมวดหมู่ (1–31)
-                </label>
-                <input
-                  id="quota-reset-day-input"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={settings.quotaResetDay ?? 1}
-                  onChange={(e) =>
-                    updateSettings({
-                      quotaResetDay: Math.max(1, Math.min(31, Number(e.target.value) || 1)),
-                    })
-                  }
-                  className="w-20 bg-surface-container-low border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-right text-on-surface"
-                />
+          <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <label
+                htmlFor="quota-reset-day-input"
+                className="text-sm font-semibold text-on-surface block"
+              >
+                วันที่รีเซ็ตโควต้าหมวดหมู่ (1–31)
+              </label>
+              <div className="text-xs text-on-surface-variant">
+                รีเซ็ตยอดใช้จ่ายรายเดือนของทุกหมวดหมู่เป็น ฿0 เมื่อจำลองถึงวันที่กำหนด (จัดการเงินเดือนและรายรับประจำได้ที่หน้า ตัด/รับเงินอัตโนมัติ)
               </div>
             </div>
+            <input
+              id="quota-reset-day-input"
+              type="number"
+              min="1"
+              max="31"
+              value={settings.quotaResetDay ?? 1}
+              onChange={(e) =>
+                updateSettings({
+                  quotaResetDay: Math.max(1, Math.min(31, Number(e.target.value) || 1)),
+                })
+              }
+              className="w-24 bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-right text-on-surface"
+            />
           </div>
 
           <div className="p-4 space-y-3">
@@ -254,7 +210,7 @@ export default function SettingsPage() {
                   จำลองวันครบรอบเดือน (Simulate Rollover Date)
                 </div>
                 <div className="text-xs text-on-surface-variant">
-                  เลือกวันที่ต้องการจำลอง ระบบจะรันเงินเดือน บิล Recurring และรีเซ็ตโควต้าที่ถึงกำหนดเรียงตามวันที่จริง
+                  เลือกวันที่ต้องการจำลอง ระบบจะรันรายรับประจำ (เช่น เงินเดือน), บิล Recurring และรีเซ็ตโควต้าที่ถึงกำหนดเรียงตามวันที่จริง
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -301,16 +257,11 @@ export default function SettingsPage() {
                 className="text-xs text-primary bg-primary-container/15 border border-primary/30 rounded-lg px-3.5 py-2.5 font-medium animate-page-in"
               >
                 จำลองถึงวันที่ {rolloverResult.simulatedDate}:
-                {rolloverResult.salaryCredited > 0
-                  ? ` เติมเงินเดือน ${rolloverResult.salaryCount} รอบ (+${formatTHB(
-                      rolloverResult.salaryCredited
-                    )}) •`
-                  : " ยังไม่ถึงวันเงินเดือนเข้า (หรือเติมในรอบเดือนนี้แล้ว) •"}
                 {rolloverResult.recurringIncomeCount > 0
                   ? ` รับรายรับประจำ ${rolloverResult.recurringIncomeCount} รายการ (+${formatTHB(
                       rolloverResult.recurringIncomeTotal
                     )}) •`
-                  : ""}
+                  : " ไม่มีรายรับประจำถึงกำหนด •"}
                 {" "}ตัดบิลอัตโนมัติ {rolloverResult.billsPaid} รายการ ({formatTHB(rolloverResult.billsTotal)})
                 {rolloverResult.billsSkipped > 0
                   ? ` • ข้าม ${rolloverResult.billsSkipped} รายการ (ยอดเงินไม่พอ)`

@@ -168,7 +168,10 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
           delete parsed.categories;
         }
         if (Array.isArray(parsed.recurring)) {
-          parsed.recurring = parsed.recurring.map((r) => ({ ...r, categoryId: "recurring" }));
+          parsed.recurring = parsed.recurring.map((r) => ({
+            ...r,
+            categoryId: (r.type ?? "expense") === "income" ? r.categoryId || "salary" : "recurring",
+          }));
         } else {
           delete parsed.recurring;
         }
