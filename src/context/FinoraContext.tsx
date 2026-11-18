@@ -79,6 +79,26 @@ interface FinoraContextValue extends FinoraState {
 const STORAGE_KEY = "finora_state_v1";
 const CHAT_SESSION_KEY = "finora_chat_session_v1";
 
+function chatSessionKeyFor(email: string): string {
+  return `${CHAT_SESSION_KEY}:${email.trim().toLowerCase()}`;
+}
+
+function loadUserChatSession(email: string): ChatMessage[] {
+  if (!email.trim()) return INITIAL_CHAT_MESSAGES;
+  try {
+    const savedChat = sessionStorage.getItem(chatSessionKeyFor(email));
+    if (savedChat) {
+      const parsedChat = JSON.parse(savedChat) as ChatMessage[];
+      if (Array.isArray(parsedChat) && parsedChat.length > 0) {
+        return parsedChat;
+      }
+    }
+  } catch {
+    // Ignore malformed sessionStorage and fall back to welcome message
+  }
+  return INITIAL_CHAT_MESSAGES;
+}
+
 const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
   {
     id: "welcome",
@@ -108,6 +128,9 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
+      // Remove legacy un-scoped chat key so older sessions cannot leak across users.
+      sessionStorage.removeItem(CHAT_SESSION_KEY);
+      let activeUser = DEFAULT_STATE.user;
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<FinoraState>;
@@ -118,18 +141,17 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
             return seed ? { ...c, color: seed.color } : c;
           });
         }
+        if (parsed.user) {
+          activeUser = parsed.user;
+        }
         setState((prev) => ({
           ...prev,
           ...parsed,
           settings: { ...INITIAL_SETTINGS, ...(parsed.settings || {}) },
         }));
       }
-      const savedChat = sessionStorage.getItem(CHAT_SESSION_KEY);
-      if (savedChat) {
-        const parsedChat = JSON.parse(savedChat) as ChatMessage[];
-        if (Array.isArray(parsedChat) && parsedChat.length > 0) {
-          setChatMessages(parsedChat);
-        }
+      if (activeUser.isLoggedIn && activeUser.email) {
+        setChatMessages(loadUserChatSession(activeUser.email));
       }
     } catch {
       // Ignore malformed storage and fall back to seed
@@ -148,18 +170,18 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   }, [state, hydrated]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !state.user.isLoggedIn || !state.user.email) return;
     try {
-      sessionStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(chatMessages));
+      sessionStorage.setItem(chatSessionKeyFor(state.user.email), JSON.stringify(chatMessages));
     } catch {
       // Ignore sessionStorage quota errors
     }
-  }, [chatMessages, hydrated]);
+  }, [chatMessages, hydrated, state.user.isLoggedIn, state.user.email]);
 
   const toggleTheme = () =>
     setState((prev) => ({ ...prev, theme: prev.theme === "light" ? "dark" : "light" }));
 
-  const loginUser = (email: string, name?: string) =>
+  const loginUser = (email: string, name?: string) => {
     setState((prev) => {
       const isMockUser = email.toLowerCase() === INITIAL_USER.email.toLowerCase();
       return {
@@ -181,9 +203,11 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         },
       };
     });
+    setChatMessages(loadUserChatSession(email));
+  };
 
   // New registered users start with a clean account (no mock transactions/balance), keeping base categories.
-  const registerUser = (email: string, name: string) =>
+  const registerUser = (email: string, name: string) => {
     setState((prev) => ({
       ...prev,
       categories: INITIAL_CATEGORIES,
@@ -198,12 +222,21 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         isLoggedIn: true,
       },
     }));
+    setChatMessages(INITIAL_CHAT_MESSAGES);
+    try {
+      sessionStorage.removeItem(chatSessionKeyFor(email));
+    } catch {
+      // Ignore storage errors
+    }
+  };
 
-  const logoutUser = () =>
+  const logoutUser = () => {
     setState((prev) => ({
       ...prev,
       user: { ...prev.user, isLoggedIn: false },
     }));
+    setChatMessages(INITIAL_CHAT_MESSAGES);
+  };
 
   const executeBankAction = async (
     type: "credit" | "debit",
@@ -287,6 +320,9 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   const clearChatMessages = () => {
     setChatMessages(INITIAL_CHAT_MESSAGES);
     try {
+      if (state.user.email) {
+        sessionStorage.removeItem(chatSessionKeyFor(state.user.email));
+      }
       sessionStorage.removeItem(CHAT_SESSION_KEY);
     } catch {
       // Ignore storage errors
