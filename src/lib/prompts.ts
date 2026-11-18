@@ -6,6 +6,8 @@ export interface QrSlipAnalysisResult {
   isValidPaymentImage: boolean;
   type: TransactionType;
   merchant: string;
+  sender?: string;
+  receiver?: string;
   promptPayId: string;
   amount: number;
   categoryId: string;
@@ -43,26 +45,70 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 3. คำทักทายสั้น ๆ (เช่น "สวัสดี", "ขอบคุณ") ตอบรับสั้น ๆ ตามบุคลิกแล้วชวนคุยเรื่องการเงินได้ทันทีค่ะ`;
 }
 
-export function buildQrSlipPrompt(qrRaw: string | undefined, categoryList: string): string {
+export function buildQrSlipPrompt(
+  qrRaw: string | undefined,
+  categoryList: string,
+  userName?: string
+): string {
+  const cleanUser = userName?.trim() || "";
   return [
-    "วิเคราะห์รูปภาพนี้ว่าเป็นป้าย QR Code รับเงิน (PromptPay / Thai QR Payment) หรือสลิปธุรกรรมธนาคารหรือไม่",
+    "วิเคราะห์รูปภาพนี้ว่าเป็นป้าย QR Code รับเงิน (PromptPay / Thai QR Payment) หรือสลิปธุรกรรมธนาคาร/e-Wallet หรือไม่",
     qrRaw ? `ข้อมูลดิบที่อ่านได้จากบาร์โค้ด QR: ${qrRaw}` : "ไม่พบบาร์โค้ดจากตัวอ่านเบื้องต้น ให้ตรวจสอบจากภาพโดยตรง",
+    cleanUser ? `ชื่อผู้ใช้เจ้าของบัญชีในระบบ: "${cleanUser}"` : "",
     `หมวดหมู่ที่เลือกได้: ${categoryList}`,
     "ตอบกลับเป็น JSON เท่านั้นตามโครงสร้างนี้:",
-    '{ "isValidPaymentImage": boolean, "type": "expense" | "income", "merchant": string, "promptPayId": string, "amount": number, "categoryId": string }',
-    "กฎสำคัญ:",
-    "1. ถ้ารูปนี้ไม่ใช่ QR Code และไม่ใช่สลิปโอนเงินหรือป้ายรับเงิน ให้ตั้ง isValidPaymentImage = false",
-    '2. type: ใช้ "income" หากเป็นสลิปเงินเข้า/เงินเดือน/ปันผล/รับโอนเงิน และใช้ "expense" หากเป็นป้าย QR ร้านค้าหรือสลิปจ่ายเงิน/โอนออก (ค่าเริ่มต้นคือ "expense")',
-    '3. merchant: ชื่อร้านค้า ชื่อผู้รับเงิน หรือชื่อผู้โอนที่ปรากฏในภาพ/สลิป (ถ้าไม่มีชื่อให้อ่านได้ ให้ส่งค่าว่าง "")',
-    '4. promptPayId: เลขพร้อมเพย์ เบอร์โทร เลขประจำตัวผู้เสียภาษี หรือรหัสอ้างอิงที่ปรากฏในภาพ (ถ้าไม่มีให้ส่ง "")',
-    "5. amount: ยอดเงินที่ระบุในสลิปหรือป้าย QR เท่านั้น ถ้าในภาพไม่ได้ระบุยอดเงินไว้ ให้ส่ง 0 เสมอ ห้ามเดาหรือสุ่มตัวเลขเด็ดขาด",
-    '6. categoryId: เลือก id หมวดหมู่ที่ตรงกับ type และรายการนั้นที่สุด (ถ้าเป็นรายรับใช้ "salary" หรือ "investment", ถ้าเป็นรายจ่ายและไม่แน่ใจใช้ "food" ห้ามเลือก "recurring")',
-  ].join("\n");
+    '{ "isValidPaymentImage": boolean, "type": "expense" | "income", "sender": string, "receiver": string, "merchant": string, "promptPayId": string, "amount": number, "categoryId": string }',
+    "กฎสำคัญสำหรับสลิปและป้าย QR หลายฟอร์แมต:",
+    "1. ถ้ารูปนี้ไม่ใช่ QR Code และไม่ใช่สลิปโอนเงิน/จ่ายบิลหรือป้ายรับเงิน ให้ตั้ง isValidPaymentImage = false",
+    '2. แยกผู้โอน (sender) และผู้รับ/ร้านค้า (receiver) ตามโครงสร้างสลิปแต่ละธนาคาร (ทั้งแบบเรียง บน->ล่าง เช่น K+, SCB, KTB, BBL, TrueMoney และแบบเรียง ซ้าย->ขวา เช่น Krungsri, TTB):',
+    '   - sender: ชื่อบัญชีต้นทาง/ผู้โอน (ฝั่ง "จาก / ผู้โอน / From" หรือด้านบน/ซ้ายของลูกศร; ถ้าเป็นป้าย QR ร้านค้าที่ไม่มีผู้โอน ให้ส่ง "")',
+    '   - receiver: ชื่อบัญชีปลายทาง/ผู้รับเงิน/ชื่อร้านค้า/บริษัทรับชำระบิล (ฝั่ง "ไปยัง / ผู้รับ / To" หรือด้านล่าง/ขวาของลูกศร หรือชื่อร้านบนป้าย QR)',
+    '   - ห้ามอ่านลายน้ำพื้นหลังมาปนกับชื่อ และหากชื่อท้ายบรรทัดถูกแอปธนาคารตัดคำด้วย "..." (เช่น "นาย กิตติ แ...") ให้ตัดเศษตัวอักษรย่อและ "..." ท้ายชื่อออก',
+    '3. การตัดสิน type และ merchant:',
+    '   - หากมีชื่อผู้ใช้ในระบบ และ receiver ตรงหรือคล้ายกับชื่อผู้ใช้ (ส่วน sender เป็นคนอื่น) ให้ตั้ง type = "income" และ merchant = sender',
+    '   - กรณีอื่นทั้งหมด (ผู้โอนตรงกับชื่อผู้ใช้, หรือไม่ตรงทั้งคู่, หรือเป็นป้าย QR ร้านค้า) ให้ตั้ง type = "expense" และ merchant = receiver (ถ้าไม่มี receiver ค่อยใช้ sender)',
+    '4. promptPayId: เลขพร้อมเพย์ เบอร์โทร Biller ID หรือรหัสอ้างอิง/เลขที่รายการที่ปรากฏในภาพ (ถ้าไม่มีให้ส่ง "")',
+    '5. amount: ยอดเงินที่โอนหรือชำระสุทธิเป็นตัวเลขเท่านั้น (ห้ามใช้ยอดค่าธรรมเนียม 0.00 และห้ามเอาเลขที่อ้างอิงมาเป็นยอดเงิน; ถ้าเป็นป้าย QR ที่ไม่ได้ระบุยอดเงิน ให้ส่ง 0 เสมอ)',
+    '6. categoryId: เลือก id หมวดหมู่ที่ตรงกับ type และชื่อร้าน/บันทึกช่วยจำในสลิปที่สุด (รายรับใช้ "salary" หรือ "investment", รายจ่ายถ้าไม่แน่ใจใช้ "food" ห้ามเลือก "recurring")',
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function cleanSlipName(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  return raw
+    .trim()
+    .replace(/(\.{2,}|…)+$/u, "")
+    .replace(/\s+[\u0E01-\u0E4E]\.?$/u, "")
+    .replace(/[\u0E40-\u0E44]$/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeForMatch(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/^(คุณ|นาย|นางสาว|นาง|น\.ส\.|ด\.ช\.|ด\.ญ\.|mr\.?|mrs\.?|ms\.?|miss)\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function namesLikelyMatch(extracted: string, userName?: string): boolean {
+  if (!extracted || !userName) return false;
+  const a = normalizeForMatch(extracted);
+  const b = normalizeForMatch(userName);
+  if (!a || !b) return false;
+  if (a.includes(b) || b.includes(a)) return true;
+  const aFirst = a.split(" ")[0];
+  const bFirst = b.split(" ")[0];
+  return aFirst.length >= 3 && aFirst === bFirst;
 }
 
 export function parseQrSlipResult(
   rawText: string,
-  validCategoryIds?: string[]
+  validCategoryIds?: string[],
+  userName?: string
 ): { ok: true; data: QrSlipAnalysisResult } | { ok: false; error: string } {
   try {
     const cleaned = String(rawText || "")
@@ -74,9 +120,31 @@ export function parseQrSlipResult(
       return { ok: false, error: "ผลลัพธ์จาก AI ไม่ใช่รูปแบบ JSON Object" };
     }
 
-    const type: TransactionType = parsed.type === "income" ? "income" : "expense";
-    const rawAmount = Number(parsed.amount);
-    const amount = Number.isFinite(rawAmount) && rawAmount > 0 ? rawAmount : 0;
+    const sender = cleanSlipName(parsed.sender);
+    const receiver = cleanSlipName(parsed.receiver);
+    const rawMerchant = cleanSlipName(parsed.merchant);
+
+    let type: TransactionType = parsed.type === "income" ? "income" : "expense";
+    if (userName?.trim() && (sender || receiver)) {
+      const senderIsUser = namesLikelyMatch(sender, userName);
+      const receiverIsUser = namesLikelyMatch(receiver, userName);
+      if (receiverIsUser && !senderIsUser && sender) {
+        type = "income";
+      } else if (senderIsUser && !receiverIsUser && receiver) {
+        type = "expense";
+      }
+    }
+
+    const merchant =
+      type === "income"
+        ? sender || rawMerchant || receiver
+        : receiver || rawMerchant || sender;
+
+    const rawAmountVal =
+      typeof parsed.amount === "number"
+        ? parsed.amount
+        : Number(String(parsed.amount ?? "").replace(/[^0-9.-]/g, ""));
+    const amount = Number.isFinite(rawAmountVal) && rawAmountVal > 0 ? rawAmountVal : 0;
     const rawCat = typeof parsed.categoryId === "string" ? parsed.categoryId.trim() : "";
     const defaultCat = type === "income" ? "salary" : "food";
     const categoryId =
@@ -91,7 +159,9 @@ export function parseQrSlipResult(
       data: {
         isValidPaymentImage: Boolean(parsed.isValidPaymentImage),
         type,
-        merchant: typeof parsed.merchant === "string" ? parsed.merchant.trim() : "",
+        merchant,
+        ...(sender ? { sender } : {}),
+        ...(receiver ? { receiver } : {}),
         promptPayId: typeof parsed.promptPayId === "string" ? parsed.promptPayId.trim() : "",
         amount,
         categoryId,

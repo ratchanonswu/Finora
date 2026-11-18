@@ -4,7 +4,8 @@ import { buildQrSlipPrompt, parseQrSlipResult } from "@/lib/prompts";
 
 export async function POST(request: Request) {
   try {
-    const { imageBase64, mimeType, qrRaw, categories, apiKeyOverride } = await request.json();
+    const { imageBase64, mimeType, qrRaw, categories, userName, apiKeyOverride } =
+      await request.json();
 
     if (!imageBase64 || typeof imageBase64 !== "string") {
       return NextResponse.json({ error: "ไม่พบข้อมูลรูปภาพ" }, { status: 400 });
@@ -23,11 +24,12 @@ export async function POST(request: Request) {
             .join(", ")
         : "food, shopping, housing, transport, entertainment, salary, investment";
 
-    const prompt = buildQrSlipPrompt(qrRaw, categoryList);
+    const prompt = buildQrSlipPrompt(qrRaw, categoryList, userName);
 
     const result = await callOpenRouter({
       apiKeyOverride,
       jsonMode: true,
+      temperature: 0,
       messages: [
         {
           role: "user",
@@ -35,7 +37,10 @@ export async function POST(request: Request) {
             { type: "text", text: prompt },
             {
               type: "image_url",
-              image_url: { url: `data:${mimeType || "image/jpeg"};base64,${imageBase64}` },
+              image_url: {
+                url: `data:${mimeType || "image/jpeg"};base64,${imageBase64}`,
+                detail: "high",
+              },
             },
           ],
         },
@@ -48,7 +53,8 @@ export async function POST(request: Request) {
 
     const validated = parseQrSlipResult(
       result.text,
-      filteredCats.map((c) => c.id)
+      filteredCats.map((c) => c.id),
+      userName
     );
     if (!validated.ok) {
       return NextResponse.json({ error: validated.error }, { status: 502 });

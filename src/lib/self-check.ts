@@ -155,15 +155,19 @@ const recRead = runReadTool("get_recurring_payments", {}, {
 });
 assert.equal(recRead.activeMonthlyIncomeTotal, 55000);
 
-// 13. parseQrSlipResult validates JSON fixtures and blocks reserved "recurring" category
+// 13. parseQrSlipResult validates JSON fixtures, formatted amounts, sender/receiver matching, and blocks reserved "recurring" category
 const qrValid = parseQrSlipResult(
-  '```json\n{"isValidPaymentImage":true,"type":"expense","merchant":"Cafe Amazon","promptPayId":"0891112222","amount":65,"categoryId":"recurring"}\n```',
-  ["food", "shopping", "salary"]
+  '```json\n{"isValidPaymentImage":true,"type":"expense","sender":"นาย ชัยณรงค์ แ...","receiver":"บริษัท แอดวานซ์ เอ็มเปย์ จำกัด","merchant":"นาย ชัยณรงค์ แ...","promptPayId":"0891112222","amount":"1,725.50 บาท","categoryId":"recurring"}\n```',
+  ["food", "shopping", "salary"],
+  "คุณชัยณรงค์ วงศ์เจริญ"
 );
 assert.equal(qrValid.ok, true);
 if (qrValid.ok) {
   assert.equal(qrValid.data.isValidPaymentImage, true);
-  assert.equal(qrValid.data.amount, 65);
+  assert.equal(qrValid.data.amount, 1725.5);
+  assert.equal(qrValid.data.sender, "นาย ชัยณรงค์");
+  assert.equal(qrValid.data.receiver, "บริษัท แอดวานซ์ เอ็มเปย์ จำกัด");
+  assert.equal(qrValid.data.merchant, "บริษัท แอดวานซ์ เอ็มเปย์ จำกัด");
   assert.equal(qrValid.data.categoryId, "food");
 }
 const qrInvalid = parseQrSlipResult("not a json object");

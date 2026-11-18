@@ -2,7 +2,7 @@ export type OpenRouterContent =
   | string
   | Array<
       | { type: "text"; text: string }
-      | { type: "image_url"; image_url: { url: string } }
+      | { type: "image_url"; image_url: { url: string; detail?: "low" | "high" | "auto" } }
     >;
 
 export interface OpenRouterToolCall {
@@ -42,6 +42,7 @@ export async function callOpenRouter(options: {
   messages: OpenRouterMessage[];
   apiKeyOverride?: string;
   jsonMode?: boolean;
+  temperature?: number;
   tools?: OpenRouterToolDef[];
 }): Promise<{
   ok: boolean;
@@ -86,6 +87,7 @@ export async function callOpenRouter(options: {
       body: JSON.stringify({
         model,
         messages: options.messages,
+        ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
         ...(options.jsonMode ? { response_format: { type: "json_object" } } : {}),
         ...(options.tools?.length ? { tools: options.tools, tool_choice: "auto" } : {}),
       }),
