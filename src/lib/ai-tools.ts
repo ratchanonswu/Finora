@@ -230,7 +230,7 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
           },
           channel: {
             type: "string",
-            description: "ช่องทาง เช่น Virtual Bank Wallet, PromptPay QR",
+            description: "ช่องทาง เช่น Virtual Bank Wallet, สแกน PromptPay QR, Virtual Card, เงินสด",
           },
         },
         required: ["type", "title", "amount", "categoryId"],
@@ -436,7 +436,9 @@ export function describeWriteTool(
     const cat =
       snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
       String(args.categoryId || "");
-    return `บันทึก${typeLabel} "${String(args.title || "")}" จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (หมวดหมู่: ${cat})`;
+    const ch = String(args.channel || "").trim();
+    const chSuffix = ch && ch !== "Virtual Bank Wallet" ? `, ช่องทาง: ${ch}` : "";
+    return `บันทึก${typeLabel} "${String(args.title || "")}" จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (หมวดหมู่: ${cat}${chSuffix})`;
   }
   if (name === "update_category_budget") {
     const cat =
@@ -477,13 +479,17 @@ export function validateAndNormalizeWriteTool(
     const title = String(rawArgs.title || "").trim();
     const amount = Number(rawArgs.amount);
 
+    const rawChannel = String(rawArgs.channel || "Virtual Bank Wallet").trim();
+    const isCash = rawChannel.toLowerCase() === "เงินสด" || rawChannel.toLowerCase() === "cash";
+    const channel = isCash ? "เงินสด" : rawChannel;
+
     if (!title) {
       return { ok: false, error: "ต้องระบุชื่อรายการ (title)" };
     }
     if (!Number.isFinite(amount) || amount <= 0) {
       return { ok: false, error: "จำนวนเงิน (amount) ต้องเป็นตัวเลขที่มากกว่า 0 บาท" };
     }
-    if (txType === "expense" && autoDebitOnExpense && amount > bankBalance) {
+    if (!isCash && txType === "expense" && autoDebitOnExpense && amount > bankBalance) {
       return {
         ok: false,
         error: `ยอดเงินใน Virtual Wallet คงเหลือ ฿${bankBalance.toLocaleString("en-US")} ไม่เพียงพอสำหรับรายจ่าย ฿${amount.toLocaleString("en-US")}`,
@@ -511,7 +517,7 @@ export function validateAndNormalizeWriteTool(
       title,
       amount,
       categoryId: cat.id,
-      channel: String(rawArgs.channel || "Virtual Bank Wallet").trim(),
+      channel,
     };
     return {
       ok: true,

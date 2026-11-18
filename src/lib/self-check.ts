@@ -86,6 +86,14 @@ const tooExpensive = validateAndNormalizeWriteTool(
 );
 assert.equal(tooExpensive.ok, false);
 
+const cashBypass = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "Cash Market", amount: 25000, categoryId: "food", channel: "เงินสด" },
+  snap
+);
+assert.equal(cashBypass.ok, true);
+if (cashBypass.ok) assert.equal(cashBypass.args.channel, "เงินสด");
+
 // 10. add_recurring_payment validator handles defaults and duplicate protection
 const newRec = validateAndNormalizeWriteTool("add_recurring_payment", { title: "YouTube Premium", amount: 179 }, snap);
 assert.equal(newRec.ok, true);
