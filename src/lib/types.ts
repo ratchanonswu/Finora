@@ -73,6 +73,8 @@ export interface ChatTxAction {
   status: "pending" | "saved" | "needs_amount" | "undone" | "cancelled";
   type: TransactionType;
   merchant: string;
+  sender?: string;
+  receiver?: string;
   promptPayId: string;
   amount: number;
   categoryId: string;

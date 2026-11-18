@@ -205,6 +205,7 @@ function renderChatMarkdown(text: string): React.ReactNode {
 
 export default function AiAssistantPage() {
   const {
+    user,
     bankBalance,
     transactions,
     categories,
@@ -545,6 +546,8 @@ export default function AiAssistantPage() {
         isValidPaymentImage?: boolean;
         type?: TransactionType;
         merchant?: string;
+        sender?: string;
+        receiver?: string;
         promptPayId?: string;
         amount?: number;
         categoryId?: string;
@@ -559,6 +562,7 @@ export default function AiAssistantPage() {
             imageBase64,
             mimeType,
             qrRaw,
+            userName: user.name,
             categories: categories.map((c) => ({ id: c.id, name: c.name, type: c.type })),
             apiKeyOverride: settings.geminiApiKeyOverride,
           }),
@@ -619,6 +623,8 @@ export default function AiAssistantPage() {
             status: "pending",
             type: txType,
             merchant,
+            ...(vision?.sender ? { sender: vision.sender } : {}),
+            ...(vision?.receiver ? { receiver: vision.receiver } : {}),
             promptPayId,
             amount,
             categoryId: validCategory,
@@ -633,6 +639,8 @@ export default function AiAssistantPage() {
             status: "needs_amount",
             type: txType,
             merchant,
+            ...(vision?.sender ? { sender: vision.sender } : {}),
+            ...(vision?.receiver ? { receiver: vision.receiver } : {}),
             promptPayId,
             amount: 0,
             categoryId: validCategory,
@@ -826,10 +834,33 @@ export default function AiAssistantPage() {
                       {(action.status === "pending" || action.status === "needs_amount") && (() => {
                         const amountVal =
                           pendingAmounts[m.id] ?? (action.amount > 0 ? String(action.amount) : "");
+                        const canSwapParties = Boolean(
+                          action.sender && action.receiver && action.sender !== action.receiver
+                        );
                         return (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between gap-2 text-on-surface-variant">
-                              <span>รายการ / ร้านค้า:</span>
+                              <div className="flex items-center gap-1.5">
+                                <span>รายการ / ร้านค้า:</span>
+                                {canSwapParties && (
+                                  <button
+                                    type="button"
+                                    title={`ผู้โอน: ${action.sender} | ผู้รับ: ${action.receiver}`}
+                                    onClick={() => {
+                                      const nextMerchant =
+                                        action.merchant === action.receiver
+                                          ? action.sender!
+                                          : action.receiver!;
+                                      updateChatMessage(m.id, {
+                                        txAction: { ...action, merchant: nextMerchant },
+                                      });
+                                    }}
+                                    className="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low text-[11px] font-medium text-primary hover:bg-surface-container-high"
+                                  >
+                                    ผู้โอน ⇄ ผู้รับ
+                                  </button>
+                                )}
+                              </div>
                               <input
                                 type="text"
                                 value={action.merchant}
@@ -849,9 +880,23 @@ export default function AiAssistantPage() {
                                   onChange={(e) => {
                                     const nextType = e.target.value as TransactionType;
                                     const firstCat =
-                                      categories.find((c) => c.type === nextType)?.id || "food";
+                                      categories.find((c) => c.type === nextType && c.id !== "recurring")
+                                        ?.id || "food";
+                                    const nextMerchant =
+                                      canSwapParties &&
+                                      (action.merchant === action.sender ||
+                                        action.merchant === action.receiver)
+                                        ? nextType === "income"
+                                          ? action.sender!
+                                          : action.receiver!
+                                        : action.merchant;
                                     updateChatMessage(m.id, {
-                                      txAction: { ...action, type: nextType, categoryId: firstCat },
+                                      txAction: {
+                                        ...action,
+                                        type: nextType,
+                                        categoryId: firstCat,
+                                        merchant: nextMerchant,
+                                      },
                                     });
                                   }}
                                   className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
