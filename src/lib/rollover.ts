@@ -1,10 +1,8 @@
 import type { AppSettings, BankLedgerEntry, RecurringPayment, Transaction } from "./types.ts";
-import { INITIAL_SETTINGS, advanceDueDate } from "./seed.ts";
+import { advanceDueDate } from "./seed.ts";
 
 export interface MonthlyRolloverResult {
   simulatedDate: string;
-  salaryCredited: number;
-  salaryCount: number;
   recurringIncomeCount: number;
   recurringIncomeTotal: number;
   billsPaid: number;
@@ -63,16 +61,13 @@ function nextMonthYm(ym: string): string {
 
 type SimEvent =
   | { kind: "quota_reset"; date: string; ym: string; order: 0 }
-  | { kind: "salary"; date: string; ym: string; order: 1 }
-  | { kind: "recurring_income"; date: string; itemId: string; order: 2 }
-  | { kind: "recurring_expense"; date: string; itemId: string; order: 3 };
+  | { kind: "recurring_income"; date: string; itemId: string; order: 1 }
+  | { kind: "recurring_expense"; date: string; itemId: string; order: 2 };
 
 // Simulates all scheduled financial events chronologically up to targetDate (YYYY-MM-DD).
 export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
   const { targetDate, settings } = input;
   const nowMs = input.nowMs ?? Date.now();
-  const salary = Math.max(0, Number(settings.monthlySalary ?? INITIAL_SETTINGS.monthlySalary) || 0);
-  const salaryPayday = Math.max(1, Math.min(31, Number(settings.salaryPayday ?? 25) || 25));
   const quotaResetDay = Math.max(1, Math.min(31, Number(settings.quotaResetDay ?? 1) || 1));
 
   const recurringState = input.recurring.map((r) => ({ ...r }));
@@ -86,18 +81,6 @@ export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
     .filter((d): d is string => Boolean(d && /^\d{4}-\d{2}-\d{2}$/.test(d)))
     .sort()[0] || targetDate;
   const targetYm = targetDate.slice(0, 7);
-
-  if (salary > 0) {
-    const startSalaryYm = settings.lastSalaryMonth
-      ? nextMonthYm(settings.lastSalaryMonth)
-      : earliestAnchor.slice(0, 7);
-    for (const { year, month, ym } of monthRange(startSalaryYm, targetYm)) {
-      const payDate = clampDayToMonth(year, month, salaryPayday);
-      if (payDate <= targetDate) {
-        events.push({ kind: "salary", date: payDate, ym, order: 1 });
-      }
-    }
-  }
 
   const startResetYm = settings.lastQuotaResetMonth
     ? nextMonthYm(settings.lastQuotaResetMonth)
@@ -116,9 +99,9 @@ export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
     let cursor = item.nextDueDate;
     for (let step = 0; step < 60 && cursor <= targetDate; step++) {
       if ((item.type ?? "expense") === "income") {
-        events.push({ kind: "recurring_income", date: cursor, itemId: item.id, order: 2 });
+        events.push({ kind: "recurring_income", date: cursor, itemId: item.id, order: 1 });
       } else {
-        events.push({ kind: "recurring_expense", date: cursor, itemId: item.id, order: 3 });
+        events.push({ kind: "recurring_expense", date: cursor, itemId: item.id, order: 2 });
       }
       const next = advanceDueDate(cursor, item.cycle);
       if (next <= cursor) break;
@@ -133,15 +116,12 @@ export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
   const newLedger: BankLedgerEntry[] = [];
   const skippedItems = new Set<string>();
 
-  let salaryCredited = 0;
-  let salaryCount = 0;
   let recurringIncomeCount = 0;
   let recurringIncomeTotal = 0;
   let billsPaid = 0;
   let billsTotal = 0;
   let billsSkipped = 0;
   let quotaResetCount = 0;
-  let lastSalaryMonth = settings.lastSalaryMonth;
   let lastQuotaResetMonth = settings.lastQuotaResetMonth;
   let quotaResetAt = settings.quotaResetAt;
 
@@ -151,37 +131,6 @@ export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
       quotaResetAt = `${ev.date}T00:00:00+07:00`;
       lastQuotaResetMonth = ev.ym;
       quotaResetCount += 1;
-      return;
-    }
-
-    if (ev.kind === "salary") {
-      balance += salary;
-      salaryCredited += salary;
-      salaryCount += 1;
-      lastSalaryMonth = ev.ym;
-      const ref = `PAY-${String(nowMs).slice(-6)}-${idx + 1}`;
-      const txDate = `${ev.date}T09:00:00+07:00`;
-      newTransactions.push({
-        id: `tx-pay-${suffix}`,
-        ref,
-        title: "เงินเดือนประจำรอบเดือน",
-        amount: salary,
-        type: "income",
-        categoryId: "salary",
-        channel: "Virtual Bank Auto-Credit",
-        date: txDate,
-        status: "completed",
-      });
-      newLedger.push({
-        id: `l-pay-${suffix}`,
-        ref,
-        type: "credit",
-        title: "เงินเดือนโอนเข้าบัญชีอัตโนมัติ",
-        counterparty: "Payroll Auto-Credit",
-        amount: salary,
-        balanceAfter: balance,
-        date: txDate,
-      });
       return;
     }
 
@@ -263,8 +212,6 @@ export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
   return {
     result: {
       simulatedDate: targetDate,
-      salaryCredited,
-      salaryCount,
       recurringIncomeCount,
       recurringIncomeTotal,
       billsPaid,
@@ -278,7 +225,6 @@ export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
     updatedRecurring: recurringState,
     settingsPatch: {
       quotaResetAt,
-      lastSalaryMonth,
       lastQuotaResetMonth,
       lastSimulatedDate: nextSimulatedDate,
     },

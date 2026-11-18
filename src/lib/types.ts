@@ -64,11 +64,8 @@ export interface AppSettings {
   aiAutoCategorize: boolean;
   aiConfidenceThreshold: number;
   geminiApiKeyOverride: string;
-  monthlySalary: number;
-  salaryPayday?: number;
   quotaResetDay?: number;
   quotaResetAt?: string;
-  lastSalaryMonth?: string;
   lastQuotaResetMonth?: string;
   lastSimulatedDate?: string;
 }

@@ -107,6 +107,7 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
 ];
 
 export const INITIAL_RECURRING: RecurringPayment[] = [
+  { id: "rec-salary", title: "เงินเดือนประจำ", amount: 55000, type: "income", categoryId: "salary", cycle: "monthly", nextDueDate: "2025-04-25", active: true, icon: "payments" },
   { id: "rec-1", title: "Netflix Premium Ultra HD", amount: 419, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-01", active: true, icon: "movie" },
   { id: "rec-2", title: "ค่าเช่าคอนโด Ashton Asoke", amount: 11500, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-05", active: true, icon: "apartment" },
   { id: "rec-3", title: "AIS Fibre 1Gbps + Mobile", amount: 899, categoryId: "recurring", cycle: "monthly", nextDueDate: "2025-04-10", active: true, icon: "wifi" },
@@ -130,8 +131,6 @@ export const INITIAL_SETTINGS: AppSettings = {
   aiAutoCategorize: true,
   aiConfidenceThreshold: 85,
   geminiApiKeyOverride: "",
-  monthlySalary: 55000,
-  salaryPayday: 25,
   quotaResetDay: 1,
 };
 

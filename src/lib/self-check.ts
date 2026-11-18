@@ -128,7 +128,7 @@ assert.equal(
 // 12. add_recurring_payment supports recurring income and get_recurring_payments separates expense/income totals
 const incomeRec = validateAndNormalizeWriteTool(
   "add_recurring_payment",
-  { type: "income", title: "เงินเดือนประจำ", amount: 55000, categoryId: "เงินเดือน" },
+  { type: "income", title: "ค่าเช่าบ้านปล่อยเช่า", amount: 18000, categoryId: "เงินเดือน" },
   snap
 );
 assert.equal(incomeRec.ok, true);
@@ -143,10 +143,10 @@ const recRead = runReadTool("get_recurring_payments", {}, {
     ...INITIAL_RECURRING,
     {
       id: "rec-inc-1",
-      title: "เงินเดือนประจำ",
-      amount: 55000,
+      title: "เงินปันผลรายเดือน",
+      amount: 12000,
       type: "income",
-      categoryId: "salary",
+      categoryId: "investment",
       cycle: "monthly",
       nextDueDate: "2025-04-01",
       active: true,
@@ -154,7 +154,7 @@ const recRead = runReadTool("get_recurring_payments", {}, {
     },
   ],
 });
-assert.equal(recRead.activeMonthlyIncomeTotal, 55000);
+assert.equal(recRead.activeMonthlyIncomeTotal, 67000); // 55000 (เงินเดือนประจำ) + 12000
 
 // 13. parseQrSlipResult validates JSON fixtures, formatted amounts, sender/receiver matching, and blocks reserved "recurring" category
 const qrValid = parseQrSlipResult(
@@ -174,19 +174,20 @@ if (qrValid.ok) {
 const qrInvalid = parseQrSlipResult("not a json object");
 assert.equal(qrInvalid.ok, false);
 
-// 14. Date-driven rollover processes due items chronologically, respects salaryPayday, and prevents duplicate salary in the same month
+// 14. Date-driven rollover processes recurring income (including salary) and expense bills chronologically
 const customRecurring = [
-  ...INITIAL_RECURRING,
+  { id: "rec-sal-test", title: "เงินเดือนประจำ", amount: 30000, type: "income" as const, categoryId: "salary", cycle: "monthly" as const, nextDueDate: "2025-04-25", active: true, icon: "payments" },
+  ...INITIAL_RECURRING.filter((r) => r.id !== "rec-salary"),
   { id: "rec-late", title: "หลังเงินเดือนออก", amount: 2000, categoryId: "recurring", cycle: "monthly" as const, nextDueDate: "2025-04-28", active: true, icon: "receipt" },
 ];
 const step1 = simulateRolloverToDate({
   targetDate: "2025-04-06",
   bankBalance: 1000,
   recurring: customRecurring,
-  settings: { ...INITIAL_SETTINGS, monthlySalary: 30000, salaryPayday: 25, quotaResetDay: 1 },
+  settings: { ...INITIAL_SETTINGS, quotaResetDay: 1 },
   nowMs: 1700000000000,
 });
-assert.equal(step1.result.salaryCredited, 0);
+assert.equal(step1.result.recurringIncomeTotal, 0);
 assert.equal(step1.result.quotaResetCount, 1);
 assert.equal(step1.result.billsPaid, 1); // 2025-04-01 Netflix (419) paid from 1000
 assert.equal(step1.result.billsSkipped, 1); // 2025-04-05 Condo (11500) skipped (balance 581)
@@ -196,12 +197,12 @@ const step2 = simulateRolloverToDate({
   targetDate: "2025-04-28",
   bankBalance: step1.bankBalance,
   recurring: step1.updatedRecurring,
-  settings: { ...INITIAL_SETTINGS, monthlySalary: 30000, salaryPayday: 25, quotaResetDay: 1, ...step1.settingsPatch },
+  settings: { ...INITIAL_SETTINGS, quotaResetDay: 1, ...step1.settingsPatch },
   nowMs: 1700000001000,
 });
-assert.equal(step2.result.salaryCredited, 30000);
-assert.equal(step2.result.salaryCount, 1);
-assert.equal(step2.result.billsSkipped, 2); // 04-05 Condo & 04-10 AIS due before 04-25 payday
+assert.equal(step2.result.recurringIncomeCount, 1);
+assert.equal(step2.result.recurringIncomeTotal, 30000);
+assert.equal(step2.result.billsSkipped, 2); // 04-05 Condo & 04-10 AIS due before 04-25 salary
 assert.equal(step2.result.billsPaid, 1); // 04-28 bill (2000) paid after 04-25 salary arrives
 assert.equal(step2.bankBalance, 28581);
 assert.equal(step2.result.quotaResetCount, 0);
@@ -210,9 +211,9 @@ const step3 = simulateRolloverToDate({
   targetDate: "2025-04-30",
   bankBalance: step2.bankBalance,
   recurring: step2.updatedRecurring,
-  settings: { ...INITIAL_SETTINGS, monthlySalary: 30000, salaryPayday: 25, quotaResetDay: 1, ...step2.settingsPatch },
+  settings: { ...INITIAL_SETTINGS, quotaResetDay: 1, ...step2.settingsPatch },
   nowMs: 1700000002000,
 });
-assert.equal(step3.result.salaryCredited, 0); // No duplicate salary in April
+assert.equal(step3.result.recurringIncomeTotal, 0); // No duplicate salary in April
 
 console.log("Finora self-check passed (14/14 checks)");
