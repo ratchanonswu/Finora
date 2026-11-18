@@ -66,6 +66,13 @@ interface FinoraContextValue extends FinoraState {
   toggleRecurring: (id: string) => void;
   deleteRecurring: (id: string) => void;
   updateRecurringDate: (id: string, nextDueDate: string) => void;
+  payRecurringItem: (id: string) => Promise<{ ok: boolean; error?: string }>;
+  payAllActiveRecurring: () => Promise<{
+    ok: boolean;
+    error?: string;
+    count?: number;
+    total?: number;
+  }>;
   executeBankAction: (
     type: "credit" | "debit",
     amount: number,
@@ -447,6 +454,87 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       recurring: prev.recurring.map((r) => (r.id === id ? { ...r, nextDueDate } : r)),
     }));
 
+  const payRecurringItem = async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    const item = state.recurring.find((r) => r.id === id);
+    if (!item) return { ok: false, error: "ไม่พบรายการตัดเงินอัตโนมัติ" };
+
+    if (state.settings.autoDebitOnExpense) {
+      const bankRes = await executeBankAction(
+        "debit",
+        item.amount,
+        `ชำระรายจ่ายประจำ: ${item.title}`,
+        item.title
+      );
+      if (!bankRes.ok) return bankRes;
+    }
+
+    const nowMs = Date.now();
+    const newTx: Transaction = {
+      id: `tx-rec-${nowMs}`,
+      ref: `REC-${nowMs.toString().slice(-6)}`,
+      title: item.title,
+      amount: item.amount,
+      type: "expense",
+      categoryId: "recurring",
+      channel: "ตัดยอดรายจ่ายประจำ (Recurring)",
+      date: new Date(nowMs).toISOString(),
+      status: "completed",
+    };
+
+    setState((prev) => ({
+      ...prev,
+      transactions: [newTx, ...prev.transactions],
+      recurring: prev.recurring.map((r) =>
+        r.id === id ? { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) } : r
+      ),
+    }));
+
+    return { ok: true };
+  };
+
+  const payAllActiveRecurring = async (): Promise<{
+    ok: boolean;
+    error?: string;
+    count?: number;
+    total?: number;
+  }> => {
+    const activeItems = state.recurring.filter((r) => r.active);
+    if (activeItems.length === 0) {
+      return { ok: false, error: "ไม่มีรายการที่เปิดใช้งานอยู่" };
+    }
+
+    const total = activeItems.reduce((sum, r) => sum + r.amount, 0);
+    const batchTitle = `ชำระรายจ่ายประจำรวม (${activeItems.length} รายการ)`;
+
+    if (state.settings.autoDebitOnExpense && total > 0) {
+      const bankRes = await executeBankAction("debit", total, batchTitle, "Recurring Batch");
+      if (!bankRes.ok) return bankRes;
+    }
+
+    const nowMs = Date.now();
+    const newTx: Transaction = {
+      id: `tx-rec-batch-${nowMs}`,
+      ref: `REC-${nowMs.toString().slice(-6)}`,
+      title: batchTitle,
+      amount: total,
+      type: "expense",
+      categoryId: "recurring",
+      channel: "ตัดยอดรายจ่ายประจำรวม (Recurring)",
+      date: new Date(nowMs).toISOString(),
+      status: "completed",
+    };
+
+    setState((prev) => ({
+      ...prev,
+      transactions: [newTx, ...prev.transactions],
+      recurring: prev.recurring.map((r) =>
+        r.active ? { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) } : r
+      ),
+    }));
+
+    return { ok: true, count: activeItems.length, total };
+  };
+
   const updateSettings = (patch: Partial<AppSettings>) =>
     setState((prev) => ({
       ...prev,
@@ -581,6 +669,8 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         toggleRecurring,
         deleteRecurring,
         updateRecurringDate,
+        payRecurringItem,
+        payAllActiveRecurring,
         executeBankAction,
         updateSettings,
         updateUser,

@@ -1002,7 +1002,7 @@ export default function AiAssistantPage() {
                                   className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
                                 >
                                   {categories
-                                    .filter((c) => c.type === "expense")
+                                    .filter((c) => c.type === "expense" && c.id !== "recurring")
                                     .map((c) => (
                                       <option key={c.id} value={c.id}>
                                         {c.name}
@@ -1048,22 +1048,6 @@ export default function AiAssistantPage() {
 
                             {pt.name === "add_recurring_payment" && (
                               <div className="flex flex-wrap items-center gap-2">
-                                <select
-                                  aria-label="หมวดหมู่รายการอัตโนมัติ"
-                                  value={String(pt.args.categoryId || "")}
-                                  onChange={(e) =>
-                                    updateToolArgs({ ...pt.args, categoryId: e.target.value })
-                                  }
-                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
-                                >
-                                  {categories
-                                    .filter((c) => c.type === "expense")
-                                    .map((c) => (
-                                      <option key={c.id} value={c.id}>
-                                        {c.name}
-                                      </option>
-                                    ))}
-                                </select>
                                 <select
                                   aria-label="รอบการตัดเงิน"
                                   value={String(pt.args.cycle || "monthly")}

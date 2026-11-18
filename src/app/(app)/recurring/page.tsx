@@ -13,10 +13,11 @@ export default function RecurringPage() {
     addRecurring,
     deleteRecurring,
     updateRecurringDate,
+    payRecurringItem,
+    payAllActiveRecurring,
   } = useFinora();
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
-  const [categoryId, setCategoryId] = useState("entertainment");
   const [cycle, setCycle] = useState<"monthly" | "weekly" | "yearly">("monthly");
   const [nextDueDate, setNextDueDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
@@ -24,18 +25,20 @@ export default function RecurringPage() {
   const [icon, setIcon] = useState("autorenew");
   const [color, setColor] = useState(COLOR_CHOICES[0]);
   const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const expenseCategories = useMemo(
-    () => categories.filter((c) => c.type === "expense"),
-    [categories]
+  const activeItems = useMemo(() => recurring.filter((r) => r.active), [recurring]);
+
+  const activeSum = useMemo(
+    () => activeItems.reduce((sum, r) => sum + r.amount, 0),
+    [activeItems]
   );
 
   const monthlyTotal = useMemo(
     () =>
-      recurring
-        .filter((r) => r.active)
-        .reduce((sum, r) => sum + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0),
-    [recurring]
+      activeItems.reduce((sum, r) => sum + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0),
+    [activeItems]
   );
 
   const handleCreate = (e: React.FormEvent) => {
@@ -45,7 +48,7 @@ export default function RecurringPage() {
     addRecurring({
       title: title.trim(),
       amount: num,
-      categoryId,
+      categoryId: "recurring",
       cycle,
       nextDueDate,
       active: true,
@@ -57,6 +60,35 @@ export default function RecurringPage() {
     setIcon("autorenew");
     setColor(COLOR_CHOICES[0]);
     setShowForm(false);
+  };
+
+  const handlePayOne = async (id: string, itemTitle: string, itemAmount: number) => {
+    if (busy) return;
+    setBusy(true);
+    setFeedback(null);
+    const res = await payRecurringItem(id);
+    setBusy(false);
+    setFeedback(
+      res.ok
+        ? { ok: true, text: `ตัดยอด "${itemTitle}" จำนวน ${formatTHB(itemAmount)} เรียบร้อยแล้ว` }
+        : { ok: false, text: res.error || "ไม่สามารถตัดยอดรายการได้" }
+    );
+  };
+
+  const handlePayAll = async () => {
+    if (busy) return;
+    setBusy(true);
+    setFeedback(null);
+    const res = await payAllActiveRecurring();
+    setBusy(false);
+    setFeedback(
+      res.ok
+        ? {
+            ok: true,
+            text: `ตัดยอดรวม ${res.count} รายการ เป็นเงิน ${formatTHB(res.total || 0)} เรียบร้อยแล้ว`,
+          }
+        : { ok: false, text: res.error || "ไม่สามารถตัดยอดทั้งหมดได้" }
+    );
   };
 
   return (
@@ -71,15 +103,55 @@ export default function RecurringPage() {
             <strong className="text-on-surface font-mono">{formatTHB(monthlyTotal)}</strong>
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((s) => !s)}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 shadow-sm self-start"
-        >
-          <span className="material-symbols-outlined text-[18px]">add</span>
-          <span>เพิ่มรายการอัตโนมัติ</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start">
+          <button
+            type="button"
+            disabled={busy || activeItems.length === 0}
+            onClick={handlePayAll}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-outline-variant/50 bg-surface-container text-on-surface text-sm font-semibold hover:bg-surface-container-high disabled:opacity-50 shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[18px] text-primary">payments</span>
+            <span>ตัดยอดทั้งหมด ({formatTHB(activeSum)})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowForm((s) => !s)}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            <span>เพิ่มรายการอัตโนมัติ</span>
+          </button>
+        </div>
       </div>
+
+      {feedback && (
+        <div
+          className={`p-3.5 rounded-xl border text-sm flex items-center justify-between gap-3 ${
+            feedback.ok
+              ? "border-primary/40 bg-primary-container/20 text-on-surface"
+              : "border-error/40 bg-error-container/20 text-on-error-container"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={`material-symbols-outlined text-[18px] ${
+                feedback.ok ? "text-primary" : "text-error"
+              }`}
+            >
+              {feedback.ok ? "check_circle" : "error"}
+            </span>
+            <span>{feedback.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFeedback(null)}
+            aria-label="ปิดการแจ้งเตือน"
+            className="text-on-surface-variant hover:text-on-surface"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      )}
 
       {showForm && (
         <form
@@ -112,22 +184,6 @@ export default function RecurringPage() {
               placeholder="299"
               className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-on-surface"
             />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-              หมวดหมู่
-            </label>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
-            >
-              {expenseCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
           </div>
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1">
@@ -241,6 +297,14 @@ export default function RecurringPage() {
                     {formatTHB(item.amount)}
                   </span>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => handlePayOne(item.id, item.title, item.amount)}
+                      className="px-3.5 py-1.5 rounded-lg bg-primary-container/20 text-primary text-xs font-semibold hover:bg-primary-container/30 disabled:opacity-50"
+                    >
+                      ตัดยอดรายการนี้
+                    </button>
                     <button
                       type="button"
                       onClick={() => toggleRecurring(item.id)}
