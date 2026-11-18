@@ -103,7 +103,9 @@ export default function CategoriesPage() {
 
       {/* Category List (Flattened with dividers) */}
       <div className="rounded-2xl bg-surface-container border border-outline-variant/30 divide-y divide-outline-variant/20">
-        {categories.map((cat) => {
+        {categories
+          .filter((cat) => cat.id !== "recurring")
+          .map((cat) => {
           const spent = transactions
             .filter(
               (t) =>
