@@ -1,12 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useFinora, type MonthlyRolloverResult } from "@/context/FinoraContext";
 import { formatTHB } from "@/lib/seed";
 
 export default function SettingsPage() {
-  const router = useRouter();
   const {
     theme,
     toggleTheme,
@@ -251,7 +249,6 @@ export default function SettingsPage() {
           type="button"
           onClick={() => {
             logoutUser();
-            router.push("/login");
           }}
           className="px-4 py-2 rounded-lg border border-error/40 text-error text-sm font-semibold hover:bg-error-container/20"
         >
