@@ -149,9 +149,13 @@ export default function RecurringPage() {
             type="button"
             disabled={busy || activeItems.length === 0}
             onClick={handlePayAll}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-outline-variant/50 bg-surface-container text-on-surface text-sm font-semibold hover:bg-surface-container-high disabled:opacity-50 shadow-sm"
+            className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border text-sm font-semibold disabled:opacity-50 shadow-sm transition-colors ${
+              isIncomeTab
+                ? "border-primary/40 bg-primary-container/15 text-primary hover:bg-primary-container/25"
+                : "border-secondary/40 bg-secondary/10 text-secondary hover:bg-secondary/20"
+            }`}
           >
-            <span className="material-symbols-outlined text-[18px] text-primary">payments</span>
+            <span className="material-symbols-outlined text-[18px]">payments</span>
             <span>
               {isIncomeTab ? "รับยอดทั้งหมด" : "ตัดยอดทั้งหมด"} ({formatTHB(activeSum)})
             </span>
@@ -174,7 +178,7 @@ export default function RecurringPage() {
           onClick={() => switchTab("expense")}
           className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
             !isIncomeTab
-              ? "bg-primary-container text-on-primary-container shadow-sm"
+              ? "bg-secondary text-on-secondary shadow-sm"
               : "text-on-surface-variant hover:text-on-surface"
           }`}
         >
@@ -388,17 +392,21 @@ export default function RecurringPage() {
                 <div className="flex items-center justify-between sm:justify-end gap-3">
                   <span
                     className={`text-lg font-bold font-mono ${
-                      isIncomeTab ? "text-primary" : "text-on-surface"
+                      isIncomeTab ? "text-primary" : "text-secondary"
                     }`}
                   >
-                    {isIncomeTab ? `+${formatTHB(item.amount)}` : formatTHB(item.amount)}
+                    {isIncomeTab ? `+${formatTHB(item.amount)}` : `-${formatTHB(item.amount)}`}
                   </span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       disabled={busy}
                       onClick={() => handlePayOne(item.id, item.title, item.amount)}
-                      className="px-3.5 py-1.5 rounded-lg bg-primary-container/20 text-primary text-xs font-semibold hover:bg-primary-container/30 disabled:opacity-50"
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 transition-colors ${
+                        isIncomeTab
+                          ? "bg-primary-container/20 text-primary hover:bg-primary-container/30"
+                          : "bg-secondary/15 text-secondary hover:bg-secondary/25"
+                      }`}
                     >
                       {isIncomeTab ? "รับยอดรายการนี้" : "ตัดยอดรายการนี้"}
                     </button>
