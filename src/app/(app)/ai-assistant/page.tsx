@@ -604,34 +604,15 @@ export default function AiAssistantPage() {
       const catName =
         categories.find((c) => c.id === validCategory)?.name || validCategory;
 
+      const msgId = `a-${Date.now()}`;
       if (amount > 0) {
-        const saveRes = await addTransaction({
-          title: merchant,
-          amount,
-          type: txType,
-          categoryId: validCategory,
-          channel: "สแกน QR / สลิป (AI Chat)",
-          date: new Date().toISOString(),
-        });
-
-        if (!saveRes.ok) {
-          appendChatMessage({
-            id: `e-${Date.now()}`,
-            role: "error",
-            text: `ตรวจสอบสลิปสำเร็จ (${merchant} ยอด ${formatTHB(amount)}) แต่บันทึกไม่สำเร็จ: ${saveRes.error}`,
-          });
-          return;
-        }
-
+        setPendingAmounts((prev) => ({ ...prev, [msgId]: String(amount) }));
         appendChatMessage({
-          id: `a-${Date.now()}`,
+          id: msgId,
           role: "assistant",
-          text: `ตรวจสอบรูปภาพเรียบร้อยแล้วค่ะ ฟิโนร่าจัดหมวดหมู่เป็น **${catName}** และบันทึกเป็น**${
-            txType === "income" ? "รายรับ" : "รายจ่าย"
-          }** จำนวน **${formatTHB(amount)}** ให้เรียบร้อยแล้วค่ะ`,
+          text: `ตรวจสอบรูปภาพ QR / สลิปของ **${merchant}** สำเร็จค่ะ (แนะนำหมวดหมู่: **${catName}**, ยอดเงิน: **${formatTHB(amount)}**) กรุณาตรวจสอบข้อมูลและกดยืนยันด้านล่างเพื่อบันทึกรายการนะคะ`,
           txAction: {
-            transactionId: saveRes.transactionId,
-            status: "saved",
+            status: "pending",
             type: txType,
             merchant,
             promptPayId,
@@ -641,9 +622,9 @@ export default function AiAssistantPage() {
         });
       } else {
         appendChatMessage({
-          id: `a-${Date.now()}`,
+          id: msgId,
           role: "assistant",
-          text: `สแกนป้าย QR ของ **${merchant}** สำเร็จค่ะ (จัดหมวดหมู่แนะนำ: **${catName}**) เนื่องจากใน QR ไม่ได้ระบุยอดเงินไว้ กรุณากรอกจำนวนเงินด้านล่างเพื่อบันทึกรายการนะคะ`,
+          text: `สแกนป้าย QR ของ **${merchant}** สำเร็จค่ะ (จัดหมวดหมู่แนะนำ: **${catName}**) เนื่องจากใน QR ไม่ได้ระบุยอดเงินไว้ กรุณากรอกจำนวนเงินและกดยืนยันด้านล่างเพื่อบันทึกรายการนะคะ`,
           txAction: {
             status: "needs_amount",
             type: txType,
@@ -832,72 +813,107 @@ export default function AiAssistantPage() {
                         </div>
                       )}
 
-                      {action.status === "needs_amount" && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-on-surface-variant">ประเภท &amp; หมวดหมู่:</span>
-                            <div className="flex items-center gap-1.5">
-                              <select
-                                value={action.type}
-                                onChange={(e) => {
-                                  const nextType = e.target.value as TransactionType;
-                                  const firstCat =
-                                    categories.find((c) => c.type === nextType)?.id || "food";
-                                  updateChatMessage(m.id, {
-                                    txAction: { ...action, type: nextType, categoryId: firstCat },
-                                  });
-                                }}
-                                className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
-                              >
-                                <option value="expense">รายจ่าย</option>
-                                <option value="income">รายรับ</option>
-                              </select>
-                              <select
-                                value={action.categoryId}
-                                onChange={(e) =>
-                                  updateChatMessage(m.id, {
-                                    txAction: { ...action, categoryId: e.target.value },
-                                  })
-                                }
-                                className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
-                              >
-                                {categories
-                                  .filter((c) => c.type === action.type)
-                                  .map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                      {c.name}
-                                    </option>
-                                  ))}
-                              </select>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              min="1"
-                              step="0.01"
-                              placeholder="ระบุยอดเงิน (บาท)"
-                              value={pendingAmounts[m.id] ?? ""}
-                              onChange={(e) =>
-                                setPendingAmounts((prev) => ({
-                                  ...prev,
-                                  [m.id]: e.target.value,
-                                }))
-                              }
-                              className="flex-1 bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-1.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
-                            />
-                            <button
-                              type="button"
-                              disabled={loading || !(Number(pendingAmounts[m.id]) > 0)}
-                              onClick={() => handleConfirmPendingTx(m)}
-                              className="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 disabled:opacity-50"
-                            >
-                              บันทึกรายการ
-                            </button>
-                          </div>
+                      {action.status === "cancelled" && (
+                        <div className="text-on-surface-variant italic">
+                          ยกเลิกรายการสแกน QR / สลิป ({action.merchant}) แล้ว
                         </div>
                       )}
+
+                      {(action.status === "pending" || action.status === "needs_amount") && (() => {
+                        const amountVal =
+                          pendingAmounts[m.id] ?? (action.amount > 0 ? String(action.amount) : "");
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between gap-2 text-on-surface-variant">
+                              <span>รายการ / ร้านค้า:</span>
+                              <input
+                                type="text"
+                                value={action.merchant}
+                                onChange={(e) =>
+                                  updateChatMessage(m.id, {
+                                    txAction: { ...action, merchant: e.target.value },
+                                  })
+                                }
+                                className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs font-semibold text-on-surface text-right w-48 focus:outline-none focus:border-primary"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-on-surface-variant">ประเภท &amp; หมวดหมู่:</span>
+                              <div className="flex items-center gap-1.5">
+                                <select
+                                  value={action.type}
+                                  onChange={(e) => {
+                                    const nextType = e.target.value as TransactionType;
+                                    const firstCat =
+                                      categories.find((c) => c.type === nextType)?.id || "food";
+                                    updateChatMessage(m.id, {
+                                      txAction: { ...action, type: nextType, categoryId: firstCat },
+                                    });
+                                  }}
+                                  className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
+                                >
+                                  <option value="expense">รายจ่าย</option>
+                                  <option value="income">รายรับ</option>
+                                </select>
+                                <select
+                                  value={action.categoryId}
+                                  onChange={(e) =>
+                                    updateChatMessage(m.id, {
+                                      txAction: { ...action, categoryId: e.target.value },
+                                    })
+                                  }
+                                  className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
+                                >
+                                  {categories
+                                    .filter((c) => c.type === action.type)
+                                    .map((c) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.name}
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="1"
+                                step="0.01"
+                                placeholder="ระบุยอดเงิน (บาท)"
+                                value={amountVal}
+                                onChange={(e) =>
+                                  setPendingAmounts((prev) => ({
+                                    ...prev,
+                                    [m.id]: e.target.value,
+                                  }))
+                                }
+                                className="flex-1 bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-1.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
+                              />
+                              <button
+                                type="button"
+                                disabled={loading || !(Number(amountVal) > 0)}
+                                onClick={() => handleConfirmPendingTx(m)}
+                                className="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+                              >
+                                ยืนยันบันทึก
+                              </button>
+                              <button
+                                type="button"
+                                disabled={loading}
+                                onClick={() =>
+                                  updateChatMessage(m.id, {
+                                    txAction: { ...action, status: "cancelled" },
+                                  })
+                                }
+                                className="px-3 py-1.5 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-on-surface text-xs"
+                              >
+                                ยกเลิก
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                   {/* Write Tool Confirmation Block (Flattened with border divider) */}

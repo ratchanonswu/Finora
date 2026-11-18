@@ -69,7 +69,7 @@ export interface AppSettings {
 
 export interface ChatTxAction {
   transactionId?: string;
-  status: "saved" | "needs_amount" | "undone";
+  status: "pending" | "saved" | "needs_amount" | "undone" | "cancelled";
   type: TransactionType;
   merchant: string;
   promptPayId: string;
