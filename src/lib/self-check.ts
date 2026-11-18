@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
 import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
+import { parseQrSlipResult } from "./prompts.ts";
 import { CATEGORY_PALETTE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload } from "./seed.ts";
 
 // 1. Valid credit increases balance
@@ -123,4 +124,49 @@ assert.equal(
   true
 );
 
-console.log("Finora self-check passed (11/11 checks)");
+// 12. add_recurring_payment supports recurring income and get_recurring_payments separates expense/income totals
+const incomeRec = validateAndNormalizeWriteTool(
+  "add_recurring_payment",
+  { type: "income", title: "เงินเดือนประจำ", amount: 55000, categoryId: "เงินเดือน" },
+  snap
+);
+assert.equal(incomeRec.ok, true);
+if (incomeRec.ok) {
+  assert.equal(incomeRec.args.type, "income");
+  assert.equal(incomeRec.args.categoryId, "salary");
+  assert.equal(incomeRec.args.icon, "payments");
+}
+const recRead = runReadTool("get_recurring_payments", {}, {
+  ...snap,
+  recurring: [
+    ...INITIAL_RECURRING,
+    {
+      id: "rec-inc-1",
+      title: "เงินเดือนประจำ",
+      amount: 55000,
+      type: "income",
+      categoryId: "salary",
+      cycle: "monthly",
+      nextDueDate: "2025-04-01",
+      active: true,
+      icon: "payments",
+    },
+  ],
+});
+assert.equal(recRead.activeMonthlyIncomeTotal, 55000);
+
+// 13. parseQrSlipResult validates JSON fixtures and blocks reserved "recurring" category
+const qrValid = parseQrSlipResult(
+  '```json\n{"isValidPaymentImage":true,"type":"expense","merchant":"Cafe Amazon","promptPayId":"0891112222","amount":65,"categoryId":"recurring"}\n```',
+  ["food", "shopping", "salary"]
+);
+assert.equal(qrValid.ok, true);
+if (qrValid.ok) {
+  assert.equal(qrValid.data.isValidPaymentImage, true);
+  assert.equal(qrValid.data.amount, 65);
+  assert.equal(qrValid.data.categoryId, "food");
+}
+const qrInvalid = parseQrSlipResult("not a json object");
+assert.equal(qrInvalid.ok, false);
+
+console.log("Finora self-check passed (13/13 checks)");
