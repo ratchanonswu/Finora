@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useFinora } from "@/context/FinoraContext";
 import { formatTHB, parsePromptPayPayload } from "@/lib/seed";
@@ -15,6 +15,21 @@ import {
 } from "@/lib/ai-tools";
 import type { OpenRouterMessage, OpenRouterToolCall } from "@/lib/openrouter";
 import type { Category, ChatMessage, TransactionType } from "@/lib/types";
+
+const CHAT_SCROLL_DURATION_MS = 2000;
+const SCROLL_BOTTOM_THRESHOLD_PX = 48;
+const MAX_TEXTAREA_HEIGHT_PX = 144;
+
+interface ScrollAnimationState {
+  rafId: number;
+  startTime: number;
+  duration: number;
+  startTop: number;
+  targetTop: number;
+  initialSlope: number;
+  lastTop: number;
+  velocityPxPerMs: number;
+}
 
 const SUGGESTIONS = [
   "วิเคราะห์รายจ่ายเดือนนี้ของฉันให้หน่อย ควรลดหมวดไหน?",
@@ -244,6 +259,267 @@ export default function AiAssistantPage() {
   const [loadingStage, setLoadingStage] = useState<"chat" | "qr_scan" | "saving" | null>(null);
   const [pendingAmounts, setPendingAmounts] = useState<Record<string, string>>({});
   const [pendingTxDraft, setPendingTxDraft] = useState<PendingTxDraft | null>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollAnimRef = useRef<ScrollAnimationState | null>(null);
+  const userCancelledScrollRef = useRef(false);
+  const hasMountedScrollRef = useRef(false);
+  const activeUserMediaIdRef = useRef<string | null>(null);
+  const prevChatMetaRef = useRef<{
+    count: number;
+    lastId: string | null;
+    loadingStage: "chat" | "qr_scan" | "saving" | null;
+  }>({
+    count: chatMessages.length,
+    lastId: chatMessages[chatMessages.length - 1]?.id ?? null,
+    loadingStage,
+  });
+
+  const syncScrollToBottomButton = useCallback(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
+    const shouldShow = distanceFromBottom > SCROLL_BOTTOM_THRESHOLD_PX;
+    setShowScrollToBottom((prev) => (prev === shouldShow ? prev : shouldShow));
+  }, []);
+
+  const stopChatScrollAnimation = useCallback(() => {
+    if (scrollAnimRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimRef.current.rafId);
+      scrollAnimRef.current = null;
+    }
+  }, []);
+
+  // Use rAF with Hermite interpolation so scroll always takes 2s and smoothly re-anchors if slip media or replies change height mid-scroll.
+  const animateChatScrollToBottom = useCallback(
+    (reason: "user_action" | "new_message" | "media_load") => {
+      const el = chatScrollRef.current;
+      if (!el) return;
+
+      const targetTop = Math.max(0, el.scrollHeight - el.clientHeight);
+      const now = performance.now();
+      const active = scrollAnimRef.current;
+
+      if (active) {
+        if (Math.abs(targetTop - active.targetTop) <= 1) return;
+
+        const currentTop = Math.min(active.lastTop, targetTop);
+        const delta = targetTop - currentTop;
+        if (delta <= 1) {
+          stopChatScrollAnimation();
+          el.scrollTop = targetTop;
+          syncScrollToBottomButton();
+          return;
+        }
+
+        const elapsed = Math.max(0, now - active.startTime);
+        const remaining = Math.max(0, active.duration - elapsed);
+        let nextDuration: number;
+        if (reason === "media_load") {
+          nextDuration = Math.max(remaining, 300);
+        } else if (elapsed < 400) {
+          nextDuration = Math.max(remaining, CHAT_SCROLL_DURATION_MS - elapsed);
+        } else {
+          nextDuration = CHAT_SCROLL_DURATION_MS;
+        }
+
+        const initialSlope = Math.max(
+          0,
+          Math.min(active.velocityPxPerMs * nextDuration, 2 * delta)
+        );
+
+        active.startTime = now;
+        active.duration = nextDuration;
+        active.startTop = currentTop;
+        active.targetTop = targetTop;
+        active.initialSlope = initialSlope;
+        active.lastTop = currentTop;
+        return;
+      }
+
+      const startTop = el.scrollTop;
+      const delta = targetTop - startTop;
+      if (delta <= 1) {
+        el.scrollTop = targetTop;
+        syncScrollToBottomButton();
+        return;
+      }
+
+      const state: ScrollAnimationState = {
+        rafId: 0,
+        startTime: now,
+        duration: CHAT_SCROLL_DURATION_MS,
+        startTop,
+        targetTop,
+        initialSlope: 0,
+        lastTop: startTop,
+        velocityPxPerMs: 0,
+      };
+
+      const step = (frameTime: number) => {
+        const container = chatScrollRef.current;
+        const current = scrollAnimRef.current;
+        if (!container || current !== state) return;
+
+        const liveMaxTop = Math.max(0, container.scrollHeight - container.clientHeight);
+        const elapsed = Math.max(0, frameTime - current.startTime);
+        const p = current.duration > 0 ? Math.min(1, elapsed / current.duration) : 1;
+
+        if (p >= 1 || liveMaxTop <= current.startTop) {
+          container.scrollTop = liveMaxTop;
+          scrollAnimRef.current = null;
+          syncScrollToBottomButton();
+          return;
+        }
+
+        const totalDelta = current.targetTop - current.startTop;
+        const safeSlope = Math.min(current.initialSlope, 2 * totalDelta);
+        const p2 = p * p;
+        const p3 = p2 * p;
+        const nextTop =
+          current.startTop +
+          totalDelta * (3 * p2 - 2 * p3) +
+          safeSlope * (p3 - 2 * p2 + p);
+
+        if (liveMaxTop < current.targetTop && nextTop >= liveMaxTop) {
+          container.scrollTop = liveMaxTop;
+          scrollAnimRef.current = null;
+          syncScrollToBottomButton();
+          return;
+        }
+
+        const dydp =
+          6 * totalDelta * p * (1 - p) +
+          safeSlope * (3 * p2 - 4 * p + 1);
+
+        current.lastTop = nextTop;
+        current.velocityPxPerMs = current.duration > 0 ? dydp / current.duration : 0;
+        container.scrollTop = Math.min(nextTop, liveMaxTop);
+
+        current.rafId = window.requestAnimationFrame(step);
+      };
+
+      scrollAnimRef.current = state;
+      state.rafId = window.requestAnimationFrame(step);
+    },
+    [stopChatScrollAnimation, syncScrollToBottomButton]
+  );
+
+  const handleManualScrollInterrupt = useCallback(() => {
+    if (scrollAnimRef.current !== null) {
+      userCancelledScrollRef.current = true;
+      stopChatScrollAnimation();
+    }
+  }, [stopChatScrollAnimation]);
+
+  useEffect(() => {
+    return () => {
+      stopChatScrollAnimation();
+    };
+  }, [stopChatScrollAnimation]);
+
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      syncScrollToBottomButton();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [syncScrollToBottomButton]);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const nextHeight = Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX);
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > MAX_TEXTAREA_HEIGHT_PX ? "auto" : "hidden";
+  }, [input]);
+
+  useEffect(() => {
+    if (!confirmClearOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setConfirmClearOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [confirmClearOpen]);
+
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    const lastMsg = chatMessages[chatMessages.length - 1] ?? null;
+    const prev = prevChatMetaRef.current;
+
+    if (!hasMountedScrollRef.current) {
+      hasMountedScrollRef.current = true;
+      prevChatMetaRef.current = {
+        count: chatMessages.length,
+        lastId: lastMsg?.id ?? null,
+        loadingStage,
+      };
+      if (el && chatMessages.length > 1) {
+        el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight);
+      }
+      syncScrollToBottomButton();
+      return;
+    }
+
+    const isResetToWelcome =
+      chatMessages.length === 1 &&
+      lastMsg?.id === "welcome" &&
+      prev.count > 1;
+
+    if (isResetToWelcome) {
+      stopChatScrollAnimation();
+      userCancelledScrollRef.current = false;
+      activeUserMediaIdRef.current = null;
+      if (el) el.scrollTop = 0;
+      prevChatMetaRef.current = {
+        count: chatMessages.length,
+        lastId: lastMsg?.id ?? null,
+        loadingStage,
+      };
+      syncScrollToBottomButton();
+      return;
+    }
+
+    const hasNewMessage =
+      chatMessages.length > prev.count && Boolean(lastMsg && lastMsg.id !== prev.lastId);
+    const startedQrAttach =
+      loadingStage === "qr_scan" && prev.loadingStage !== "qr_scan";
+
+    prevChatMetaRef.current = {
+      count: chatMessages.length,
+      lastId: lastMsg?.id ?? null,
+      loadingStage,
+    };
+
+    if (hasNewMessage && lastMsg?.role === "user") {
+      userCancelledScrollRef.current = false;
+      if (lastMsg.thumbnailUrl) {
+        activeUserMediaIdRef.current = lastMsg.id;
+      }
+      animateChatScrollToBottom("new_message");
+    } else if (startedQrAttach) {
+      userCancelledScrollRef.current = false;
+      animateChatScrollToBottom("user_action");
+    } else if (hasNewMessage && !userCancelledScrollRef.current) {
+      animateChatScrollToBottom("new_message");
+    }
+    syncScrollToBottomButton();
+  }, [
+    chatMessages,
+    loadingStage,
+    animateChatScrollToBottom,
+    stopChatScrollAnimation,
+    syncScrollToBottomButton,
+  ]);
 
   const hasPendingConfirmation = useMemo(
     () =>
@@ -866,7 +1142,7 @@ export default function AiAssistantPage() {
     });
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     if (inputLocked) return;
     const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
     if (file) {
@@ -875,25 +1151,25 @@ export default function AiAssistantPage() {
     }
   };
 
+  const canClearChat = chatMessages.length > 1 || pendingTxDraft !== null;
+
   return (
-    <div className="flex flex-col gap-6 max-w-4xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="flex flex-col gap-3 sm:gap-4 max-w-4xl mx-auto h-[calc(100dvh-6.25rem)] sm:h-[calc(100dvh-7.25rem)] lg:h-[calc(100dvh-8.25rem)] min-h-[420px]">
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-on-surface tracking-tight m-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight m-0">
             ผู้ช่วย AI &amp; สแกน QR / สลิปอัตโนมัติ
           </h1>
-          <p className="text-sm text-on-surface-variant mt-1">
+          <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5 line-clamp-2 sm:line-clamp-none">
             ถามคำถามการเงิน หรือส่งรูป QR Code / สลิปธนาคารเพื่อให้บอทจัดหมวดหมู่และบันทึกรายรับ-รายจ่ายทันที
           </p>
         </div>
-        <div className="flex items-center gap-3 self-start sm:self-auto">
+        <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
           <button
             type="button"
-            onClick={() => {
-              setPendingTxDraft(null);
-              clearChatMessages();
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant/40 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+            disabled={!canClearChat || loading}
+            onClick={() => setConfirmClearOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant/40 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
             <span>ล้างแชท</span>
@@ -904,24 +1180,30 @@ export default function AiAssistantPage() {
         </div>
       </div>
 
-      {/* Quick Suggestions */}
-      <div className="flex flex-wrap gap-2">
-        {SUGGESTIONS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            disabled={inputLocked}
-            onClick={() => sendPrompt(s)}
-            className="text-xs px-3 py-1.5 rounded-full bg-surface-container border border-outline-variant/40 text-on-surface-variant hover:text-on-surface hover:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      {/* Chat Stream Viewport (single inner scroll + sticky bottom composer) */}
+      <div className="flex-1 min-h-0 rounded-2xl bg-surface-container border border-outline-variant/30 flex flex-col overflow-hidden">
+        <div className="relative flex-1 min-h-0 flex flex-col">
+          <div
+            ref={chatScrollRef}
+            onScroll={syncScrollToBottomButton}
+            onWheel={(e) => {
+              if (scrollAnimRef.current !== null || e.deltaY < 0) {
+                userCancelledScrollRef.current = true;
+                stopChatScrollAnimation();
+              }
+            }}
+            onTouchStart={handleManualScrollInterrupt}
+            onPointerDown={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              if (
+                e.target === e.currentTarget &&
+                e.clientX >= rect.left + e.currentTarget.clientWidth
+              ) {
+                handleManualScrollInterrupt();
+              }
+            }}
+            className="flex-1 min-h-0 space-y-4 overflow-y-auto p-4 sm:p-5"
           >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      {/* Chat Stream */}
-      <div className="rounded-2xl bg-surface-container border border-outline-variant/30 p-5 flex flex-col gap-4 min-h-[460px]">
-        <div className="flex-1 space-y-4 overflow-y-auto max-h-[540px] pr-1">
           {chatMessages.map((m) => {
             const action = m.txAction;
             const catName = action
@@ -946,6 +1228,14 @@ export default function AiAssistantPage() {
                     <img
                       src={m.thumbnailUrl}
                       alt="Uploaded QR or Slip"
+                      onLoad={() => {
+                        if (
+                          !userCancelledScrollRef.current &&
+                          (activeUserMediaIdRef.current === m.id || scrollAnimRef.current !== null)
+                        ) {
+                          animateChatScrollToBottom("media_load");
+                        }
+                      }}
                       className="max-h-32 w-auto rounded-lg mb-2 border border-white/20 bg-white p-1"
                     />
                   )}
@@ -1396,18 +1686,52 @@ export default function AiAssistantPage() {
               </span>
             </div>
           )}
+          </div>
+
+          {showScrollToBottom && (
+            <button
+              type="button"
+              onClick={() => {
+                userCancelledScrollRef.current = false;
+                animateChatScrollToBottom("user_action");
+              }}
+              aria-label="เลื่อนลงไปข้อความล่าสุด"
+              title="เลื่อนลงไปข้อความล่าสุด"
+              className="absolute right-4 bottom-3 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high/95 backdrop-blur-md border border-outline-variant/50 shadow-md text-xs font-semibold text-on-surface hover:border-primary/60 hover:text-primary transition-all"
+            >
+              <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
+              <span className="hidden sm:inline">ข้อความล่าสุด</span>
+            </button>
+          )}
         </div>
+
+        {/* Empty-state Quick Suggestions right above composer */}
+        {chatMessages.length <= 1 && (
+          <div className="shrink-0 px-4 sm:px-5 pb-3 pt-1 flex flex-wrap gap-2">
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                disabled={inputLocked}
+                onClick={() => sendPrompt(s)}
+                className="text-xs px-3 py-1.5 rounded-full bg-surface-container-low border border-outline-variant/40 text-on-surface-variant hover:text-on-surface hover:border-primary/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
 
         <form
           onSubmit={(e) => {
             e.preventDefault();
             sendPrompt(input);
           }}
-          className="pt-3 border-t border-outline-variant/30 flex items-center gap-2"
+          className="shrink-0 p-3 sm:p-4 border-t border-outline-variant/30 bg-surface-container flex items-end gap-2"
         >
           <label
             title="อัปโหลดรูปภาพ QR Code หรือสลิปโอนเงิน"
-            className={`cursor-pointer inline-flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs font-semibold text-on-surface hover:border-primary/60 transition-colors shrink-0 ${
+            className={`cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[42px] rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs font-semibold text-on-surface hover:border-primary/60 transition-colors shrink-0 ${
               inputLocked ? "opacity-50 pointer-events-none" : ""
             }`}
           >
@@ -1428,23 +1752,32 @@ export default function AiAssistantPage() {
             />
           </label>
 
-          <input
-            type="text"
+          <textarea
+            ref={textareaRef}
+            rows={1}
             value={input}
             disabled={inputLocked}
             onPaste={handlePaste}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                if (!inputLocked && input.trim()) {
+                  sendPrompt(input);
+                }
+              }
+            }}
             placeholder={
               hasPendingConfirmation
                 ? "กรุณากดยืนยันหรือยกเลิกรายการก่อนส่งข้อความต่อ..."
-                : "พิมพ์คำถาม หรือวางรูป QR/สลิป (Ctrl+V)..."
+                : "พิมพ์คำถาม (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่) หรือวางรูปสลิป..."
             }
-            className="flex-1 bg-surface-container-low border border-outline-variant/40 rounded-lg px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex-1 resize-none bg-surface-container-low border border-outline-variant/40 rounded-lg px-4 py-2.5 text-sm leading-5 text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-60 disabled:cursor-not-allowed"
           />
           <button
             type="submit"
             disabled={inputLocked || !input.trim()}
-            className="px-5 py-2.5 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+            className="px-5 py-2.5 min-h-[42px] rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 disabled:opacity-50 shrink-0"
           >
             ส่ง
           </button>
@@ -1740,6 +2073,61 @@ export default function AiAssistantPage() {
           </div>
         );
       })()}
+
+      {/* Clear Chat Confirmation Modal */}
+      {confirmClearOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-backdrop-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-chat-modal-title"
+          onClick={() => setConfirmClearOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden animate-modal-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 px-6 py-4 border-b border-outline-variant/30">
+              <div className="w-9 h-9 rounded-lg bg-error-container/60 text-error flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
+              </div>
+              <div>
+                <h2
+                  id="clear-chat-modal-title"
+                  className="text-base font-semibold text-on-surface m-0"
+                >
+                  ต้องการล้างประวัติการสนทนาใช่ไหม?
+                </h2>
+                <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                  ข้อความและประวัติแชทในเซสชันนี้จะถูกลบออกทั้งหมด (รายการธุรกรรมที่บันทึกในระบบแล้วจะไม่ถูกลบ)
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 flex items-center justify-end gap-2.5 bg-surface-container-low/40">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setConfirmClearOpen(false)}
+                className="px-4 py-2 rounded-lg text-sm font-medium border border-outline-variant/40 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmClearOpen(false);
+                  setPendingTxDraft(null);
+                  clearChatMessages();
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-error text-on-error hover:opacity-90 transition-opacity shadow-sm"
+              >
+                ยืนยันล้างแชท
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
