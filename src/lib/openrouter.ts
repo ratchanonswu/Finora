@@ -38,9 +38,22 @@ export interface LLMMetrics {
   latencyMs: number;
 }
 
+export function resolveVisionModels(
+  env: Record<string, string | undefined> = process.env
+): { primary?: string; fallback?: string } {
+  const vision = env.OPENROUTER_VISION_MODEL?.trim() || "";
+  const general = env.OPENROUTER_MODEL?.trim() || "";
+  if (vision && general && vision !== general) {
+    return { primary: vision, fallback: general };
+  }
+  return { primary: vision || general || undefined };
+}
+
 export async function callOpenRouter(options: {
   messages: OpenRouterMessage[];
   apiKeyOverride?: string;
+  modelOverride?: string;
+  fallbackModel?: string;
   jsonMode?: boolean;
   temperature?: number;
   tools?: OpenRouterToolDef[];
@@ -65,8 +78,8 @@ export async function callOpenRouter(options: {
     };
   }
 
-  const model = process.env.OPENROUTER_MODEL?.trim();
-  if (!model) {
+  const primaryModel = options.modelOverride?.trim() || process.env.OPENROUTER_MODEL?.trim();
+  if (!primaryModel) {
     return {
       ok: false,
       status: 400,
@@ -74,57 +87,73 @@ export async function callOpenRouter(options: {
     };
   }
 
-  try {
-    const startMs = Date.now();
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Finora AI Wealth Engine",
-      },
-      body: JSON.stringify({
-        model,
-        messages: options.messages,
-        ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
-        ...(options.jsonMode ? { response_format: { type: "json_object" } } : {}),
-        ...(options.tools?.length ? { tools: options.tools, tool_choice: "auto" } : {}),
-      }),
+  const requestModel = async (targetModel: string) => {
+    try {
+      const startMs = Date.now();
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+          "X-Title": "Finora AI Wealth Engine",
+        },
+        body: JSON.stringify({
+          model: targetModel,
+          messages: options.messages,
+          ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
+          ...(options.jsonMode ? { response_format: { type: "json_object" } } : {}),
+          ...(options.tools?.length ? { tools: options.tools, tool_choice: "auto" } : {}),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = data?.error?.message || `OpenRouter API Error (${res.status})`;
+        return { ok: false, status: res.status, error: msg };
+      }
+
+      const message = data?.choices?.[0]?.message;
+      const toolCalls: OpenRouterToolCall[] | undefined =
+        Array.isArray(message?.tool_calls) && message.tool_calls.length > 0
+          ? message.tool_calls
+          : undefined;
+      const content = typeof message?.content === "string" ? message.content : undefined;
+
+      if (!toolCalls && (!content || !content.trim())) {
+        return { ok: false, status: 502, error: "AI ไม่ได้ส่งข้อความตอบกลับ" };
+      }
+
+      const metrics: LLMMetrics = {
+        model: String(data?.model || targetModel),
+        inputTokens: Number(data?.usage?.prompt_tokens || 0),
+        outputTokens: Number(data?.usage?.completion_tokens || 0),
+        totalTokens: Number(data?.usage?.total_tokens || 0),
+        latencyMs: Date.now() - startMs,
+      };
+      console.info("[LLM]", metrics);
+
+      return { ok: true, status: 200, text: content || "", toolCalls, metrics };
+    } catch (err) {
+      return {
+        ok: false,
+        status: 500,
+        error: err instanceof Error ? err.message : "ไม่สามารถเชื่อมต่อ OpenRouter API ได้",
+      };
+    }
+  };
+
+  const primaryRes = await requestModel(primaryModel);
+  const fallback = options.fallbackModel?.trim();
+  if (!primaryRes.ok && fallback && fallback !== primaryModel && primaryRes.status !== 401) {
+    console.warn("[LLM] primary model failed; falling back", {
+      primaryModel,
+      fallback,
+      status: primaryRes.status,
+      error: primaryRes.error,
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      const msg = data?.error?.message || `OpenRouter API Error (${res.status})`;
-      return { ok: false, status: res.status, error: msg };
-    }
-
-    const message = data?.choices?.[0]?.message;
-    const toolCalls: OpenRouterToolCall[] | undefined =
-      Array.isArray(message?.tool_calls) && message.tool_calls.length > 0
-        ? message.tool_calls
-        : undefined;
-    const content = typeof message?.content === "string" ? message.content : undefined;
-
-    if (!toolCalls && (!content || !content.trim())) {
-      return { ok: false, status: 502, error: "AI ไม่ได้ส่งข้อความตอบกลับ" };
-    }
-
-    const metrics: LLMMetrics = {
-      model: String(data?.model || model),
-      inputTokens: Number(data?.usage?.prompt_tokens || 0),
-      outputTokens: Number(data?.usage?.completion_tokens || 0),
-      totalTokens: Number(data?.usage?.total_tokens || 0),
-      latencyMs: Date.now() - startMs,
-    };
-    console.info("[LLM]", metrics);
-
-    return { ok: true, status: 200, text: content || "", toolCalls, metrics };
-  } catch (err) {
-    return {
-      ok: false,
-      status: 500,
-      error: err instanceof Error ? err.message : "ไม่สามารถเชื่อมต่อ OpenRouter API ได้",
-    };
+    return await requestModel(fallback);
   }
+
+  return primaryRes;
 }

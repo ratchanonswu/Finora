@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
+import { resolveVisionModels } from "./openrouter.ts";
 import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
 import { parseQrSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
@@ -214,4 +215,24 @@ assert.equal(step3.result.recurringIncomeTotal, 0);
 assert.equal(step3.result.billsPaid, 1);
 assert.equal(step3.bankBalance, 58500);
 
-console.log("Finora self-check passed (14/14 checks)");
+// 15. resolveVisionModels pairs dedicated vision model with general fallback only when distinct
+assert.deepEqual(
+  resolveVisionModels({
+    OPENROUTER_VISION_MODEL: "google/gemini-2.5-flash",
+    OPENROUTER_MODEL: "nvidia/nemotron-3.5-super-vl:free",
+  }),
+  { primary: "google/gemini-2.5-flash", fallback: "nvidia/nemotron-3.5-super-vl:free" }
+);
+assert.deepEqual(
+  resolveVisionModels({ OPENROUTER_MODEL: "nvidia/nemotron-3.5-super-vl:free" }),
+  { primary: "nvidia/nemotron-3.5-super-vl:free" }
+);
+assert.deepEqual(
+  resolveVisionModels({
+    OPENROUTER_VISION_MODEL: "google/gemini-2.5-flash",
+    OPENROUTER_MODEL: "google/gemini-2.5-flash",
+  }),
+  { primary: "google/gemini-2.5-flash" }
+);
+
+console.log("Finora self-check passed (15/15 checks)");

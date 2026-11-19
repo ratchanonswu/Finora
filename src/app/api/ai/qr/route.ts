@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { callOpenRouter } from "@/lib/openrouter";
+import { callOpenRouter, resolveVisionModels } from "@/lib/openrouter";
 import { buildQrSlipPrompt, parseQrSlipResult } from "@/lib/prompts";
 
 export async function POST(request: Request) {
@@ -25,9 +25,12 @@ export async function POST(request: Request) {
         : "food, shopping, housing, transport, entertainment, salary, investment";
 
     const prompt = buildQrSlipPrompt(qrRaw, categoryList, userName);
+    const { primary, fallback } = resolveVisionModels();
 
     const result = await callOpenRouter({
       apiKeyOverride,
+      modelOverride: primary,
+      fallbackModel: fallback,
       jsonMode: true,
       temperature: 0,
       messages: [
