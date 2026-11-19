@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { extractSlipOcrText } from "@/lib/ocr";
 import { callOpenRouter } from "@/lib/openrouter";
 import { buildQrSlipPrompt, parseQrSlipResult } from "@/lib/prompts";
 
@@ -24,7 +25,8 @@ export async function POST(request: Request) {
             .join(", ")
         : "food, shopping, housing, transport, entertainment, salary, investment";
 
-    const prompt = buildQrSlipPrompt(qrRaw, categoryList, userName);
+    const ocrText = await extractSlipOcrText(imageBase64, mimeType);
+    const prompt = buildQrSlipPrompt(qrRaw, categoryList, userName, ocrText);
 
     const result = await callOpenRouter({
       apiKeyOverride,

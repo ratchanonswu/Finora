@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
 import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
-import { parseQrSlipResult } from "./prompts.ts";
+import { buildQrSlipPrompt, parseQrSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
 import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload, relativeDateYmd } from "./seed.ts";
 
@@ -214,4 +214,11 @@ assert.equal(step3.result.recurringIncomeTotal, 0);
 assert.equal(step3.result.billsPaid, 1);
 assert.equal(step3.bankBalance, 58500);
 
-console.log("Finora self-check passed (14/14 checks)");
+// 15. buildQrSlipPrompt injects OCR assist block only when non-empty
+const promptWithOcr = buildQrSlipPrompt(undefined, "food", "คุณธนภัทร", "Potato shake & ข้าวหมู\nกรอบ\n30.00 บาท");
+assert.equal(promptWithOcr.includes("ข้อความที่อ่านได้จาก OCR"), true);
+assert.equal(promptWithOcr.includes("Potato shake & ข้าวหมู"), true);
+const promptWithoutOcr = buildQrSlipPrompt(undefined, "food", "คุณธนภัทร", "   ");
+assert.equal(promptWithoutOcr.includes("ข้อความที่อ่านได้จาก OCR"), false);
+
+console.log("Finora self-check passed (15/15 checks)");
