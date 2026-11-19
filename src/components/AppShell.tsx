@@ -215,20 +215,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             )}
             <div className={collapsed ? "lg:hidden" : ""}>
-              <div className="flex items-center justify-between mb-1">
+              <div className="mb-1">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
                   Virtual Wallet
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-primary">
-                  <span className="h-2 w-2 rounded-full bg-primary" />
-                  Active
                 </span>
               </div>
               <div className="text-xl font-bold tracking-tight text-on-surface">
                 {formatTHB(bankBalance)}
-              </div>
-              <div className="mt-1.5 text-[11px] text-on-surface-variant">
-                <span className="font-mono">782-2-90145-8</span>
               </div>
             </div>
           </div>
