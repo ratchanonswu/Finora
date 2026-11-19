@@ -200,36 +200,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Virtual Wallet Summary Widget */}
-        <div className="p-3 sm:p-4">
-          <div
-            title={collapsed ? `Virtual Wallet: ${formatTHB(bankBalance)}` : undefined}
-            className={`block rounded-xl bg-surface-container border border-outline-variant/30 ${
-              collapsed ? "lg:p-3 p-4" : "p-4"
-            }`}
-          >
-            {collapsed && (
-              <div className="hidden lg:flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-[22px]">
-                  account_balance_wallet
-                </span>
-              </div>
-            )}
-            <div className={collapsed ? "lg:hidden" : ""}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Virtual Wallet
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono text-primary">
-                  <span className="h-2 w-2 rounded-full bg-primary" />
-                  Active
-                </span>
-              </div>
-              <div className="text-xl font-bold tracking-tight text-on-surface">
-                {formatTHB(bankBalance)}
-              </div>
-              <div className="mt-1.5 text-[11px] text-on-surface-variant">
-                <span className="font-mono">782-2-90145-8</span>
-              </div>
+        <div className={`p-3 sm:p-4 ${collapsed ? "lg:hidden" : ""}`}>
+          <div className="block rounded-xl bg-surface-container border border-outline-variant/30 p-4">
+            <div className="mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+                Virtual Wallet
+              </span>
+            </div>
+            <div className="text-xl font-bold tracking-tight text-on-surface">
+              {formatTHB(bankBalance)}
             </div>
           </div>
         </div>
