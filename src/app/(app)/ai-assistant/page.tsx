@@ -203,16 +203,19 @@ function renderChatMarkdown(text: string): React.ReactNode {
   });
 }
 
-interface PendingQrDraft {
-  thumbnailUrl: string;
+interface PendingTxDraft {
+  source: "qr" | "chat_tool";
+  thumbnailUrl?: string;
   type: TransactionType;
   merchant: string;
   sender?: string;
   receiver?: string;
-  promptPayId: string;
+  promptPayId?: string;
   amount: string;
   categoryId: string;
-  needsAmount: boolean;
+  channel: string;
+  needsAmount?: boolean;
+  continueAfterConfirm?: boolean;
   error?: string;
 }
 
@@ -240,18 +243,18 @@ export default function AiAssistantPage() {
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState<"chat" | "qr_scan" | "saving" | null>(null);
   const [pendingAmounts, setPendingAmounts] = useState<Record<string, string>>({});
-  const [pendingQrDraft, setPendingQrDraft] = useState<PendingQrDraft | null>(null);
+  const [pendingTxDraft, setPendingTxDraft] = useState<PendingTxDraft | null>(null);
 
   const hasPendingConfirmation = useMemo(
     () =>
-      pendingQrDraft !== null ||
+      pendingTxDraft !== null ||
       chatMessages.some(
         (m) =>
           m.pendingTool?.status === "pending" ||
           m.txAction?.status === "pending" ||
           m.txAction?.status === "needs_amount"
       ),
-    [pendingQrDraft, chatMessages]
+    [pendingTxDraft, chatMessages]
   );
   const inputLocked = loading || hasPendingConfirmation;
 
@@ -383,19 +386,37 @@ export default function AiAssistantPage() {
           } else {
             hasWrite = true;
             const continueAfterConfirm = toolCalls.length > 1;
-            appendChatMessage({
-              id: `t-${Date.now()}-${tc.id}`,
-              role: "assistant",
-              text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
-              pendingTool: {
-                toolCallId: tc.id,
-                name: tc.function.name,
-                args: check.args,
-                summary: check.summary,
-                status: "pending",
+            if (tc.function.name === "add_transaction") {
+              const txType: TransactionType =
+                check.args.type === "income" ? "income" : "expense";
+              const amt = Number(check.args.amount);
+              setPendingTxDraft({
+                source: "chat_tool",
+                type: txType,
+                merchant: String(check.args.title || "รายการจาก AI"),
+                amount: Number.isFinite(amt) && amt > 0 ? String(amt) : "",
+                categoryId: String(
+                  check.args.categoryId || (txType === "income" ? "salary" : "food")
+                ),
+                channel: String(check.args.channel || "Virtual Bank Wallet"),
+                needsAmount: !(Number.isFinite(amt) && amt > 0),
                 continueAfterConfirm,
-              },
-            });
+              });
+            } else {
+              appendChatMessage({
+                id: `t-${Date.now()}-${tc.id}`,
+                role: "assistant",
+                text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
+                pendingTool: {
+                  toolCallId: tc.id,
+                  name: tc.function.name,
+                  args: check.args,
+                  summary: check.summary,
+                  status: "pending",
+                  continueAfterConfirm,
+                },
+              });
+            }
           }
         }
       }
@@ -641,7 +662,8 @@ export default function AiAssistantPage() {
           ? vision.categoryId
           : guessCategoryId(merchant, txType);
 
-      setPendingQrDraft({
+      setPendingTxDraft({
+        source: "qr",
         thumbnailUrl: thumbnailDataUrl,
         type: txType,
         merchant,
@@ -650,6 +672,7 @@ export default function AiAssistantPage() {
         promptPayId,
         amount: amount > 0 ? String(amount) : "",
         categoryId: validCategory,
+        channel: "สแกน QR / สลิป (AI Chat)",
         needsAmount: !(amount > 0),
       });
     } catch {
@@ -664,45 +687,80 @@ export default function AiAssistantPage() {
     }
   };
 
-  const handleConfirmQrDraft = async () => {
-    if (!pendingQrDraft || loading) return;
-    const merchant = pendingQrDraft.merchant.trim();
-    const rawAmount = Number(pendingQrDraft.amount);
+  const handleConfirmTxDraft = async () => {
+    if (!pendingTxDraft || loading) return;
+    const merchant = pendingTxDraft.merchant.trim();
+    const rawAmount = Number(pendingTxDraft.amount);
     if (!merchant || !Number.isFinite(rawAmount) || rawAmount <= 0) {
-      setPendingQrDraft((prev) =>
+      setPendingTxDraft((prev) =>
         prev ? { ...prev, error: "กรุณากรอกชื่อรายการและจำนวนเงินที่มากกว่า 0" } : prev
       );
       return;
     }
 
-    const draft = pendingQrDraft;
+    const draft = pendingTxDraft;
+    let resolvedCategoryId = draft.categoryId;
+    let resolvedChannel = draft.channel;
+
+    if (draft.source === "chat_tool") {
+      const check = validateAndNormalizeWriteTool(
+        "add_transaction",
+        {
+          type: draft.type,
+          title: merchant,
+          amount: rawAmount,
+          categoryId: draft.categoryId,
+          channel: draft.channel,
+        },
+        {
+          bankBalance,
+          transactions,
+          categories,
+          recurring,
+          autoDebitOnExpense: settings.autoDebitOnExpense,
+          quotaResetAt: settings.quotaResetAt,
+        }
+      );
+      if (!check.ok) {
+        setPendingTxDraft((prev) => (prev ? { ...prev, error: check.error } : prev));
+        return;
+      }
+      resolvedCategoryId = String(check.args.categoryId || draft.categoryId);
+      resolvedChannel = String(check.args.channel || draft.channel);
+    }
+
     setLoading(true);
     setLoadingStage("saving");
     const saveRes = await addTransaction({
       title: merchant,
       amount: rawAmount,
       type: draft.type,
-      categoryId: draft.categoryId,
-      channel: "สแกน QR / สลิป (AI Chat)",
+      categoryId: resolvedCategoryId,
+      channel: resolvedChannel,
       date: new Date().toISOString(),
     });
     setLoading(false);
     setLoadingStage(null);
 
     if (!saveRes.ok) {
-      setPendingQrDraft((prev) =>
+      setPendingTxDraft((prev) =>
         prev ? { ...prev, error: saveRes.error || "ไม่สามารถบันทึกรายการได้" } : prev
       );
       return;
     }
 
     const catName =
-      categories.find((c) => c.id === draft.categoryId)?.name || draft.categoryId;
-    setPendingQrDraft(null);
+      categories.find((c) => c.id === resolvedCategoryId)?.name || resolvedCategoryId;
+    const confirmText =
+      draft.source === "qr"
+        ? `บันทึกรายการจาก QR / สลิป **${merchant}** (${catName}) ยอด **${formatTHB(rawAmount)}** เรียบร้อยแล้วค่ะ`
+        : `บันทึกรายการ **${merchant}** (${catName}) ยอด **${formatTHB(rawAmount)}** เรียบร้อยแล้วค่ะ`;
+
+    setPendingTxDraft(null);
     appendChatMessage({
       id: `a-${Date.now()}`,
       role: "assistant",
-      text: `บันทึกรายการจาก QR / สลิป **${merchant}** (${catName}) ยอด **${formatTHB(rawAmount)}** เรียบร้อยแล้วค่ะ`,
+      text: confirmText,
       txAction: {
         status: "saved",
         transactionId: saveRes.transactionId,
@@ -710,28 +768,62 @@ export default function AiAssistantPage() {
         merchant,
         ...(draft.sender ? { sender: draft.sender } : {}),
         ...(draft.receiver ? { receiver: draft.receiver } : {}),
-        promptPayId: draft.promptPayId,
+        promptPayId: draft.promptPayId || "-",
         amount: rawAmount,
-        categoryId: draft.categoryId,
+        categoryId: resolvedCategoryId,
       },
     });
+
+    if (draft.continueAfterConfirm) {
+      setLoading(true);
+      setLoadingStage("chat");
+      try {
+        const prior: OpenRouterMessage[] = chatMessages
+          .filter((m) => m.id !== "welcome" && (m.role === "user" || m.role === "assistant"))
+          .slice(-8)
+          .map((m) => ({ role: m.role as "user" | "assistant", content: m.text }));
+        await runToolLoop([
+          ...prior,
+          { role: "assistant", content: confirmText },
+          {
+            role: "user",
+            content:
+              "[ระบบ] ผู้ใช้ยืนยันการดำเนินการข้างต้นเรียบร้อยแล้ว หากยังมีขั้นตอนถัดไปในคำขอก่อนหน้าของ User ให้เรียกใช้ Tool ต่อได้เลย หากครบทุกขั้นตอนแล้วให้ตอบสรุปสั้นๆ ค่ะ",
+          },
+        ]);
+      } catch {
+        appendChatMessage({
+          id: `e-${Date.now()}`,
+          role: "error",
+          text: "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย",
+        });
+      } finally {
+        setLoading(false);
+        setLoadingStage(null);
+      }
+    }
   };
 
-  const handleCancelQrDraft = () => {
-    if (!pendingQrDraft || loading) return;
-    const draft = pendingQrDraft;
-    setPendingQrDraft(null);
+  const handleCancelTxDraft = () => {
+    if (!pendingTxDraft || loading) return;
+    const draft = pendingTxDraft;
+    setPendingTxDraft(null);
     appendChatMessage({
       id: `a-${Date.now()}`,
       role: "assistant",
-      text: "ยกเลิกรายการสแกน QR / สลิปนี้แล้วค่ะ",
+      text:
+        draft.source === "qr"
+          ? "ยกเลิกรายการสแกน QR / สลิปนี้แล้วค่ะ"
+          : "ยกเลิกรายการบันทึกธุรกรรมนี้แล้วค่ะ",
       txAction: {
         status: "cancelled",
         type: draft.type,
-        merchant: draft.merchant.trim() || "รายการสแกน QR",
+        merchant:
+          draft.merchant.trim() ||
+          (draft.source === "qr" ? "รายการสแกน QR" : "รายการจาก AI"),
         ...(draft.sender ? { sender: draft.sender } : {}),
         ...(draft.receiver ? { receiver: draft.receiver } : {}),
-        promptPayId: draft.promptPayId,
+        promptPayId: draft.promptPayId || "-",
         amount: Number(draft.amount) || 0,
         categoryId: draft.categoryId,
       },
@@ -798,7 +890,7 @@ export default function AiAssistantPage() {
           <button
             type="button"
             onClick={() => {
-              setPendingQrDraft(null);
+              setPendingTxDraft(null);
               clearChatMessages();
             }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant/40 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
@@ -1359,35 +1451,36 @@ export default function AiAssistantPage() {
         </form>
       </div>
 
-      {/* Blocking QR / Slip Confirmation Modal */}
-      {pendingQrDraft && (() => {
+      {/* Blocking Transaction Confirmation Modal (QR / Slip & AI Chat Tool) */}
+      {pendingTxDraft && (() => {
         const canSwapParties = Boolean(
-          pendingQrDraft.sender &&
-            pendingQrDraft.receiver &&
-            pendingQrDraft.sender !== pendingQrDraft.receiver
+          pendingTxDraft.sender &&
+            pendingTxDraft.receiver &&
+            pendingTxDraft.sender !== pendingTxDraft.receiver
         );
         const modalCats = categories.filter(
-          (c) => c.type === pendingQrDraft.type && c.id !== "recurring"
+          (c) => c.type === pendingTxDraft.type && c.id !== "recurring"
         );
+        const isQrSource = pendingTxDraft.source === "qr";
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-backdrop-in"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="qr-confirm-modal-title"
+            aria-labelledby="tx-confirm-modal-title"
           >
             <div className="w-full max-w-lg rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden animate-modal-in">
               <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-outline-variant/30">
                 <div className="flex items-start gap-2.5">
                   <span className="material-symbols-outlined text-primary text-[22px] mt-0.5">
-                    qr_code_scanner
+                    {isQrSource ? "qr_code_scanner" : "receipt_long"}
                   </span>
                   <div>
                     <h2
-                      id="qr-confirm-modal-title"
+                      id="tx-confirm-modal-title"
                       className="text-lg font-semibold text-on-surface m-0"
                     >
-                      ตรวจสอบข้อมูลจาก QR / สลิป
+                      {isQrSource ? "ตรวจสอบข้อมูลจาก QR / สลิป" : "ตรวจสอบรายการธุรกรรมจากแชท AI"}
                     </h2>
                     <p className="text-xs text-on-surface-variant mt-0.5">
                       กรุณาตรวจสอบและกดยืนยันหรือยกเลิกก่อนส่งข้อความหรือสแกนรายการถัดไป
@@ -1399,34 +1492,36 @@ export default function AiAssistantPage() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  handleConfirmQrDraft();
+                  handleConfirmTxDraft();
                 }}
                 className="p-6 space-y-4"
               >
-                <div className="flex items-center gap-3.5 p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
-                  <img
-                    src={pendingQrDraft.thumbnailUrl}
-                    alt="QR or Slip Preview"
-                    className="h-16 w-16 object-contain rounded-md bg-white p-1 border border-outline-variant/30 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-semibold text-on-surface truncate">
-                        {pendingQrDraft.merchant || "รายการสแกน QR"}
-                      </span>
-                      {pendingQrDraft.needsAmount && (
-                        <span className="px-2 py-0.5 rounded-full bg-secondary/15 text-secondary text-[10px] font-semibold">
-                          ต้องกรอกยอดเงิน
+                {pendingTxDraft.thumbnailUrl && (
+                  <div className="flex items-center gap-3.5 p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
+                    <img
+                      src={pendingTxDraft.thumbnailUrl}
+                      alt="QR or Slip Preview"
+                      className="h-16 w-16 object-contain rounded-md bg-white p-1 border border-outline-variant/30 shrink-0"
+                    />
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-on-surface truncate">
+                          {pendingTxDraft.merchant || "รายการสแกน QR"}
                         </span>
+                        {pendingTxDraft.needsAmount && (
+                          <span className="px-2 py-0.5 rounded-full bg-secondary/15 text-secondary text-[10px] font-semibold">
+                            ต้องกรอกยอดเงิน
+                          </span>
+                        )}
+                      </div>
+                      {pendingTxDraft.promptPayId && pendingTxDraft.promptPayId !== "-" && (
+                        <div className="text-[11px] font-mono text-on-surface-variant truncate">
+                          PromptPay / Ref: {pendingTxDraft.promptPayId}
+                        </div>
                       )}
                     </div>
-                    {pendingQrDraft.promptPayId && pendingQrDraft.promptPayId !== "-" && (
-                      <div className="text-[11px] font-mono text-on-surface-variant truncate">
-                        PromptPay / Ref: {pendingQrDraft.promptPayId}
-                      </div>
-                    )}
                   </div>
-                </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-surface-container-low">
                   <button
@@ -1436,7 +1531,7 @@ export default function AiAssistantPage() {
                       const firstCat =
                         categories.find((c) => c.type === "expense" && c.id !== "recurring")
                           ?.id || "food";
-                      setPendingQrDraft((prev) => {
+                      setPendingTxDraft((prev) => {
                         if (!prev) return prev;
                         const nextMerchant =
                           canSwapParties &&
@@ -1453,7 +1548,7 @@ export default function AiAssistantPage() {
                       });
                     }}
                     className={`py-2 rounded-md text-sm font-semibold transition-colors ${
-                      pendingQrDraft.type === "expense"
+                      pendingTxDraft.type === "expense"
                         ? "bg-secondary text-on-secondary shadow-sm"
                         : "text-on-surface-variant hover:text-on-surface"
                     }`}
@@ -1467,7 +1562,7 @@ export default function AiAssistantPage() {
                       const firstCat =
                         categories.find((c) => c.type === "income" && c.id !== "recurring")
                           ?.id || "salary";
-                      setPendingQrDraft((prev) => {
+                      setPendingTxDraft((prev) => {
                         if (!prev) return prev;
                         const nextMerchant =
                           canSwapParties &&
@@ -1484,7 +1579,7 @@ export default function AiAssistantPage() {
                       });
                     }}
                     className={`py-2 rounded-md text-sm font-semibold transition-colors ${
-                      pendingQrDraft.type === "income"
+                      pendingTxDraft.type === "income"
                         ? "bg-primary-container text-on-primary-container shadow-sm"
                         : "text-on-surface-variant hover:text-on-surface"
                     }`}
@@ -1496,7 +1591,7 @@ export default function AiAssistantPage() {
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label
-                      htmlFor="qr-modal-merchant"
+                      htmlFor="tx-modal-merchant"
                       className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider"
                     >
                       รายการ / ร้านค้า
@@ -1505,9 +1600,9 @@ export default function AiAssistantPage() {
                       <button
                         type="button"
                         disabled={loading}
-                        title={`ผู้โอน: ${pendingQrDraft.sender} | ผู้รับ: ${pendingQrDraft.receiver}`}
+                        title={`ผู้โอน: ${pendingTxDraft.sender} | ผู้รับ: ${pendingTxDraft.receiver}`}
                         onClick={() =>
-                          setPendingQrDraft((prev) =>
+                          setPendingTxDraft((prev) =>
                             prev
                               ? {
                                   ...prev,
@@ -1526,12 +1621,12 @@ export default function AiAssistantPage() {
                     )}
                   </div>
                   <input
-                    id="qr-modal-merchant"
+                    id="tx-modal-merchant"
                     type="text"
                     disabled={loading}
-                    value={pendingQrDraft.merchant}
+                    value={pendingTxDraft.merchant}
                     onChange={(e) =>
-                      setPendingQrDraft((prev) =>
+                      setPendingTxDraft((prev) =>
                         prev ? { ...prev, merchant: e.target.value, error: undefined } : prev
                       )
                     }
@@ -1542,17 +1637,17 @@ export default function AiAssistantPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label
-                      htmlFor="qr-modal-category"
+                      htmlFor="tx-modal-category"
                       className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5"
                     >
                       หมวดหมู่
                     </label>
                     <select
-                      id="qr-modal-category"
+                      id="tx-modal-category"
                       disabled={loading}
-                      value={pendingQrDraft.categoryId}
+                      value={pendingTxDraft.categoryId}
                       onChange={(e) =>
-                        setPendingQrDraft((prev) =>
+                        setPendingTxDraft((prev) =>
                           prev ? { ...prev, categoryId: e.target.value } : prev
                         )
                       }
@@ -1568,22 +1663,22 @@ export default function AiAssistantPage() {
 
                   <div>
                     <label
-                      htmlFor="qr-modal-amount"
+                      htmlFor="tx-modal-amount"
                       className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5"
                     >
                       จำนวนเงิน (THB)
                     </label>
                     <input
-                      id="qr-modal-amount"
+                      id="tx-modal-amount"
                       type="number"
                       min="0.01"
                       step="0.01"
-                      autoFocus={pendingQrDraft.needsAmount}
+                      autoFocus={Boolean(pendingTxDraft.needsAmount)}
                       disabled={loading}
                       placeholder="0.00"
-                      value={pendingQrDraft.amount}
+                      value={pendingTxDraft.amount}
                       onChange={(e) =>
-                        setPendingQrDraft((prev) =>
+                        setPendingTxDraft((prev) =>
                           prev ? { ...prev, amount: e.target.value, error: undefined } : prev
                         )
                       }
@@ -1592,22 +1687,49 @@ export default function AiAssistantPage() {
                   </div>
                 </div>
 
-                {pendingQrDraft.error && (
-                  <p className="text-xs text-error font-medium">{pendingQrDraft.error}</p>
+                {!isQrSource && (
+                  <div>
+                    <label
+                      htmlFor="tx-modal-channel"
+                      className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5"
+                    >
+                      ช่องทางการชำระเงิน
+                    </label>
+                    <select
+                      id="tx-modal-channel"
+                      disabled={loading}
+                      value={pendingTxDraft.channel}
+                      onChange={(e) =>
+                        setPendingTxDraft((prev) =>
+                          prev ? { ...prev, channel: e.target.value, error: undefined } : prev
+                        )
+                      }
+                      className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
+                    >
+                      <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
+                      <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
+                      <option value="Virtual Card">Virtual Card</option>
+                      <option value="เงินสด">เงินสด</option>
+                    </select>
+                  </div>
+                )}
+
+                {pendingTxDraft.error && (
+                  <p className="text-xs text-error font-medium">{pendingTxDraft.error}</p>
                 )}
 
                 <div className="flex items-center justify-end gap-3 pt-2">
                   <button
                     type="button"
                     disabled={loading}
-                    onClick={handleCancelQrDraft}
+                    onClick={handleCancelTxDraft}
                     className="px-4 py-2 rounded-lg text-sm font-medium border border-outline-variant/40 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high disabled:opacity-50"
                   >
                     ยกเลิก
                   </button>
                   <button
                     type="submit"
-                    disabled={loading || !(Number(pendingQrDraft.amount) > 0)}
+                    disabled={loading || !(Number(pendingTxDraft.amount) > 0)}
                     className="px-5 py-2 rounded-lg text-sm font-semibold bg-primary-container text-on-primary-container hover:opacity-90 disabled:opacity-50 shadow-sm"
                   >
                     {loading ? "กำลังบันทึก..." : "ยืนยันบันทึก"}
