@@ -16,7 +16,9 @@ export function TransactionModal() {
 
   if (!isTxModalOpen) return null;
 
-  const filteredCategories = categories.filter((c) => c.type === type);
+  const filteredCategories = categories.filter(
+    (c) => c.type === type && c.id !== "recurring"
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,12 +54,12 @@ export function TransactionModal() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-backdrop-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="tx-modal-title"
     >
-      <div className="w-full max-w-lg rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden animate-modal-in">
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/30">
           <div className="flex items-center gap-2.5">
             <span className="material-symbols-outlined text-primary text-[22px]">add_circle</span>
@@ -177,6 +179,7 @@ export function TransactionModal() {
               <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
               <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
               <option value="Virtual Card">Virtual Card</option>
+              <option value="เงินสด">เงินสด</option>
             </select>
           </div>
 

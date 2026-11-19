@@ -24,15 +24,25 @@ export function AuthShell({
   const { hydrated, user, theme, toggleTheme } = useFinora();
 
   useEffect(() => {
-    if (hydrated && user.isLoggedIn) {
-      router.replace("/");
-    }
+    router.prefetch("/");
+  }, [router]);
+
+  useEffect(() => {
+    if (!hydrated || !user.isLoggedIn) return;
+    router.replace("/");
+    const fallback = window.setTimeout(() => {
+      if (window.location.pathname !== "/") {
+        window.location.replace("/");
+      }
+    }, 1200);
+    return () => window.clearTimeout(fallback);
   }, [hydrated, user.isLoggedIn, router]);
 
-  if (!hydrated || user.isLoggedIn) {
+  if (hydrated && user.isLoggedIn) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center text-sm text-on-surface-variant">
-        กำลังตรวจสอบสถานะการเข้าสู่ระบบ...
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3 text-sm text-on-surface-variant">
+        <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+        <span>กำลังเข้าสู่แดชบอร์ด...</span>
       </div>
     );
   }

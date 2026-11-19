@@ -20,15 +20,12 @@ import {
   INITIAL_TRANSACTIONS,
   INITIAL_USER,
   advanceDueDate,
+  computeRecurringMonthlyBudget,
   isBaseCategory,
 } from "@/lib/seed";
+import { simulateRolloverToDate, type MonthlyRolloverResult } from "@/lib/rollover";
 
-export interface MonthlyRolloverResult {
-  salaryCredited: number;
-  billsPaid: number;
-  billsTotal: number;
-  billsSkipped: number;
-}
+export type { MonthlyRolloverResult };
 
 interface FinoraState {
   theme: ThemeMode;
@@ -65,6 +62,13 @@ interface FinoraContextValue extends FinoraState {
   toggleRecurring: (id: string) => void;
   deleteRecurring: (id: string) => void;
   updateRecurringDate: (id: string, nextDueDate: string) => void;
+  payRecurringItem: (id: string) => Promise<{ ok: boolean; error?: string }>;
+  payAllActiveRecurring: (targetType?: "expense" | "income") => Promise<{
+    ok: boolean;
+    error?: string;
+    count?: number;
+    total?: number;
+  }>;
   executeBankAction: (
     type: "credit" | "debit",
     amount: number,
@@ -73,11 +77,31 @@ interface FinoraContextValue extends FinoraState {
   ) => Promise<{ ok: boolean; error?: string }>;
   updateSettings: (patch: Partial<AppSettings>) => void;
   updateUser: (patch: Partial<UserProfile>) => void;
-  runMonthlyRollover: () => MonthlyRolloverResult;
+  runMonthlyRollover: (targetDate?: string) => MonthlyRolloverResult;
 }
 
 const STORAGE_KEY = "finora_state_v1";
 const CHAT_SESSION_KEY = "finora_chat_session_v1";
+
+function chatSessionKeyFor(email: string): string {
+  return `${CHAT_SESSION_KEY}:${email.trim().toLowerCase()}`;
+}
+
+function loadUserChatSession(email: string): ChatMessage[] {
+  if (!email.trim()) return INITIAL_CHAT_MESSAGES;
+  try {
+    const savedChat = sessionStorage.getItem(chatSessionKeyFor(email));
+    if (savedChat) {
+      const parsedChat = JSON.parse(savedChat) as ChatMessage[];
+      if (Array.isArray(parsedChat) && parsedChat.length > 0) {
+        return parsedChat;
+      }
+    }
+  } catch {
+    // Ignore malformed sessionStorage and fall back to welcome message
+  }
+  return INITIAL_CHAT_MESSAGES;
+}
 
 const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
   {
@@ -86,6 +110,26 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
     text: "สวัสดีค่ะ ฟิโนร่า (Finora AI) ผู้ช่วยการเงินส่วนตัวของคุณเองค่ะ สามารถถามคำถามการเงิน หรือส่งรูป QR Code / สลิปโอนเงิน เพื่อให้ฟิโนร่าตรวจสอบ จัดหมวดหมู่ และบันทึกรายรับ-รายจ่ายให้อัตโนมัติได้เลยนะคะ",
   },
 ];
+
+function syncCategoriesWithRecurring(
+  categories: Category[],
+  recurring: RecurringPayment[]
+): Category[] {
+  const recurringBudget = computeRecurringMonthlyBudget(recurring);
+  const seedRecurring = INITIAL_CATEGORIES.find((c) => c.id === "recurring");
+  const hasRecurringCat = categories.some((c) => c.id === "recurring");
+  if (!hasRecurringCat && seedRecurring) {
+    const expenseInsertIdx = categories.findIndex((c) => c.type === "income");
+    const nextCat = { ...seedRecurring, budget: recurringBudget };
+    if (expenseInsertIdx === -1) return [...categories, nextCat];
+    return [
+      ...categories.slice(0, expenseInsertIdx),
+      nextCat,
+      ...categories.slice(expenseInsertIdx),
+    ];
+  }
+  return categories.map((c) => (c.id === "recurring" ? { ...c, budget: recurringBudget } : c));
+}
 
 const DEFAULT_STATE: FinoraState = {
   theme: "light",
@@ -108,28 +152,70 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
+      // Remove legacy un-scoped chat key so older sessions cannot leak across users.
+      sessionStorage.removeItem(CHAT_SESSION_KEY);
+      let activeUser = DEFAULT_STATE.user;
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<FinoraState>;
+        const hasLegacy2025Seed =
+          (Array.isArray(parsed.recurring) &&
+            parsed.recurring.some((r) => String(r.nextDueDate || "").startsWith("2025-"))) ||
+          (Array.isArray(parsed.transactions) &&
+            parsed.transactions.some((t) => String(t.date || "").startsWith("2025-")));
+
+        if (hasLegacy2025Seed) {
+          parsed.categories = DEFAULT_STATE.categories;
+          parsed.transactions = DEFAULT_STATE.transactions;
+          parsed.recurring = DEFAULT_STATE.recurring;
+          parsed.bankBalance = DEFAULT_STATE.bankBalance;
+          parsed.ledger = DEFAULT_STATE.ledger;
+          parsed.settings = {
+            ...INITIAL_SETTINGS,
+            geminiApiKeyOverride: parsed.settings?.geminiApiKeyOverride || "",
+          };
+        }
+
         // Saved demo data predates the per-category palette; refresh seed category colors.
-        if (parsed.categories) {
+        if (Array.isArray(parsed.categories)) {
           parsed.categories = parsed.categories.map((c) => {
             const seed = INITIAL_CATEGORIES.find((s) => s.id === c.id);
             return seed ? { ...c, color: seed.color } : c;
           });
+        } else {
+          delete parsed.categories;
         }
+        if (Array.isArray(parsed.recurring)) {
+          parsed.recurring = parsed.recurring.map((r) => ({
+            ...r,
+            categoryId: (r.type ?? "expense") === "income" ? r.categoryId || "salary" : "recurring",
+          }));
+        } else {
+          delete parsed.recurring;
+        }
+        if (!Array.isArray(parsed.transactions)) delete parsed.transactions;
+        if (!Array.isArray(parsed.ledger)) delete parsed.ledger;
+
+        const loadedRecurring = parsed.recurring ?? DEFAULT_STATE.recurring;
+        parsed.categories = syncCategoriesWithRecurring(
+          parsed.categories ?? DEFAULT_STATE.categories,
+          loadedRecurring
+        );
+        const mergedUser: UserProfile = {
+          ...INITIAL_USER,
+          ...(parsed.user && typeof parsed.user === "object" ? parsed.user : {}),
+          isLoggedIn: Boolean(parsed.user?.isLoggedIn),
+        };
+        activeUser = mergedUser;
         setState((prev) => ({
           ...prev,
           ...parsed,
+          user: mergedUser,
           settings: { ...INITIAL_SETTINGS, ...(parsed.settings || {}) },
         }));
       }
-      const savedChat = sessionStorage.getItem(CHAT_SESSION_KEY);
-      if (savedChat) {
-        const parsedChat = JSON.parse(savedChat) as ChatMessage[];
-        if (Array.isArray(parsedChat) && parsedChat.length > 0) {
-          setChatMessages(parsedChat);
-        }
+      if (activeUser.isLoggedIn && activeUser.email) {
+        setChatMessages(loadUserChatSession(activeUser.email));
       }
     } catch {
       // Ignore malformed storage and fall back to seed
@@ -148,18 +234,18 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   }, [state, hydrated]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !state.user.isLoggedIn || !state.user.email) return;
     try {
-      sessionStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(chatMessages));
+      sessionStorage.setItem(chatSessionKeyFor(state.user.email), JSON.stringify(chatMessages));
     } catch {
       // Ignore sessionStorage quota errors
     }
-  }, [chatMessages, hydrated]);
+  }, [chatMessages, hydrated, state.user.isLoggedIn, state.user.email]);
 
   const toggleTheme = () =>
     setState((prev) => ({ ...prev, theme: prev.theme === "light" ? "dark" : "light" }));
 
-  const loginUser = (email: string, name?: string) =>
+  const loginUser = (email: string, name?: string) => {
     setState((prev) => {
       const isMockUser = email.toLowerCase() === INITIAL_USER.email.toLowerCase();
       return {
@@ -181,12 +267,14 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         },
       };
     });
+    setChatMessages(loadUserChatSession(email));
+  };
 
   // New registered users start with a clean account (no mock transactions/balance), keeping base categories.
-  const registerUser = (email: string, name: string) =>
+  const registerUser = (email: string, name: string) => {
     setState((prev) => ({
       ...prev,
-      categories: INITIAL_CATEGORIES,
+      categories: syncCategoriesWithRecurring(INITIAL_CATEGORIES, []),
       transactions: [],
       recurring: [],
       bankBalance: 0,
@@ -198,12 +286,21 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         isLoggedIn: true,
       },
     }));
+    setChatMessages(INITIAL_CHAT_MESSAGES);
+    try {
+      sessionStorage.removeItem(chatSessionKeyFor(email));
+    } catch {
+      // Ignore storage errors
+    }
+  };
 
-  const logoutUser = () =>
+  const logoutUser = () => {
     setState((prev) => ({
       ...prev,
       user: { ...prev.user, isLoggedIn: false },
     }));
+    setChatMessages(INITIAL_CHAT_MESSAGES);
+  };
 
   const executeBankAction = async (
     type: "credit" | "debit",
@@ -281,6 +378,9 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   const clearChatMessages = () => {
     setChatMessages(INITIAL_CHAT_MESSAGES);
     try {
+      if (state.user.email) {
+        sessionStorage.removeItem(chatSessionKeyFor(state.user.email));
+      }
       sessionStorage.removeItem(CHAT_SESSION_KEY);
     } catch {
       // Ignore storage errors
@@ -333,35 +433,155 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
-  const updateCategoryBudget = (id: string, budget: number) =>
+  const updateCategoryBudget = (id: string, budget: number) => {
+    if (id === "recurring") return;
     setState((prev) => ({
       ...prev,
       categories: prev.categories.map((c) => (c.id === id ? { ...c, budget } : c)),
     }));
+  };
 
   const addRecurring = (rec: Omit<RecurringPayment, "id">) =>
-    setState((prev) => ({
-      ...prev,
-      recurring: [...prev.recurring, { ...rec, id: `rec-${Date.now()}` }],
-    }));
+    setState((prev) => {
+      const nextRecurring = [
+        ...prev.recurring,
+        { ...rec, categoryId: "recurring", id: `rec-${Date.now()}` },
+      ];
+      return {
+        ...prev,
+        recurring: nextRecurring,
+        categories: syncCategoriesWithRecurring(prev.categories, nextRecurring),
+      };
+    });
 
   const toggleRecurring = (id: string) =>
-    setState((prev) => ({
-      ...prev,
-      recurring: prev.recurring.map((r) => (r.id === id ? { ...r, active: !r.active } : r)),
-    }));
+    setState((prev) => {
+      const nextRecurring = prev.recurring.map((r) =>
+        r.id === id ? { ...r, active: !r.active } : r
+      );
+      return {
+        ...prev,
+        recurring: nextRecurring,
+        categories: syncCategoriesWithRecurring(prev.categories, nextRecurring),
+      };
+    });
 
   const deleteRecurring = (id: string) =>
-    setState((prev) => ({
-      ...prev,
-      recurring: prev.recurring.filter((r) => r.id !== id),
-    }));
+    setState((prev) => {
+      const nextRecurring = prev.recurring.filter((r) => r.id !== id);
+      return {
+        ...prev,
+        recurring: nextRecurring,
+        categories: syncCategoriesWithRecurring(prev.categories, nextRecurring),
+      };
+    });
 
   const updateRecurringDate = (id: string, nextDueDate: string) =>
     setState((prev) => ({
       ...prev,
       recurring: prev.recurring.map((r) => (r.id === id ? { ...r, nextDueDate } : r)),
     }));
+
+  const payRecurringItem = async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    const item = state.recurring.find((r) => r.id === id);
+    if (!item) return { ok: false, error: "ไม่พบรายการอัตโนมัติ" };
+
+    const isIncome = (item.type ?? "expense") === "income";
+
+    if (state.settings.autoDebitOnExpense) {
+      const bankRes = await executeBankAction(
+        isIncome ? "credit" : "debit",
+        item.amount,
+        isIncome ? `รับรายรับประจำ: ${item.title}` : `ชำระรายจ่ายประจำ: ${item.title}`,
+        item.title
+      );
+      if (!bankRes.ok) return bankRes;
+    }
+
+    const nowMs = Date.now();
+    const newTx: Transaction = {
+      id: `tx-rec-${nowMs}`,
+      ref: `${isIncome ? "INC" : "REC"}-${nowMs.toString().slice(-6)}`,
+      title: item.title,
+      amount: item.amount,
+      type: isIncome ? "income" : "expense",
+      categoryId: isIncome ? item.categoryId || "salary" : "recurring",
+      channel: isIncome
+        ? "รับยอดรายรับประจำ (Recurring)"
+        : "ตัดยอดรายจ่ายประจำ (Recurring)",
+      date: new Date(nowMs).toISOString(),
+      status: "completed",
+    };
+
+    setState((prev) => ({
+      ...prev,
+      transactions: [newTx, ...prev.transactions],
+      recurring: prev.recurring.map((r) =>
+        r.id === id ? { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) } : r
+      ),
+    }));
+
+    return { ok: true };
+  };
+
+  const payAllActiveRecurring = async (
+    targetType: "expense" | "income" = "expense"
+  ): Promise<{
+    ok: boolean;
+    error?: string;
+    count?: number;
+    total?: number;
+  }> => {
+    const activeItems = state.recurring.filter(
+      (r) => r.active && (r.type ?? "expense") === targetType
+    );
+    if (activeItems.length === 0) {
+      return { ok: false, error: "ไม่มีรายการที่เปิดใช้งานอยู่" };
+    }
+
+    const isIncome = targetType === "income";
+    const total = activeItems.reduce((sum, r) => sum + r.amount, 0);
+    const batchTitle = isIncome
+      ? `รับรายรับประจำรวม (${activeItems.length} รายการ)`
+      : `ชำระรายจ่ายประจำรวม (${activeItems.length} รายการ)`;
+
+    if (state.settings.autoDebitOnExpense && total > 0) {
+      const bankRes = await executeBankAction(
+        isIncome ? "credit" : "debit",
+        total,
+        batchTitle,
+        isIncome ? "Recurring Income Batch" : "Recurring Batch"
+      );
+      if (!bankRes.ok) return bankRes;
+    }
+
+    const nowMs = Date.now();
+    const newTx: Transaction = {
+      id: `tx-rec-batch-${nowMs}`,
+      ref: `${isIncome ? "INC" : "REC"}-${nowMs.toString().slice(-6)}`,
+      title: batchTitle,
+      amount: total,
+      type: isIncome ? "income" : "expense",
+      categoryId: isIncome ? "salary" : "recurring",
+      channel: isIncome
+        ? "รับยอดรายรับประจำรวม (Recurring)"
+        : "ตัดยอดรายจ่ายประจำรวม (Recurring)",
+      date: new Date(nowMs).toISOString(),
+      status: "completed",
+    };
+
+    setState((prev) => ({
+      ...prev,
+      transactions: [newTx, ...prev.transactions],
+      recurring: prev.recurring.map((r) =>
+        r.active && (r.type ?? "expense") === targetType
+          ? { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) }
+          : r
+      ),
+    }));
+
+    return { ok: true, count: activeItems.length, total };
+  };
 
   const updateSettings = (patch: Partial<AppSettings>) =>
     setState((prev) => ({
@@ -375,101 +595,32 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       user: { ...prev.user, ...patch },
     }));
 
-  const runMonthlyRollover = (): MonthlyRolloverResult => {
-    const nowMs = Date.now();
-    const txDate = new Date(nowMs).toISOString();
-    const resetIso = new Date(nowMs + 10).toISOString();
-    const salary = Math.max(
-      0,
-      Number(state.settings.monthlySalary ?? INITIAL_SETTINGS.monthlySalary) || 0
-    );
+  const runMonthlyRollover = (targetDate?: string): MonthlyRolloverResult => {
+    const resolvedDate =
+      targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate)
+        ? targetDate
+        : new Date().toISOString().slice(0, 10);
 
-    let balance = state.bankBalance;
-    const newTxs: Transaction[] = [];
-    const newLedger: BankLedgerEntry[] = [];
-
-    if (salary > 0) {
-      balance += salary;
-      const ref = `PAY-${nowMs.toString().slice(-6)}`;
-      newTxs.push({
-        id: `tx-pay-${nowMs}`,
-        ref,
-        title: "เงินเดือนประจำรอบเดือน",
-        amount: salary,
-        type: "income",
-        categoryId: "salary",
-        channel: "Virtual Bank Auto-Credit",
-        date: txDate,
-        status: "completed",
-      });
-      newLedger.push({
-        id: `l-pay-${nowMs}`,
-        ref,
-        type: "credit",
-        title: "เงินเดือนโอนเข้าบัญชีอัตโนมัติ",
-        counterparty: "Payroll Auto-Credit",
-        amount: salary,
-        balanceAfter: balance,
-        date: txDate,
-      });
-    }
-
-    let billsPaid = 0;
-    let billsTotal = 0;
-    let billsSkipped = 0;
-
-    const updatedRecurring = state.recurring.map((r, idx) => {
-      if (!r.active) return r;
-      if (balance < r.amount) {
-        billsSkipped += 1;
-        return r;
-      }
-      balance -= r.amount;
-      billsPaid += 1;
-      billsTotal += r.amount;
-      const ref = `REC-${nowMs.toString().slice(-6)}-${idx + 1}`;
-      newTxs.push({
-        id: `tx-rec-${nowMs}-${idx}`,
-        ref,
-        title: r.title,
-        amount: r.amount,
-        type: "expense",
-        categoryId: r.categoryId,
-        channel: "Virtual Bank Auto-Debit",
-        date: txDate,
-        status: "completed",
-      });
-      newLedger.push({
-        id: `l-rec-${nowMs}-${idx}`,
-        ref,
-        type: "debit",
-        title: `หักบัญชีอัตโนมัติ: ${r.title}`,
-        counterparty: r.title,
-        amount: r.amount,
-        balanceAfter: balance,
-        date: txDate,
-      });
-      return { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) };
+    const out = simulateRolloverToDate({
+      targetDate: resolvedDate,
+      bankBalance: state.bankBalance,
+      recurring: state.recurring,
+      settings: state.settings,
     });
 
     setState((prev) => ({
       ...prev,
-      bankBalance: balance,
-      transactions: [...newTxs.reverse(), ...prev.transactions],
-      ledger: [...newLedger.reverse(), ...prev.ledger],
-      recurring: updatedRecurring,
+      bankBalance: out.bankBalance,
+      transactions: [...out.newTransactions, ...prev.transactions],
+      ledger: [...out.newLedger, ...prev.ledger],
+      recurring: out.updatedRecurring,
       settings: {
         ...prev.settings,
-        quotaResetAt: resetIso,
+        ...out.settingsPatch,
       },
     }));
 
-    return {
-      salaryCredited: salary,
-      billsPaid,
-      billsTotal,
-      billsSkipped,
-    };
+    return out.result;
   };
 
   return (
@@ -497,6 +648,8 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         toggleRecurring,
         deleteRecurring,
         updateRecurringDate,
+        payRecurringItem,
+        payAllActiveRecurring,
         executeBankAction,
         updateSettings,
         updateUser,

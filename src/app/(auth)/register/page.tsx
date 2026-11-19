@@ -2,9 +2,9 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/AuthShell";
 import { useFinora } from "@/context/FinoraContext";
+import { INITIAL_USER } from "@/lib/seed";
 
 const HIGHLIGHTS = [
   {
@@ -25,8 +25,7 @@ const HIGHLIGHTS = [
 ];
 
 export default function RegisterPage() {
-  const router = useRouter();
-  const { registerUser } = useFinora();
+  const { user, registerUser } = useFinora();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,8 +57,16 @@ export default function RegisterPage() {
       setError("กรุณากรอกข้อมูลให้ครบทุกช่อง");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       setError("รูปแบบอีเมลไม่ถูกต้อง");
+      return;
+    }
+    if (
+      normalizedEmail === INITIAL_USER.email.toLowerCase() ||
+      (user.email && normalizedEmail === user.email.toLowerCase())
+    ) {
+      setError("อีเมลนี้ถูกใช้งานแล้ว กรุณาใช้อีเมลอื่นหรือเข้าสู่ระบบ");
       return;
     }
     if (password.length < 8) {
@@ -77,7 +84,6 @@ export default function RegisterPage() {
 
     setError("");
     registerUser(email.trim(), name.trim());
-    router.push("/");
   };
 
   return (

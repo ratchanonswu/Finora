@@ -106,7 +106,8 @@ export function resolveCategory(
   expectedType?: TransactionType,
   fallbackText?: string
 ): Category | null {
-  const pool = expectedType ? categories.filter((c) => c.type === expectedType) : categories;
+  const nonRecurring = categories.filter((c) => c.id !== "recurring");
+  const pool = expectedType ? nonRecurring.filter((c) => c.type === expectedType) : nonRecurring;
   const candidates = [String(raw || "").trim(), String(fallbackText || "").trim()].filter(Boolean);
 
   for (const input of candidates) {
@@ -156,7 +157,7 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "get_financial_overview",
-      description: "ดูยอดเงิน Virtual Bank คงเหลือ, รายรับรวม, รายจ่ายรวม, และยอดสุทธิปัจจุบัน",
+      description: "ดูยอดเงิน Virtual Wallet คงเหลือ, รายรับรวม, รายจ่ายรวม, และยอดสุทธิปัจจุบัน",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -191,7 +192,8 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "get_recurring_payments",
-      description: "ดูรายการตัดเงินอัตโนมัติ (Recurring) ทั้งหมด สถานะ และวันครบกำหนดถัดไป",
+      description:
+        "ดูรายการประจำ (Recurring) ทั้งรายจ่ายประจำและรายรับประจำ สถานะ และวันครบกำหนดถัดไป",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -230,7 +232,7 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
           },
           channel: {
             type: "string",
-            description: "ช่องทาง เช่น Virtual Bank Wallet, PromptPay QR",
+            description: "ช่องทาง เช่น Virtual Bank Wallet, สแกน PromptPay QR, Virtual Card, เงินสด",
           },
         },
         required: ["type", "title", "amount", "categoryId"],
@@ -278,7 +280,7 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     function: {
       name: "virtual_bank_transfer",
       description:
-        "เติมเงินเข้า (credit) หรือโอน/จ่ายออก (debit) ในบัญชี Virtual Bank (ต้องรอผู้ใช้ยืนยัน)",
+        "เติมเงินเข้า (credit) หรือโอน/จ่ายออก (debit) ในกระเป๋า Virtual Wallet (ต้องรอผู้ใช้ยืนยัน)",
       parameters: {
         type: "object",
         properties: {
@@ -295,24 +297,36 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "add_recurring_payment",
-      description: "สร้างรายการตัดเงินอัตโนมัติ (Recurring) ใหม่ (ต้องรอผู้ใช้ยืนยัน)",
+      description:
+        "สร้างรายการประจำ (Recurring) ใหม่ รองรับทั้งรายจ่ายประจำ (expense) และรายรับประจำ (income) (ต้องรอผู้ใช้ยืนยัน)",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "ชื่อบริการหรือบิล เช่น YouTube Premium, ค่าอินเทอร์เน็ต" },
+          type: {
+            type: "string",
+            enum: ["expense", "income"],
+            description:
+              "ประเภทรายการประจำ: expense (รายจ่ายประจำ เช่น บิล/สมาชิก) หรือ income (รายรับประจำ เช่น เงินเดือนประจำ)",
+          },
+          title: {
+            type: "string",
+            description: "ชื่อรายการ เช่น YouTube Premium, ค่าอินเทอร์เน็ต, เงินเดือนประจำ",
+          },
           amount: { type: "number", description: "จำนวนเงินต่อรอบ (บาท, มากกว่า 0)" },
           categoryId: {
             type: "string",
-            description: "รหัสหมวดหมู่รายจ่ายที่มีในระบบ เช่น entertainment, housing, food, shopping, transport",
+            description:
+              "รหัสหมวดหมู่รายรับเมื่อ type เป็น income (เช่น salary, investment); สำหรับรายจ่ายประจำระบบใช้หมวด recurring อัตโนมัติ",
           },
           cycle: {
             type: "string",
             enum: ["monthly", "weekly", "yearly"],
-            description: "รอบการตัดเงิน (ค่าเริ่มต้น monthly)",
+            description: "รอบรายการประจำ (ค่าเริ่มต้น monthly)",
           },
           nextDueDate: {
             type: "string",
-            description: "วันครบกำหนดถัดไปในรูปแบบ YYYY-MM-DD (ถ้าไม่ระบุจะใช้วันที่ 1 ของเดือนถัดไป)",
+            description:
+              "วันครบกำหนดถัดไปในรูปแบบ YYYY-MM-DD (ถ้าไม่ระบุจะใช้วันที่ 1 ของเดือนถัดไป)",
           },
         },
         required: ["title", "amount"],
@@ -363,29 +377,36 @@ export function runReadTool(
 
   if (name === "get_categories") {
     return {
-      categories: categories.map((c) => {
-        const spent = transactions
-          .filter(
-            (t) =>
-              t.categoryId === c.id &&
-              isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
-          )
-          .reduce((s, t) => s + t.amount, 0);
-        return { id: c.id, name: c.name, type: c.type, budget: c.budget, spent };
-      }),
+      categories: categories
+        .filter((c) => c.id !== "recurring")
+        .map((c) => {
+          const spent = transactions
+            .filter(
+              (t) =>
+                t.categoryId === c.id &&
+                isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+            )
+            .reduce((s, t) => s + t.amount, 0);
+          return { id: c.id, name: c.name, type: c.type, budget: c.budget, spent };
+        }),
     };
   }
 
   if (name === "get_recurring_payments") {
     const activeMonthlyTotal = recurring
-      .filter((r) => r.active)
+      .filter((r) => r.active && (r.type ?? "expense") === "expense")
+      .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
+    const activeMonthlyIncomeTotal = recurring
+      .filter((r) => r.active && r.type === "income")
       .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
     return {
       activeMonthlyTotal,
+      activeMonthlyIncomeTotal,
       items: recurring.map((r) => ({
         id: r.id,
         title: r.title,
         amount: r.amount,
+        type: r.type ?? "expense",
         cycle: r.cycle,
         nextDueDate: r.nextDueDate,
         active: r.active,
@@ -436,7 +457,9 @@ export function describeWriteTool(
     const cat =
       snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
       String(args.categoryId || "");
-    return `บันทึก${typeLabel} "${String(args.title || "")}" จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (หมวดหมู่: ${cat})`;
+    const ch = String(args.channel || "").trim();
+    const chSuffix = ch && ch !== "Virtual Bank Wallet" ? `, ช่องทาง: ${ch}` : "";
+    return `บันทึก${typeLabel} "${String(args.title || "")}" จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (หมวดหมู่: ${cat}${chSuffix})`;
   }
   if (name === "update_category_budget") {
     const cat =
@@ -451,16 +474,18 @@ export function describeWriteTool(
   }
   if (name === "virtual_bank_transfer") {
     const actionLabel =
-      args.type === "credit" ? "เติมเงินเข้า Virtual Bank" : "โอนเงินออกจาก Virtual Bank";
+      args.type === "credit" ? "เติมเงินเข้า Virtual Wallet" : "โอนเงินออกจาก Virtual Wallet";
     return `${actionLabel} จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (${String(args.title || "")})`;
   }
   if (name === "add_recurring_payment") {
+    const isIncome = args.type === "income";
+    const typeLabel = isIncome ? "รายรับประจำ" : "รายการตัดเงินอัตโนมัติ";
     const cycleLabel =
       args.cycle === "weekly" ? "รายสัปดาห์" : args.cycle === "yearly" ? "รายปี" : "รายเดือน";
     const cat =
       snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
       String(args.categoryId || "");
-    return `เพิ่มรายการตัดเงินอัตโนมัติ "${String(args.title || "")}" ฿${Number(args.amount || 0).toLocaleString("en-US")} (${cycleLabel}, หมวด: ${cat}, ครบกำหนด: ${String(args.nextDueDate || "")})`;
+    return `เพิ่ม${typeLabel} "${String(args.title || "")}" ฿${Number(args.amount || 0).toLocaleString("en-US")} (${cycleLabel}, หมวด: ${cat}, ครบกำหนด: ${String(args.nextDueDate || "")})`;
   }
   return `ดำเนินการ ${name}`;
 }
@@ -476,6 +501,10 @@ export function validateAndNormalizeWriteTool(
     const txType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
     const title = String(rawArgs.title || "").trim();
     const amount = Number(rawArgs.amount);
+
+    const rawChannel = String(rawArgs.channel || "Virtual Bank Wallet").trim();
+    const isCash = rawChannel.toLowerCase() === "เงินสด" || rawChannel.toLowerCase() === "cash";
+    const channel = isCash ? "เงินสด" : rawChannel;
 
     if (!title) {
       return { ok: false, error: "ต้องระบุชื่อรายการ (title)" };
@@ -511,7 +540,7 @@ export function validateAndNormalizeWriteTool(
       title,
       amount,
       categoryId: cat.id,
-      channel: String(rawArgs.channel || "Virtual Bank Wallet").trim(),
+      channel,
     };
     return {
       ok: true,
@@ -528,12 +557,19 @@ export function validateAndNormalizeWriteTool(
     const cat = resolveCategory(rawArgs.categoryId, categories, "expense");
     if (!cat) {
       const validExpenseCats = categories
-        .filter((c) => c.type === "expense")
+        .filter((c) => c.type === "expense" && c.id !== "recurring")
         .map((c) => `${c.id} (${c.name})`)
         .join(", ");
       return {
         ok: false,
         error: `ไม่พบหมวดหมู่รายจ่าย "${String(rawArgs.categoryId || "")}" หมวดหมู่รายจ่ายที่ตั้งงบได้คือ: ${validExpenseCats}`,
+      };
+    }
+    if (cat.id === "recurring") {
+      return {
+        ok: false,
+        error:
+          "งบประมาณหมวดรายจ่ายประจำ (Recurring) คำนวณอัตโนมัติจากรายการที่เปิดใช้งาน ไม่สามารถแก้ไขโดยตรงได้",
       };
     }
 
@@ -610,32 +646,21 @@ export function validateAndNormalizeWriteTool(
       ? rawDate
       : defaultNextMonthFirstDay();
 
-    const rawCat = String(rawArgs.categoryId || "").trim();
-    const cat = rawCat
-      ? resolveCategory(rawCat, categories, "expense")
-      : resolveCategory("", categories, "expense", title) ||
-        categories.find((c) => c.id === "entertainment") ||
-        categories.find((c) => c.type === "expense") ||
-        null;
-
-    if (!cat) {
-      const validList = categories
-        .filter((c) => c.type === "expense")
-        .map((c) => `${c.id} (${c.name})`)
-        .join(", ");
-      return {
-        ok: false,
-        error: `ไม่พบหมวดหมู่รายจ่าย "${rawCat}" สำหรับรายการตัดเงินอัตโนมัติ หมวดหมู่ที่มีคือ: ${validList}`,
-      };
+    const recType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
+    let categoryId = "recurring";
+    if (recType === "income") {
+      const cat = resolveCategory(rawArgs.categoryId, categories, "income", title);
+      categoryId = cat?.id || "salary";
     }
 
     const normalized = {
       title,
       amount,
-      categoryId: cat.id,
+      type: recType,
+      categoryId,
       cycle,
       nextDueDate,
-      icon: "autorenew",
+      icon: recType === "income" ? "payments" : "autorenew",
     };
     return {
       ok: true,

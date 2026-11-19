@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
 import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
-import { CATEGORY_PALETTE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload } from "./seed.ts";
+import { parseQrSlipResult } from "./prompts.ts";
+import { simulateRolloverToDate } from "./rollover.ts";
+import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload, relativeDateYmd } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -86,6 +88,21 @@ const tooExpensive = validateAndNormalizeWriteTool(
 );
 assert.equal(tooExpensive.ok, false);
 
+const cashWithinBalance = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "Cash Market", amount: 100, categoryId: "food", channel: "cash" },
+  snap
+);
+assert.equal(cashWithinBalance.ok, true);
+if (cashWithinBalance.ok) assert.equal(cashWithinBalance.args.channel, "เงินสด");
+
+const cashOverdraft = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "Cash Laptop", amount: 25000, categoryId: "food", channel: "เงินสด" },
+  snap
+);
+assert.equal(cashOverdraft.ok, false);
+
 // 10. add_recurring_payment validator handles defaults and duplicate protection
 const newRec = validateAndNormalizeWriteTool("add_recurring_payment", { title: "YouTube Premium", amount: 179 }, snap);
 assert.equal(newRec.ok, true);
@@ -108,4 +125,93 @@ assert.equal(
   true
 );
 
-console.log("Finora self-check passed (11/11 checks)");
+// 12. add_recurring_payment supports recurring income and get_recurring_payments separates expense/income totals
+const incomeRec = validateAndNormalizeWriteTool(
+  "add_recurring_payment",
+  { type: "income", title: "ค่าเช่าบ้านปล่อยเช่า", amount: 18000, categoryId: "เงินเดือน" },
+  snap
+);
+assert.equal(incomeRec.ok, true);
+if (incomeRec.ok) {
+  assert.equal(incomeRec.args.type, "income");
+  assert.equal(incomeRec.args.categoryId, "salary");
+  assert.equal(incomeRec.args.icon, "payments");
+}
+const recRead = runReadTool("get_recurring_payments", {}, {
+  ...snap,
+  recurring: [
+    ...INITIAL_RECURRING,
+    {
+      id: "rec-inc-1",
+      title: "เงินปันผลรายเดือน",
+      amount: 12000,
+      type: "income",
+      categoryId: "investment",
+      cycle: "monthly",
+      nextDueDate: relativeDateYmd(5),
+      active: true,
+      icon: "payments",
+    },
+  ],
+});
+assert.equal(recRead.activeMonthlyIncomeTotal, 62000); // 50000 (เงินเดือนประจำ) + 12000
+
+// 13. parseQrSlipResult validates JSON fixtures, formatted amounts, sender/receiver matching, and blocks reserved "recurring" category
+const qrValid = parseQrSlipResult(
+  '```json\n{"isValidPaymentImage":true,"type":"expense","sender":"นาย ชัยณรงค์ แ...","receiver":"บริษัท แอดวานซ์ เอ็มเปย์ จำกัด","merchant":"นาย ชัยณรงค์ แ...","promptPayId":"0891112222","amount":"1,725.50 บาท","categoryId":"recurring"}\n```',
+  ["food", "shopping", "salary"],
+  "คุณชัยณรงค์ วงศ์เจริญ"
+);
+assert.equal(qrValid.ok, true);
+if (qrValid.ok) {
+  assert.equal(qrValid.data.isValidPaymentImage, true);
+  assert.equal(qrValid.data.amount, 1725.5);
+  assert.equal(qrValid.data.sender, "นาย ชัยณรงค์");
+  assert.equal(qrValid.data.receiver, "บริษัท แอดวานซ์ เอ็มเปย์ จำกัด");
+  assert.equal(qrValid.data.merchant, "บริษัท แอดวานซ์ เอ็มเปย์ จำกัด");
+  assert.equal(qrValid.data.categoryId, "food");
+}
+const qrInvalid = parseQrSlipResult("not a json object");
+assert.equal(qrInvalid.ok, false);
+
+// 14. Date-driven rollover processes recurring income (including salary) and expense bills chronologically
+// Step 1 (+3 days): Netflix (+1d, 500) paid, Condo (+3d, 12000) skipped (balance 9500 < 12000)
+const step1 = simulateRolloverToDate({
+  targetDate: relativeDateYmd(3),
+  bankBalance: INITIAL_BANK_BALANCE, // 10,000
+  recurring: INITIAL_RECURRING,
+  settings: { ...INITIAL_SETTINGS, quotaResetDay: 1 },
+  nowMs: 1700000000000,
+});
+assert.equal(step1.result.recurringIncomeTotal, 0);
+assert.equal(step1.result.billsPaid, 1); // +1d Netflix (500) paid from 10,000
+assert.equal(step1.result.billsSkipped, 1); // +3d Condo (12,000) skipped (balance 9,500)
+assert.equal(step1.bankBalance, 9500);
+
+// Step 2 (+7 days): Salary (+7d, +50,000) arrives without re-triggering the skipped +3d bill
+const step2 = simulateRolloverToDate({
+  targetDate: relativeDateYmd(7),
+  bankBalance: step1.bankBalance,
+  recurring: step1.updatedRecurring,
+  settings: { ...INITIAL_SETTINGS, quotaResetDay: 1, ...step1.settingsPatch },
+  nowMs: 1700000001000,
+});
+assert.equal(step2.result.recurringIncomeCount, 1);
+assert.equal(step2.result.recurringIncomeTotal, 50000);
+assert.equal(step2.result.billsSkipped, 0);
+assert.equal(step2.result.billsPaid, 0);
+assert.equal(step2.bankBalance, 59500);
+
+// Step 3 (+10 days): AIS Fibre (+10d, 1,000) paid after salary arrived
+const step3 = simulateRolloverToDate({
+  targetDate: relativeDateYmd(10),
+  bankBalance: step2.bankBalance,
+  recurring: step2.updatedRecurring,
+  settings: { ...INITIAL_SETTINGS, quotaResetDay: 1, ...step2.settingsPatch },
+  nowMs: 1700000002000,
+});
+assert.equal(step3.result.recurringIncomeTotal, 0);
+assert.equal(step3.result.billsPaid, 1);
+assert.equal(step3.bankBalance, 58500);
+
+console.log("Finora self-check passed (14/14 checks)");

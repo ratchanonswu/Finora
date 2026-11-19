@@ -13,10 +13,13 @@ export default function RecurringPage() {
     addRecurring,
     deleteRecurring,
     updateRecurringDate,
+    payRecurringItem,
+    payAllActiveRecurring,
   } = useFinora();
+  const [tab, setTab] = useState<"expense" | "income">("expense");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
-  const [categoryId, setCategoryId] = useState("entertainment");
+  const [incomeCategoryId, setIncomeCategoryId] = useState("salary");
   const [cycle, setCycle] = useState<"monthly" | "weekly" | "yearly">("monthly");
   const [nextDueDate, setNextDueDate] = useState(() =>
     new Date().toISOString().slice(0, 10)
@@ -24,19 +27,48 @@ export default function RecurringPage() {
   const [icon, setIcon] = useState("autorenew");
   const [color, setColor] = useState(COLOR_CHOICES[0]);
   const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const expenseCategories = useMemo(
-    () => categories.filter((c) => c.type === "expense"),
+  const isIncomeTab = tab === "income";
+
+  const incomeCategories = useMemo(
+    () => categories.filter((c) => c.type === "income"),
     [categories]
+  );
+
+  const expenseItems = useMemo(
+    () => recurring.filter((r) => (r.type ?? "expense") === "expense"),
+    [recurring]
+  );
+  const incomeItems = useMemo(
+    () => recurring.filter((r) => r.type === "income"),
+    [recurring]
+  );
+  const visibleItems = isIncomeTab ? incomeItems : expenseItems;
+
+  const activeItems = useMemo(
+    () => visibleItems.filter((r) => r.active),
+    [visibleItems]
+  );
+
+  const activeSum = useMemo(
+    () => activeItems.reduce((sum, r) => sum + r.amount, 0),
+    [activeItems]
   );
 
   const monthlyTotal = useMemo(
     () =>
-      recurring
-        .filter((r) => r.active)
-        .reduce((sum, r) => sum + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0),
-    [recurring]
+      activeItems.reduce((sum, r) => sum + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0),
+    [activeItems]
   );
+
+  const switchTab = (next: "expense" | "income") => {
+    setTab(next);
+    setIcon(next === "income" ? "payments" : "autorenew");
+    setColor(next === "income" ? "#059669" : COLOR_CHOICES[0]);
+    setFeedback(null);
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +77,8 @@ export default function RecurringPage() {
     addRecurring({
       title: title.trim(),
       amount: num,
-      categoryId,
+      type: tab,
+      categoryId: isIncomeTab ? incomeCategoryId : "recurring",
       cycle,
       nextDueDate,
       active: true,
@@ -54,9 +87,47 @@ export default function RecurringPage() {
     });
     setTitle("");
     setAmount("");
-    setIcon("autorenew");
-    setColor(COLOR_CHOICES[0]);
+    setIcon(isIncomeTab ? "payments" : "autorenew");
+    setColor(isIncomeTab ? "#059669" : COLOR_CHOICES[0]);
     setShowForm(false);
+  };
+
+  const handlePayOne = async (id: string, itemTitle: string, itemAmount: number) => {
+    if (busy) return;
+    setBusy(true);
+    setFeedback(null);
+    const res = await payRecurringItem(id);
+    setBusy(false);
+    setFeedback(
+      res.ok
+        ? {
+            ok: true,
+            text: `${isIncomeTab ? "รับยอด" : "ตัดยอด"} "${itemTitle}" จำนวน ${formatTHB(itemAmount)} เรียบร้อยแล้ว`,
+          }
+        : {
+            ok: false,
+            text: res.error || (isIncomeTab ? "ไม่สามารถรับยอดรายการได้" : "ไม่สามารถตัดยอดรายการได้"),
+          }
+    );
+  };
+
+  const handlePayAll = async () => {
+    if (busy) return;
+    setBusy(true);
+    setFeedback(null);
+    const res = await payAllActiveRecurring(tab);
+    setBusy(false);
+    setFeedback(
+      res.ok
+        ? {
+            ok: true,
+            text: `${isIncomeTab ? "รับยอดรวม" : "ตัดยอดรวม"} ${res.count} รายการ เป็นเงิน ${formatTHB(res.total || 0)} เรียบร้อยแล้ว`,
+          }
+        : {
+            ok: false,
+            text: res.error || (isIncomeTab ? "ไม่สามารถรับยอดทั้งหมดได้" : "ไม่สามารถตัดยอดทั้งหมดได้"),
+          }
+    );
   };
 
   return (
@@ -64,38 +135,116 @@ export default function RecurringPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-on-surface tracking-tight m-0">
-            รายการตัดเงินอัตโนมัติ (Recurring)
+            รายการอัตโนมัติประจำเดือน (Recurring)
           </h1>
           <p className="text-sm text-on-surface-variant mt-1">
-            ยอดภาระผูกพันรายเดือนที่เปิดใช้งาน:{" "}
+            {isIncomeTab
+              ? "ยอดรายรับประจำรายเดือนที่เปิดใช้งาน:"
+              : "ยอดภาระผูกพันรายเดือนที่เปิดใช้งาน:"}{" "}
             <strong className="text-on-surface font-mono">{formatTHB(monthlyTotal)}</strong>
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2 self-start">
+          <button
+            type="button"
+            disabled={busy || activeItems.length === 0}
+            onClick={handlePayAll}
+            className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border text-sm font-semibold disabled:opacity-50 shadow-sm transition-colors ${
+              isIncomeTab
+                ? "border-primary/40 bg-primary-container/15 text-primary hover:bg-primary-container/25"
+                : "border-secondary/40 bg-secondary/10 text-secondary hover:bg-secondary/20"
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">payments</span>
+            <span>
+              {isIncomeTab ? "รับยอดทั้งหมด" : "ตัดยอดทั้งหมด"} ({formatTHB(activeSum)})
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowForm((s) => !s)}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            <span>{isIncomeTab ? "เพิ่มรายรับประจำ" : "เพิ่มรายจ่ายประจำ"}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mode Tabs */}
+      <div className="inline-flex self-start p-1 rounded-xl bg-surface-container border border-outline-variant/30 gap-1">
         <button
           type="button"
-          onClick={() => setShowForm((s) => !s)}
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 shadow-sm self-start"
+          onClick={() => switchTab("expense")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+            !isIncomeTab
+              ? "bg-secondary text-on-secondary shadow-sm"
+              : "text-on-surface-variant hover:text-on-surface"
+          }`}
         >
-          <span className="material-symbols-outlined text-[18px]">add</span>
-          <span>เพิ่มรายการอัตโนมัติ</span>
+          รายจ่ายประจำ ({expenseItems.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => switchTab("income")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+            isIncomeTab
+              ? "bg-primary-container text-on-primary-container shadow-sm"
+              : "text-on-surface-variant hover:text-on-surface"
+          }`}
+        >
+          รายรับประจำ ({incomeItems.length})
         </button>
       </div>
+
+      {feedback && (
+        <div
+          className={`p-3.5 rounded-xl border text-sm flex items-center justify-between gap-3 animate-page-in ${
+            feedback.ok
+              ? "border-primary/40 bg-primary-container/20 text-on-surface"
+              : "border-error/40 bg-error-container/20 text-on-error-container"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={`material-symbols-outlined text-[18px] ${
+                feedback.ok ? "text-primary" : "text-error"
+              }`}
+            >
+              {feedback.ok ? "check_circle" : "error"}
+            </span>
+            <span>{feedback.text}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFeedback(null)}
+            aria-label="ปิดการแจ้งเตือน"
+            className="text-on-surface-variant hover:text-on-surface"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      )}
 
       {showForm && (
         <form
           onSubmit={handleCreate}
-          className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end"
+          className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end animate-page-in"
         >
           <div className="lg:col-span-2">
             <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-              ชื่อค่าบริการ / บิล
+              {isIncomeTab ? "ชื่อแหล่งรายได้" : "ชื่อค่าบริการ / บิล"}
             </label>
             <input
               type="text"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="เช่น YouTube Premium, ค่าฟิตเนส"
+              placeholder={
+                isIncomeTab
+                  ? "เช่น เงินเดือนประจำ, ค่าเช่าคอนโด"
+                  : "เช่น YouTube Premium, ค่าฟิตเนส"
+              }
               className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
             />
           </div>
@@ -109,29 +258,31 @@ export default function RecurringPage() {
               min="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="299"
+              placeholder={isIncomeTab ? "55000" : "299"}
               className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-on-surface"
             />
           </div>
+          {isIncomeTab && (
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+                หมวดหมู่รายรับ
+              </label>
+              <select
+                value={incomeCategoryId}
+                onChange={(e) => setIncomeCategoryId(e.target.value)}
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
+              >
+                {incomeCategories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-              หมวดหมู่
-            </label>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
-            >
-              {expenseCategories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-              รอบตัดเงิน
+              {isIncomeTab ? "รอบรับเงิน" : "รอบตัดเงิน"}
             </label>
             <select
               value={cycle}
@@ -145,7 +296,7 @@ export default function RecurringPage() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-              วันตัดเงินถัดไป
+              {isIncomeTab ? "วันรับเงินถัดไป" : "วันตัดเงินถัดไป"}
             </label>
             <input
               type="date"
@@ -175,12 +326,14 @@ export default function RecurringPage() {
       )}
 
       <div className="rounded-2xl bg-surface-container border border-outline-variant/30 divide-y divide-outline-variant/20">
-        {recurring.length === 0 ? (
+        {visibleItems.length === 0 ? (
           <div className="p-8 text-center text-sm text-on-surface-variant">
-            ยังไม่มีรายการจ่ายเงินอัตโนมัติ กด &ldquo;เพิ่มรายการอัตโนมัติ&rdquo; เพื่อเริ่มต้น
+            {isIncomeTab
+              ? "ยังไม่มีรายรับประจำ กด \"เพิ่มรายรับประจำ\" เพื่อเริ่มต้น"
+              : "ยังไม่มีรายจ่ายประจำ กด \"เพิ่มรายจ่ายประจำ\" เพื่อเริ่มต้น"}
           </div>
         ) : (
-          recurring.map((item) => {
+          visibleItems.map((item) => {
             const cat = categories.find((c) => c.id === item.categoryId);
             const accent = item.color || cat?.color;
             return (
@@ -237,10 +390,26 @@ export default function RecurringPage() {
                 </div>
 
                 <div className="flex items-center justify-between sm:justify-end gap-3">
-                  <span className="text-lg font-bold font-mono text-on-surface">
-                    {formatTHB(item.amount)}
+                  <span
+                    className={`text-lg font-bold font-mono ${
+                      isIncomeTab ? "text-primary" : "text-secondary"
+                    }`}
+                  >
+                    {isIncomeTab ? `+${formatTHB(item.amount)}` : `-${formatTHB(item.amount)}`}
                   </span>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => handlePayOne(item.id, item.title, item.amount)}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 transition-colors ${
+                        isIncomeTab
+                          ? "bg-primary-container/20 text-primary hover:bg-primary-container/30"
+                          : "bg-secondary/15 text-secondary hover:bg-secondary/25"
+                      }`}
+                    >
+                      {isIncomeTab ? "รับยอดรายการนี้" : "ตัดยอดรายการนี้"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => toggleRecurring(item.id)}

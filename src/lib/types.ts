@@ -28,6 +28,7 @@ export interface RecurringPayment {
   id: string;
   title: string;
   amount: number;
+  type?: TransactionType;
   categoryId: string;
   cycle: "monthly" | "weekly" | "yearly";
   nextDueDate: string; // YYYY-MM-DD
@@ -63,15 +64,19 @@ export interface AppSettings {
   aiAutoCategorize: boolean;
   aiConfidenceThreshold: number;
   geminiApiKeyOverride: string;
-  monthlySalary: number;
+  quotaResetDay?: number;
   quotaResetAt?: string;
+  lastQuotaResetMonth?: string;
+  lastSimulatedDate?: string;
 }
 
 export interface ChatTxAction {
   transactionId?: string;
-  status: "saved" | "needs_amount" | "undone";
+  status: "pending" | "saved" | "needs_amount" | "undone" | "cancelled";
   type: TransactionType;
   merchant: string;
+  sender?: string;
+  receiver?: string;
   promptPayId: string;
   amount: number;
   categoryId: string;
