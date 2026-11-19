@@ -200,29 +200,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Virtual Wallet Summary Widget */}
-        <div className="p-3 sm:p-4">
-          <div
-            title={collapsed ? `Virtual Wallet: ${formatTHB(bankBalance)}` : undefined}
-            className={`block rounded-xl bg-surface-container border border-outline-variant/30 ${
-              collapsed ? "lg:p-3 p-4" : "p-4"
-            }`}
-          >
-            {collapsed && (
-              <div className="hidden lg:flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-[22px]">
-                  account_balance_wallet
-                </span>
-              </div>
-            )}
-            <div className={collapsed ? "lg:hidden" : ""}>
-              <div className="mb-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Virtual Wallet
-                </span>
-              </div>
-              <div className="text-xl font-bold tracking-tight text-on-surface">
-                {formatTHB(bankBalance)}
-              </div>
+        <div className={`p-3 sm:p-4 ${collapsed ? "lg:hidden" : ""}`}>
+          <div className="block rounded-xl bg-surface-container border border-outline-variant/30 p-4">
+            <div className="mb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+                Virtual Wallet
+              </span>
+            </div>
+            <div className="text-xl font-bold tracking-tight text-on-surface">
+              {formatTHB(bankBalance)}
             </div>
           </div>
         </div>
