@@ -48,12 +48,17 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 export function buildQrSlipPrompt(
   qrRaw: string | undefined,
   categoryList: string,
-  userName?: string
+  userName?: string,
+  ocrText?: string
 ): string {
   const cleanUser = userName?.trim() || "";
+  const cleanOcr = ocrText?.trim() || "";
   return [
     "วิเคราะห์รูปภาพนี้ว่าเป็นป้าย QR Code รับเงิน (PromptPay / Thai QR Payment) หรือสลิปธุรกรรมธนาคาร/e-Wallet หรือไม่",
     qrRaw ? `ข้อมูลดิบที่อ่านได้จากบาร์โค้ด QR: ${qrRaw}` : "ไม่พบบาร์โค้ดจากตัวอ่านเบื้องต้น ให้ตรวจสอบจากภาพโดยตรง",
+    cleanOcr
+      ? `ข้อความที่อ่านได้จาก OCR (ใช้ช่วยยืนยันตัวสะกดภาษาไทยและตัวเลขให้ตรงกับภาพ):\n${cleanOcr}`
+      : "",
     cleanUser ? `ชื่อผู้ใช้เจ้าของบัญชีในระบบ: "${cleanUser}"` : "",
     `หมวดหมู่ที่เลือกได้: ${categoryList}`,
     "ตอบกลับเป็น JSON เท่านั้นตามโครงสร้างนี้:",
