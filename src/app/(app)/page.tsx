@@ -56,7 +56,7 @@ export default function DashboardPage() {
           expense: stats.expense,
         });
       } else {
-        const base = HISTORICAL_BASE[5 - i - 1];
+        const base = HISTORICAL_BASE[5 - i];
         series.push({
           month: label,
           year: d.getFullYear(),
