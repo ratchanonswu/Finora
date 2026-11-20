@@ -3,7 +3,7 @@ import { executeBankTransfer } from "./bank-service.ts";
 import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
 import { buildQrSlipPrompt, parseQrSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
-import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, isBaseCategory, nextCategoryColor, parsePromptPayPayload, relativeDateYmd } from "./seed.ts";
+import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, formatTHB, formatThaiDate, isBaseCategory, nextCategoryColor, normalizeTransactionDate, parsePromptPayPayload, relativeDateYmd } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -16,10 +16,11 @@ const pay = executeBankTransfer({ type: "debit", amount: 2500, title: "Coffee", 
 assert.equal(pay.ok, true);
 assert.equal(pay.balance, 7500);
 
-// 3. Overdraft debit is rejected without mutating balance
+// 3. Overdraft debit is allowed so Virtual Wallet balance can go negative
 const overdraft = executeBankTransfer({ type: "debit", amount: 20000, title: "Big", counterparty: "Store" }, 10000);
-assert.equal(overdraft.ok, false);
-assert.equal(overdraft.balance, 10000);
+assert.equal(overdraft.ok, true);
+assert.equal(overdraft.balance, -10000);
+assert.equal(overdraft.entry?.balanceAfter, -10000);
 
 // 4. Non-positive amount is rejected
 const invalid = executeBankTransfer({ type: "credit", amount: 0, title: "Zero", counterparty: "Test" }, 10000);
@@ -89,7 +90,7 @@ const tooExpensive = validateAndNormalizeWriteTool(
   { type: "expense", title: "Laptop", amount: 25000, categoryId: "shopping" },
   snap
 );
-assert.equal(tooExpensive.ok, false);
+assert.equal(tooExpensive.ok, true);
 
 const cashWithinBalance = validateAndNormalizeWriteTool(
   "add_transaction",
@@ -104,7 +105,7 @@ const cashOverdraft = validateAndNormalizeWriteTool(
   { type: "expense", title: "Cash Laptop", amount: 25000, categoryId: "food", channel: "เงินสด" },
   snap
 );
-assert.equal(cashOverdraft.ok, false);
+assert.equal(cashOverdraft.ok, true);
 
 // 10. add_recurring_payment validator handles defaults and duplicate protection
 const newRec = validateAndNormalizeWriteTool("add_recurring_payment", { title: "YouTube Premium", amount: 179 }, snap);
@@ -177,8 +178,8 @@ if (qrValid.ok) {
 const qrInvalid = parseQrSlipResult("not a json object");
 assert.equal(qrInvalid.ok, false);
 
-// 14. Date-driven rollover processes recurring income (including salary) and expense bills chronologically
-// Step 1 (+3 days): Netflix (+1d, 500) paid, Condo (+3d, 12000) skipped (balance 9500 < 12000)
+// 14. Date-driven rollover processes recurring income (including salary) and expense bills chronologically, allowing negative balance
+// Step 1 (+3 days): Netflix (+1d, 500) and Condo (+3d, 12000) are both paid from 10,000 -> -2,500
 const step1 = simulateRolloverToDate({
   targetDate: relativeDateYmd(3),
   bankBalance: INITIAL_BANK_BALANCE, // 10,000
@@ -187,11 +188,11 @@ const step1 = simulateRolloverToDate({
   nowMs: 1700000000000,
 });
 assert.equal(step1.result.recurringIncomeTotal, 0);
-assert.equal(step1.result.billsPaid, 1); // +1d Netflix (500) paid from 10,000
-assert.equal(step1.result.billsSkipped, 1); // +3d Condo (12,000) skipped (balance 9,500)
-assert.equal(step1.bankBalance, 9500);
+assert.equal(step1.result.billsPaid, 2);
+assert.equal(step1.result.billsSkipped, 0);
+assert.equal(step1.bankBalance, -2500);
 
-// Step 2 (+7 days): Salary (+7d, +50,000) arrives without re-triggering the skipped +3d bill
+// Step 2 (+7 days): Salary (+7d, +50,000) brings balance to 47,500
 const step2 = simulateRolloverToDate({
   targetDate: relativeDateYmd(7),
   bankBalance: step1.bankBalance,
@@ -203,9 +204,9 @@ assert.equal(step2.result.recurringIncomeCount, 1);
 assert.equal(step2.result.recurringIncomeTotal, 50000);
 assert.equal(step2.result.billsSkipped, 0);
 assert.equal(step2.result.billsPaid, 0);
-assert.equal(step2.bankBalance, 59500);
+assert.equal(step2.bankBalance, 47500);
 
-// Step 3 (+10 days): AIS Fibre (+10d, 1,000) paid after salary arrived
+// Step 3 (+10 days): AIS Fibre (+10d, 1,000) paid -> 46,500
 const step3 = simulateRolloverToDate({
   targetDate: relativeDateYmd(10),
   bankBalance: step2.bankBalance,
@@ -215,7 +216,7 @@ const step3 = simulateRolloverToDate({
 });
 assert.equal(step3.result.recurringIncomeTotal, 0);
 assert.equal(step3.result.billsPaid, 1);
-assert.equal(step3.bankBalance, 58500);
+assert.equal(step3.bankBalance, 46500);
 
 // 15. buildQrSlipPrompt injects OCR assist block only when non-empty
 const promptWithOcr = buildQrSlipPrompt(undefined, "food", "คุณธนภัทร", "Potato shake & ข้าวหมู\nกรอบ\n30.00 บาท");
@@ -264,4 +265,31 @@ const unresolvedBoth = validateAndNormalizeWriteTool(
 );
 assert.equal(unresolvedBoth.ok, false);
 
-console.log("Finora self-check passed (16/16 checks)");
+// 17. Negative THB formatting, date-only Thai formatting, and transaction date normalization
+assert.equal(formatTHB(-1250), "-฿1,250.00");
+assert.equal(formatTHB(1250), "฿1,250.00");
+assert.equal(formatThaiDate("2026-08-15T12:00:00+07:00").includes(":"), false);
+
+const fixedRef = new Date(2026, 10, 21);
+assert.equal(normalizeTransactionDate("15/08", fixedRef), "2026-08-15");
+assert.equal(normalizeTransactionDate("2026-08-15", fixedRef), "2026-08-15");
+assert.equal(normalizeTransactionDate("15/08/2569", fixedRef), "2026-08-15");
+assert.equal(normalizeTransactionDate("2569-08-15", fixedRef), "2026-08-15");
+assert.equal(normalizeTransactionDate("31/02", fixedRef), null);
+
+const datedTx = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "กระเพรา", amount: 20, categoryId: "food", date: "15/08" },
+  snap
+);
+assert.equal(datedTx.ok, true);
+if (datedTx.ok) assert.match(String(datedTx.args.date), /^\d{4}-08-15$/);
+
+const badDateTx = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "ชานม", amount: 20, categoryId: "food", date: "31/02" },
+  snap
+);
+assert.equal(badDateTx.ok, false);
+
+console.log("Finora self-check passed (17/17 checks)");

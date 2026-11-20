@@ -1,5 +1,5 @@
 import type { OpenRouterToolDef } from "./openrouter.ts";
-import { isInCurrentQuotaCycle } from "./seed.ts";
+import { formatThaiDate, isInCurrentQuotaCycle, normalizeTransactionDate, todayYmd } from "./seed.ts";
 import type { Category, RecurringPayment, Transaction, TransactionType } from "./types.ts";
 
 export interface FinancialSnapshot {
@@ -293,6 +293,11 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
             description:
               "ช่องทาง เช่น Virtual Bank Wallet, สแกน PromptPay QR, Virtual Card, เงินสด (ถ้าผู้ใช้ไม่ระบุ ให้ใช้ค่าเริ่มต้น 'Virtual Bank Wallet' ทันทีโดยไม่ต้องถามซ้ำ)",
           },
+          date: {
+            type: "string",
+            description:
+              "วันที่ของรายการรูปแบบ YYYY-MM-DD (ค.ศ.) หรือ DD/MM หากผู้ใช้ระบุวันที่ เช่น '15/08' หรือ 'เมื่อวาน' (ถ้าไม่ระบุไม่ต้องส่ง ระบบจะใช้วันที่ปัจจุบัน)",
+          },
         },
         required: ["type", "title", "amount", "categoryId"],
       },
@@ -508,7 +513,9 @@ export function describeWriteTool(
       String(args.categoryId || "");
     const ch = String(args.channel || "").trim();
     const chSuffix = ch && ch !== "Virtual Bank Wallet" ? `, ช่องทาง: ${ch}` : "";
-    return `บันทึก${typeLabel} "${String(args.title || "")}" จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (หมวดหมู่: ${cat}${chSuffix})`;
+    const dateStr = String(args.date || "").trim();
+    const dateSuffix = dateStr ? `, วันที่: ${formatThaiDate(dateStr)}` : "";
+    return `บันทึก${typeLabel} "${String(args.title || "")}" จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (หมวดหมู่: ${cat}${chSuffix}${dateSuffix})`;
   }
   if (name === "update_category_budget") {
     const cat =
@@ -539,7 +546,7 @@ export function validateAndNormalizeWriteTool(
   rawArgs: Record<string, unknown>,
   snapshot: FinancialSnapshot
 ): { ok: true; args: Record<string, unknown>; summary: string } | { ok: false; error: string } {
-  const { bankBalance, categories, recurring, autoDebitOnExpense = true } = snapshot;
+  const { categories, recurring } = snapshot;
 
   if (name === "add_transaction") {
     const txType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
@@ -565,10 +572,13 @@ export function validateAndNormalizeWriteTool(
     if (!Number.isFinite(amount) || amount <= 0) {
       return { ok: false, error: "จำนวนเงิน (amount) ต้องเป็นตัวเลขที่มากกว่า 0 บาท" };
     }
-    if (txType === "expense" && autoDebitOnExpense && amount > bankBalance) {
+
+    const rawDate = rawArgs.date === undefined || rawArgs.date === null ? "" : String(rawArgs.date).trim();
+    const normalizedDate = rawDate ? normalizeTransactionDate(rawDate) : todayYmd();
+    if (!normalizedDate) {
       return {
         ok: false,
-        error: `ยอดเงินใน Virtual Wallet คงเหลือ ฿${bankBalance.toLocaleString("en-US")} ไม่เพียงพอสำหรับรายจ่าย ฿${amount.toLocaleString("en-US")}`,
+        error: `รูปแบบวันที่ "${rawDate}" ไม่ถูกต้อง กรุณาระบุเป็น YYYY-MM-DD หรือ DD/MM (เช่น 2026-08-15 หรือ 15/08)`,
       };
     }
 
@@ -592,6 +602,7 @@ export function validateAndNormalizeWriteTool(
       amount,
       categoryId: cat.id,
       channel,
+      date: normalizedDate,
     };
     return {
       ok: true,
