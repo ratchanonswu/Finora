@@ -113,15 +113,15 @@ if (newRec.ok) {
 const dupRec = validateAndNormalizeWriteTool("add_recurring_payment", { title: INITIAL_RECURRING[0].title, amount: 419 }, snap);
 assert.equal(dupRec.ok, false);
 
-// 11. Tool execution priority orders credit/income and config before expense/debit
+// 11. Tool execution priority orders income and config before expense
 assert.equal(
   getToolExecutionPriority("add_recurring_payment", {}) <
     getToolExecutionPriority("add_transaction", { type: "expense" }),
   true
 );
 assert.equal(
-  getToolExecutionPriority("virtual_bank_transfer", { type: "credit" }) <
-    getToolExecutionPriority("virtual_bank_transfer", { type: "debit" }),
+  getToolExecutionPriority("add_transaction", { type: "income" }) <
+    getToolExecutionPriority("add_transaction", { type: "expense" }),
   true
 );
 

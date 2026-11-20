@@ -79,12 +79,12 @@
     "id": "eval-08-wallet-topup",
     "category": "write_tool",
     "input": "เติมเงินเข้ากระเป๋า Virtual Wallet 5,000 บาท",
-    "expectedTool": "virtual_bank_transfer",
+    "expectedTool": "add_transaction",
     "expectedArgs": {
-      "type": "credit",
+      "type": "income",
       "amount": 5000
     },
-    "expectedBehavior": "Calls virtual_bank_transfer with type=credit and amount=5000."
+    "expectedBehavior": "Maps wallet top-up requests to add_transaction with type=income and amount=5000 so both transaction history and Virtual Wallet balance update together."
   },
   {
     "id": "eval-09-priority-income-before-expense",

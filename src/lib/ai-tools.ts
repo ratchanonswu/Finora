@@ -24,16 +24,12 @@ export const WRITE_TOOL_NAMES = new Set([
   "update_category_budget",
   "add_recurring_payment",
   "toggle_recurring",
-  "virtual_bank_transfer",
 ]);
 
-// Orders parallel tool calls by dependency: reads -> income/credit -> config -> expense/debit.
+// Orders parallel tool calls by dependency: reads -> income -> config -> expense.
 export function getToolExecutionPriority(name: string, args: Record<string, unknown>): number {
   if (READ_TOOL_NAMES.has(name)) return 0;
-  if (
-    (name === "virtual_bank_transfer" && args.type === "credit") ||
-    (name === "add_transaction" && args.type === "income")
-  ) {
+  if (name === "add_transaction" && args.type === "income") {
     return 1;
   }
   if (
@@ -279,7 +275,8 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "add_transaction",
-      description: "บันทึกรายรับหรือรายจ่ายใหม่ลงระบบ (ต้องรอผู้ใช้ยืนยัน)",
+      description:
+        "เรียกใช้ทันทีเมื่อผู้ใช้แจ้งรายรับหรือรายจ่ายที่มีชื่อรายการและจำนวนเงิน เพื่อเปิดหน้าต่างยืนยันบน UI (ห้ามพิมพ์ถามยืนยันในแชทก่อนเรียกเครื่องมือนี้)",
       parameters: {
         type: "object",
         properties: {
@@ -293,7 +290,8 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
           },
           channel: {
             type: "string",
-            description: "ช่องทาง เช่น Virtual Bank Wallet, สแกน PromptPay QR, Virtual Card, เงินสด",
+            description:
+              "ช่องทาง เช่น Virtual Bank Wallet, สแกน PromptPay QR, Virtual Card, เงินสด (ถ้าผู้ใช้ไม่ระบุ ให้ใช้ค่าเริ่มต้น 'Virtual Bank Wallet' ทันทีโดยไม่ต้องถามซ้ำ)",
           },
         },
         required: ["type", "title", "amount", "categoryId"],
@@ -304,7 +302,8 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "update_category_budget",
-      description: "ปรับงบประมาณรายเดือนของหมวดหมู่รายจ่าย (ต้องรอผู้ใช้ยืนยัน)",
+      description:
+        "เรียกใช้ทันทีเมื่อผู้ใช้ต้องการปรับงบประมาณรายเดือนของหมวดหมู่รายจ่าย เพื่อแสดงการ์ดยืนยันบน UI (ห้ามถามยืนยันในแชทก่อนเรียกเครื่องมือนี้)",
       parameters: {
         type: "object",
         properties: {
@@ -323,7 +322,8 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "toggle_recurring",
-      description: "เปิดใช้งานหรือพักรายการตัดเงินอัตโนมัติ (ต้องรอผู้ใช้ยืนยัน)",
+      description:
+        "เรียกใช้ทันทีเมื่อผู้ใช้ต้องการเปิดใช้งานหรือพักรายการประจำ เพื่อแสดงการ์ดยืนยันบน UI (ห้ามถามยืนยันในแชทก่อนเรียกเครื่องมือนี้)",
       parameters: {
         type: "object",
         properties: {
@@ -339,27 +339,9 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
   {
     type: "function",
     function: {
-      name: "virtual_bank_transfer",
-      description:
-        "เติมเงินเข้า (credit) หรือโอน/จ่ายออก (debit) ในกระเป๋า Virtual Wallet (ต้องรอผู้ใช้ยืนยัน)",
-      parameters: {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["credit", "debit"] },
-          amount: { type: "number", description: "จำนวนเงิน (บาท, มากกว่า 0)" },
-          title: { type: "string", description: "รายละเอียดรายการ" },
-          counterparty: { type: "string", description: "คู่ค้าหรือบัญชีปลายทาง" },
-        },
-        required: ["type", "amount", "title"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
       name: "add_recurring_payment",
       description:
-        "สร้างรายการประจำ (Recurring) ใหม่ รองรับทั้งรายจ่ายประจำ (expense) และรายรับประจำ (income) (ต้องรอผู้ใช้ยืนยัน)",
+        "เรียกใช้ทันทีเมื่อผู้ใช้ต้องการสร้างรายการประจำ (Recurring) ใหม่ ทั้งรายจ่ายประจำ (expense) และรายรับประจำ (income) เพื่อแสดงการ์ดยืนยันบน UI (ห้ามถามยืนยันในแชทก่อนเรียกเครื่องมือนี้)",
       parameters: {
         type: "object",
         properties: {
@@ -533,11 +515,6 @@ export function describeWriteTool(
     const nextState = rec ? (rec.active ? "พักรายการ" : "เปิดใช้งาน") : "สลับสถานะ";
     return `${nextState} "${rec?.title || String(args.recurringId || "")}"`;
   }
-  if (name === "virtual_bank_transfer") {
-    const actionLabel =
-      args.type === "credit" ? "เติมเงินเข้า Virtual Wallet" : "โอนเงินออกจาก Virtual Wallet";
-    return `${actionLabel} จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (${String(args.title || "")})`;
-  }
   if (name === "add_recurring_payment") {
     const isIncome = args.type === "income";
     const typeLabel = isIncome ? "รายรับประจำ" : "รายการตัดเงินอัตโนมัติ";
@@ -564,8 +541,17 @@ export function validateAndNormalizeWriteTool(
     const amount = Number(rawArgs.amount);
 
     const rawChannel = String(rawArgs.channel || "Virtual Bank Wallet").trim();
-    const isCash = rawChannel.toLowerCase() === "เงินสด" || rawChannel.toLowerCase() === "cash";
-    const channel = isCash ? "เงินสด" : rawChannel;
+    const lowerChannel = rawChannel.toLowerCase();
+    const channel =
+      lowerChannel === "เงินสด" || lowerChannel === "cash"
+        ? "เงินสด"
+        : /promptpay|พร้อมเพย์|qr/.test(lowerChannel)
+        ? "สแกน PromptPay QR"
+        : /card|บัตร/.test(lowerChannel)
+        ? "Virtual Card"
+        : /bank|wallet|บัญชี|ธนาคาร|โอน/.test(lowerChannel)
+        ? "Virtual Bank Wallet"
+        : rawChannel;
 
     if (!title) {
       return { ok: false, error: "ต้องระบุชื่อรายการ (title)" };
@@ -653,32 +639,6 @@ export function validateAndNormalizeWriteTool(
     }
 
     const normalized = { recurringId: rec.id };
-    return {
-      ok: true,
-      args: normalized,
-      summary: describeWriteTool(name, normalized, snapshot),
-    };
-  }
-
-  if (name === "virtual_bank_transfer") {
-    const transferType = rawArgs.type === "credit" ? "credit" : "debit";
-    const amount = Number(rawArgs.amount);
-    const title =
-      String(rawArgs.title || "").trim() ||
-      (transferType === "credit" ? "เติมเงินเข้าบัญชี" : "โอนเงินออก");
-    const counterparty = String(rawArgs.counterparty || "Finora Sandbox").trim();
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return { ok: false, error: "จำนวนเงิน (amount) ต้องมากกว่า 0 บาท" };
-    }
-    if (transferType === "debit" && amount > bankBalance) {
-      return {
-        ok: false,
-        error: `ยอดเงินใน Virtual Wallet คงเหลือ ฿${bankBalance.toLocaleString("en-US")} ไม่เพียงพอสำหรับการโอนออก ฿${amount.toLocaleString("en-US")}`,
-      };
-    }
-
-    const normalized = { type: transferType, amount, title, counterparty };
     return {
       ok: true,
       args: normalized,
