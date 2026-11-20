@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import type {
   AppSettings,
   BankLedgerEntry,
@@ -22,6 +22,8 @@ import {
   advanceDueDate,
   computeRecurringMonthlyBudget,
   isBaseCategory,
+  toDateInputValue,
+  ymdToIso,
 } from "@/lib/seed";
 import { simulateRolloverToDate, type MonthlyRolloverResult } from "@/lib/rollover";
 
@@ -49,6 +51,7 @@ interface FinoraContextValue extends FinoraState {
   addTransaction: (
     tx: Omit<Transaction, "id" | "ref" | "status">
   ) => Promise<{ ok: boolean; error?: string; transactionId?: string }>;
+  updateTransactionDate: (id: string, dateYmd: string) => void;
   deleteTransaction: (id: string) => void;
   chatMessages: ChatMessage[];
   appendChatMessage: (msg: ChatMessage) => void;
@@ -131,11 +134,21 @@ function syncCategoriesWithRecurring(
   return categories.map((c) => (c.id === "recurring" ? { ...c, budget: recurringBudget } : c));
 }
 
+function sortTransactionsByDateDesc(list: Transaction[]): Transaction[] {
+  return [...list].sort((a, b) => {
+    const dayDiff = toDateInputValue(b.date).localeCompare(toDateInputValue(a.date));
+    if (dayDiff !== 0) return dayDiff;
+    const tb = new Date(b.date).getTime();
+    const ta = new Date(a.date).getTime();
+    return (Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta);
+  });
+}
+
 const DEFAULT_STATE: FinoraState = {
   theme: "light",
   user: INITIAL_USER,
   categories: INITIAL_CATEGORIES,
-  transactions: INITIAL_TRANSACTIONS,
+  transactions: sortTransactionsByDateDesc(INITIAL_TRANSACTIONS),
   recurring: INITIAL_RECURRING,
   bankBalance: INITIAL_BANK_BALANCE,
   ledger: INITIAL_LEDGER,
@@ -146,6 +159,9 @@ const FinoraContext = createContext<FinoraContextValue | null>(null);
 
 export function FinoraProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<FinoraState>(DEFAULT_STATE);
+  const bankBalanceRef = useRef(state.bankBalance);
+  bankBalanceRef.current = state.bankBalance;
+  const txSeqRef = useRef(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
   const [hydrated, setHydrated] = useState(false);
   const [isTxModalOpen, setTxModalOpen] = useState(false);
@@ -193,7 +209,11 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         } else {
           delete parsed.recurring;
         }
-        if (!Array.isArray(parsed.transactions)) delete parsed.transactions;
+        if (Array.isArray(parsed.transactions)) {
+          parsed.transactions = sortTransactionsByDateDesc(parsed.transactions);
+        } else {
+          delete parsed.transactions;
+        }
         if (!Array.isArray(parsed.ledger)) delete parsed.ledger;
 
         const loadedRecurring = parsed.recurring ?? DEFAULT_STATE.recurring;
@@ -317,13 +337,14 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
           amount,
           title,
           counterparty,
-          currentBalance: state.bankBalance,
+          currentBalance: bankBalanceRef.current,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         return { ok: false, error: data.error || "ไม่สามารถทำรายการได้" };
       }
+      bankBalanceRef.current = data.balance;
       setState((prev) => ({
         ...prev,
         bankBalance: data.balance,
@@ -347,20 +368,39 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       );
       if (!bankRes.ok) return bankRes;
     } else if (tx.type === "income" && state.settings.autoDebitOnExpense) {
-      await executeBankAction("credit", tx.amount, tx.title, tx.channel || "Finora Income");
+      const bankRes = await executeBankAction(
+        "credit",
+        tx.amount,
+        tx.title,
+        tx.channel || "Finora Income"
+      );
+      if (!bankRes.ok) return bankRes;
     }
 
+    const now = Date.now();
+    const seq = ++txSeqRef.current;
     const newTx: Transaction = {
       ...tx,
-      id: `tx-${Date.now()}`,
-      ref: `TXN-${Date.now().toString().slice(-6)}`,
+      id: `tx-${now}-${seq}`,
+      ref: `TXN-${now.toString().slice(-6)}-${seq}`,
       status: "completed",
     };
     setState((prev) => ({
       ...prev,
-      transactions: [newTx, ...prev.transactions],
+      transactions: sortTransactionsByDateDesc([newTx, ...prev.transactions]),
     }));
     return { ok: true, transactionId: newTx.id };
+  };
+
+  const updateTransactionDate = (id: string, dateYmd: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateYmd)) return;
+    const nextIso = ymdToIso(dateYmd);
+    setState((prev) => ({
+      ...prev,
+      transactions: sortTransactionsByDateDesc(
+        prev.transactions.map((t) => (t.id === id ? { ...t, date: nextIso } : t))
+      ),
+    }));
   };
 
   const deleteTransaction = (id: string) =>
@@ -517,7 +557,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
 
     setState((prev) => ({
       ...prev,
-      transactions: [newTx, ...prev.transactions],
+      transactions: sortTransactionsByDateDesc([newTx, ...prev.transactions]),
       recurring: prev.recurring.map((r) =>
         r.id === id ? { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) } : r
       ),
@@ -574,7 +614,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
 
     setState((prev) => ({
       ...prev,
-      transactions: [newTx, ...prev.transactions],
+      transactions: sortTransactionsByDateDesc([newTx, ...prev.transactions]),
       recurring: prev.recurring.map((r) =>
         r.active && (r.type ?? "expense") === targetType
           ? { ...r, nextDueDate: advanceDueDate(r.nextDueDate, r.cycle) }
@@ -605,15 +645,16 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
 
     const out = simulateRolloverToDate({
       targetDate: resolvedDate,
-      bankBalance: state.bankBalance,
+      bankBalance: bankBalanceRef.current,
       recurring: state.recurring,
       settings: state.settings,
     });
 
+    bankBalanceRef.current = out.bankBalance;
     setState((prev) => ({
       ...prev,
       bankBalance: out.bankBalance,
-      transactions: [...out.newTransactions, ...prev.transactions],
+      transactions: sortTransactionsByDateDesc([...out.newTransactions, ...prev.transactions]),
       ledger: [...out.newLedger, ...prev.ledger],
       recurring: out.updatedRecurring,
       settings: {
@@ -637,6 +678,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         registerUser,
         logoutUser,
         addTransaction,
+        updateTransactionDate,
         deleteTransaction,
         chatMessages,
         appendChatMessage,

@@ -2,13 +2,16 @@
 
 import React, { useMemo, useState } from "react";
 import { useFinora } from "@/context/FinoraContext";
-import { formatTHB, formatThaiDate } from "@/lib/seed";
+import { formatTHB, formatThaiDate, toDateInputValue } from "@/lib/seed";
 
 export default function TransactionsPage() {
-  const { transactions, categories, setTxModalOpen, deleteTransaction } = useFinora();
+  const { transactions, categories, setTxModalOpen, deleteTransaction, updateTransactionDate } =
+    useFinora();
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
   const [catFilter, setCatFilter] = useState("all");
+  const [editingDateId, setEditingDateId] = useState<string | null>(null);
+  const [editingDateVal, setEditingDateVal] = useState("");
 
   const filtered = useMemo(() => {
     return transactions.filter((tx) => {
@@ -126,8 +129,64 @@ export default function TransactionsPage() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-xs text-on-surface-variant">{tx.channel}</td>
-                      <td className="py-3.5 px-4 text-xs font-mono text-on-surface-variant">
-                        {formatThaiDate(tx.date)}
+                      <td className="py-3.5 px-4 text-xs font-mono text-on-surface-variant whitespace-nowrap">
+                        {editingDateId === tx.id ? (
+                          <div className="inline-flex items-center gap-1">
+                            <input
+                              type="date"
+                              aria-label="แก้ไขวันที่ธุรกรรม"
+                              autoFocus
+                              value={editingDateVal}
+                              onChange={(e) => setEditingDateVal(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && /^\d{4}-\d{2}-\d{2}$/.test(editingDateVal)) {
+                                  updateTransactionDate(tx.id, editingDateVal);
+                                  setEditingDateId(null);
+                                } else if (e.key === "Escape") {
+                                  setEditingDateId(null);
+                                }
+                              }}
+                              className="bg-surface-container-low border border-primary/60 rounded px-2 py-1 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                            />
+                            <button
+                              type="button"
+                              title="บันทึกวันที่"
+                              disabled={!/^\d{4}-\d{2}-\d{2}$/.test(editingDateVal)}
+                              onClick={() => {
+                                if (/^\d{4}-\d{2}-\d{2}$/.test(editingDateVal)) {
+                                  updateTransactionDate(tx.id, editingDateVal);
+                                  setEditingDateId(null);
+                                }
+                              }}
+                              className="p-1 rounded text-primary hover:bg-primary-container/20 disabled:opacity-40"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">check</span>
+                            </button>
+                            <button
+                              type="button"
+                              title="ยกเลิก"
+                              onClick={() => setEditingDateId(null)}
+                              className="p-1 rounded text-outline hover:text-on-surface hover:bg-surface-container-high"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">close</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            title="แก้ไขวันที่"
+                            onClick={() => {
+                              setEditingDateId(tx.id);
+                              setEditingDateVal(toDateInputValue(tx.date));
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 -ml-1.5 hover:bg-surface-container-high hover:text-on-surface transition-colors"
+                          >
+                            <span>{formatThaiDate(tx.date)}</span>
+                            <span className="material-symbols-outlined text-[14px] text-outline">
+                              edit_calendar
+                            </span>
+                          </button>
+                        )}
                       </td>
                       <td
                         className={`py-3.5 px-4 text-right font-mono font-bold ${
