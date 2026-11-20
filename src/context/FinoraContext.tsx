@@ -443,9 +443,11 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
 
   const addRecurring = (rec: Omit<RecurringPayment, "id">) =>
     setState((prev) => {
+      const categoryId =
+        (rec.type ?? "expense") === "income" ? rec.categoryId || "salary" : "recurring";
       const nextRecurring = [
         ...prev.recurring,
-        { ...rec, categoryId: "recurring", id: `rec-${Date.now()}` },
+        { ...rec, categoryId, id: `rec-${Date.now()}` },
       ];
       return {
         ...prev,

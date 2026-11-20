@@ -50,6 +50,7 @@ function defaultNextMonthFirstDay(): string {
 }
 
 const CATEGORY_ALIASES: Record<string, string> = {
+  // Keep transport before housing so "รถไฟฟ้า" matches transport before "ไฟฟ้า" hits housing.
   transportation: "transport",
   travel: "transport",
   transit: "transport",
@@ -59,18 +60,48 @@ const CATEGORY_ALIASES: Record<string, string> = {
   grab: "transport",
   taxi: "transport",
   fuel: "transport",
+  ptt: "transport",
   เดินทาง: "transport",
   น้ำมัน: "transport",
+  รถไฟฟ้า: "transport",
+  แท็กซี่: "transport",
+  ทางด่วน: "transport",
+  ปตท: "transport",
   dining: "food",
   drink: "food",
   drinks: "food",
   coffee: "food",
+  cafe: "food",
   restaurant: "food",
+  starbucks: "food",
+  lunch: "food",
+  dinner: "food",
+  breakfast: "food",
+  meal: "food",
+  snack: "food",
+  grocery: "food",
+  groceries: "food",
   อาหาร: "food",
   เครื่องดื่ม: "food",
+  กาแฟ: "food",
+  ข้าว: "food",
+  ก๋วยเตี๋ยว: "food",
+  ขนม: "food",
+  ชานม: "food",
+  ชาเย็น: "food",
+  ชาเขียว: "food",
+  น้ำดื่ม: "food",
   shop: "shopping",
   lifestyle: "shopping",
+  clothing: "shopping",
+  fashion: "shopping",
+  retail: "shopping",
   ช้อปปิ้ง: "shopping",
+  เสื้อผ้า: "shopping",
+  รองเท้า: "shopping",
+  กระเป๋า: "shopping",
+  ของใช้: "shopping",
+  ซื้อของ: "shopping",
   house: "housing",
   home: "housing",
   rent: "housing",
@@ -78,22 +109,52 @@ const CATEGORY_ALIASES: Record<string, string> = {
   bills: "housing",
   utility: "housing",
   utilities: "housing",
+  internet: "housing",
+  electricity: "housing",
   บิล: "housing",
   ที่อยู่อาศัย: "housing",
+  ค่าเช่า: "housing",
+  ค่าไฟ: "housing",
+  ค่าน้ำ: "housing",
+  ค่าเน็ต: "housing",
+  อินเทอร์เน็ต: "housing",
+  คอนโด: "housing",
+  หอพัก: "housing",
+  ไฟฟ้า: "housing",
   movie: "entertainment",
   subscription: "entertainment",
   subscriptions: "entertainment",
   game: "entertainment",
+  netflix: "entertainment",
+  spotify: "entertainment",
+  youtube: "entertainment",
+  cinema: "entertainment",
+  concert: "entertainment",
   บันเทิง: "entertainment",
+  ดูหนัง: "entertainment",
+  คอนเสิร์ต: "entertainment",
+  เกม: "entertainment",
   wage: "salary",
   bonus: "salary",
   income: "salary",
+  freelance: "salary",
+  payroll: "salary",
   เงินเดือน: "salary",
+  โบนัส: "salary",
+  ค่าจ้าง: "salary",
+  ฟรีแลนซ์: "salary",
+  รายได้: "salary",
   invest: "investment",
   dividend: "investment",
   stock: "investment",
+  interest: "investment",
+  fund: "investment",
   ปันผล: "investment",
   ลงทุน: "investment",
+  หุ้น: "investment",
+  กองทุน: "investment",
+  ดอกเบี้ย: "investment",
+  กำไร: "investment",
 };
 
 export function resolveCategory(
@@ -317,6 +378,15 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
   },
 ];
 
+function sumActiveRecurringMonthly(
+  recurring: RecurringPayment[],
+  targetType: TransactionType
+): number {
+  return recurring
+    .filter((r) => r.active && (r.type ?? "expense") === targetType)
+    .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
+}
+
 export function runReadTool(
   name: string,
   args: Record<string, unknown>,
@@ -375,12 +445,8 @@ export function runReadTool(
   }
 
   if (name === "get_recurring_payments") {
-    const activeMonthlyTotal = recurring
-      .filter((r) => r.active && (r.type ?? "expense") === "expense")
-      .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
-    const activeMonthlyIncomeTotal = recurring
-      .filter((r) => r.active && r.type === "income")
-      .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
+    const activeMonthlyTotal = sumActiveRecurringMonthly(recurring, "expense");
+    const activeMonthlyIncomeTotal = sumActiveRecurringMonthly(recurring, "income");
     return {
       activeMonthlyTotal,
       activeMonthlyIncomeTotal,
@@ -400,27 +466,28 @@ export function runReadTool(
     const months = Math.min(12, Math.max(1, Math.round(Number(args.monthsAhead) || 3)));
     const income = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
     const expense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-    const activeRecurringMonthly = recurring
-      .filter((r) => r.active)
-      .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
+    const activeRecurringMonthly = sumActiveRecurringMonthly(recurring, "expense");
+    const activeRecurringIncomeMonthly = sumActiveRecurringMonthly(recurring, "income");
 
-    // Avoid double-counting recurring items if they already appear in transactions; use whichever is higher as baseline outflow.
+    // Avoid double-counting recurring items if they already appear in transactions; use whichever is higher as baseline.
+    const estimatedMonthlyInflow = Math.max(income, activeRecurringIncomeMonthly);
     const estimatedMonthlyOutflow = Math.max(expense, activeRecurringMonthly);
-    const estimatedMonthlyNet = income - estimatedMonthlyOutflow;
+    const estimatedMonthlyNet = estimatedMonthlyInflow - estimatedMonthlyOutflow;
     const projectedBalance = bankBalance + estimatedMonthlyNet * months;
 
     return {
       monthsAhead: months,
       currentBankBalance: bankBalance,
-      baselineMonthlyIncome: income,
+      baselineMonthlyIncome: estimatedMonthlyInflow,
       baselineMonthlyOutflow: estimatedMonthlyOutflow,
       activeRecurringMonthly,
+      activeRecurringIncomeMonthly,
       estimatedMonthlyNet,
       projectedBalance,
       lowBalanceRisk: projectedBalance < activeRecurringMonthly,
       assumptions: [
         "คำนวณจากยอดรายรับและรายจ่ายที่บันทึกไว้ในระบบปัจจุบันเป็นฐานรายเดือน",
-        `รวมภาระค่าบริการตัดอัตโนมัติ (Recurring) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringMonthly.toLocaleString("en-US")} บาท`,
+        `รวมรายรับประจำ (Recurring Income) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringIncomeMonthly.toLocaleString("en-US")} บาท และภาระรายจ่ายประจำ (Recurring Expense) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringMonthly.toLocaleString("en-US")} บาท`,
         "สมมติให้พฤติกรรมการใช้จ่ายและรายรับคงที่ตลอดช่วงเวลาที่คาดการณ์",
       ],
     };
@@ -506,9 +573,7 @@ export function validateAndNormalizeWriteTool(
     }
 
     const rawCat = String(rawArgs.categoryId || "").trim();
-    const cat = rawCat
-      ? resolveCategory(rawCat, categories, txType)
-      : resolveCategory("", categories, txType, title);
+    const cat = resolveCategory(rawCat, categories, txType, title);
 
     if (!cat) {
       const validList = categories
