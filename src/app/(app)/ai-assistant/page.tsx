@@ -185,6 +185,8 @@ function renderChatMarkdown(text: string): React.ReactNode {
 
       if (!trimmed) {
         elements.push(<div key={i} className="h-1.5" />);
+      } else if (/^(?:[-*_]\s*){3,}$/.test(trimmed)) {
+        elements.push(<hr key={i} className="my-3 border-t border-outline-variant/30" />);
       } else {
         const headingMatch = trimmed.match(/^#{1,4}\s+(.+)$/);
         if (headingMatch) {
@@ -540,7 +542,12 @@ export default function AiAssistantPage() {
     const expense = transactions
       .filter((t) => t.type === "expense")
       .reduce((s, t) => s + t.amount, 0);
-    const recSum = recurring.filter((r) => r.active).reduce((s, r) => s + r.amount, 0);
+    const sumActiveRecurring = (targetType: TransactionType) =>
+      recurring
+        .filter((r) => r.active && (r.type ?? "expense") === targetType)
+        .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
+    const recExpenseSum = sumActiveRecurring("expense");
+    const recIncomeSum = sumActiveRecurring("income");
     const catBreakdown = cats
       .filter((c) => c.type === "expense")
       .map((c) => {
@@ -556,7 +563,10 @@ export default function AiAssistantPage() {
       .join(", ");
     const recList =
       recurring
-        .map((r) => `[${r.id}] ${r.title} (${formatTHB(r.amount)}, ${r.active ? "เปิด" : "พัก"})`)
+        .map((r) => {
+          const recTypeLabel = (r.type ?? "expense") === "income" ? "รายรับประจำ" : "รายจ่ายประจำ";
+          return `[${r.id}] ${r.title} (${recTypeLabel}, ${formatTHB(r.amount)}, ${r.active ? "เปิด" : "พัก"})`;
+        })
         .join(", ") || "ไม่มี";
 
     return [
@@ -564,7 +574,8 @@ export default function AiAssistantPage() {
       `ยอดเงินคงเหลือ Virtual Wallet: ${formatTHB(bankBalance)}`,
       `รายรับรวม: ${formatTHB(income)}`,
       `รายจ่ายรวม: ${formatTHB(expense)}`,
-      `รายจ่ายประจำ (Recurring ที่เปิดอยู่): ${formatTHB(recSum)}/เดือน`,
+      `รายจ่ายประจำ (Recurring ที่เปิดอยู่): ${formatTHB(recExpenseSum)}/เดือน`,
+      `รายรับประจำ (Recurring ที่เปิดอยู่): ${formatTHB(recIncomeSum)}/เดือน`,
       `รายการ Recurring: ${recList}`,
       `หมวดรายจ่ายที่มี:\n${catBreakdown}`,
       `หมวดรายรับที่มี: ${incomeCats}`,

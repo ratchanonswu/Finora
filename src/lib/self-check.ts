@@ -56,6 +56,9 @@ const predRes = runReadTool("get_financial_prediction", { monthsAhead: 3 }, {
   recurring: INITIAL_RECURRING,
 });
 assert.equal(predRes.monthsAhead, 3);
+assert.equal(predRes.activeRecurringMonthly, 13500);
+assert.equal(predRes.activeRecurringIncomeMonthly, 50000);
+assert.equal(predRes.baselineMonthlyIncome, 50000);
 assert.equal(Array.isArray(predRes.assumptions), true);
 
 // 9. Write-tool validator normalizes aliases, rejects unknown categories, and guards overdrafts
@@ -221,4 +224,44 @@ assert.equal(promptWithOcr.includes("Potato shake & ข้าวหมู"), tru
 const promptWithoutOcr = buildQrSlipPrompt(undefined, "food", "คุณธนภัทร", "   ");
 assert.equal(promptWithoutOcr.includes("ข้อความที่อ่านได้จาก OCR"), false);
 
-console.log("Finora self-check passed (15/15 checks)");
+// 16. add_transaction falls back to title-based category resolution while preserving explicit categoryId precedence
+const fallbackCoffee = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "กาแฟ", amount: 30, categoryId: "other" },
+  snap
+);
+assert.equal(fallbackCoffee.ok, true);
+if (fallbackCoffee.ok) assert.equal(fallbackCoffee.args.categoryId, "food");
+
+const aliasCafe = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "Latte", amount: 120, categoryId: "cafe" },
+  snap
+);
+assert.equal(aliasCafe.ok, true);
+if (aliasCafe.ok) assert.equal(aliasCafe.args.categoryId, "food");
+
+const fallbackTransit = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "ค่ารถไฟฟ้า BTS", amount: 45, categoryId: "misc" },
+  snap
+);
+assert.equal(fallbackTransit.ok, true);
+if (fallbackTransit.ok) assert.equal(fallbackTransit.args.categoryId, "transport");
+
+const explicitWins = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "ซื้อกาแฟเป็นของขวัญ", amount: 250, categoryId: "shopping" },
+  snap
+);
+assert.equal(explicitWins.ok, true);
+if (explicitWins.ok) assert.equal(explicitWins.args.categoryId, "shopping");
+
+const unresolvedBoth = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "รายการไม่ระบุ", amount: 100, categoryId: "other" },
+  snap
+);
+assert.equal(unresolvedBoth.ok, false);
+
+console.log("Finora self-check passed (16/16 checks)");
