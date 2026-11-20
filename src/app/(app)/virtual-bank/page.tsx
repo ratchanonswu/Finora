@@ -23,10 +23,6 @@ export default function VirtualBankPage() {
       setFeedback({ type: "err", text: "กรุณาระบุจำนวนเงินที่มากกว่า 0 บาท" });
       return;
     }
-    if (actionType === "debit" && parsedAmount > bankBalance) {
-      setFeedback({ type: "err", text: "ยอดเงินในบัญชีจำลองไม่เพียงพอสำหรับรายการนี้" });
-      return;
-    }
     setFeedback(null);
     setConfirmOpen(true);
   };
@@ -94,7 +90,11 @@ export default function VirtualBankPage() {
               </span>
               <span className="text-xs font-mono text-primary font-semibold">พร้อมใช้งาน</span>
             </div>
-            <div className="text-3xl font-bold font-mono text-on-surface tracking-tight">
+            <div
+              className={`text-3xl font-bold font-mono tracking-tight ${
+                bankBalance < 0 ? "text-secondary" : "text-on-surface"
+              }`}
+            >
               {formatTHB(bankBalance)}
             </div>
             <div className="mt-4 pt-4 border-t border-outline-variant/20 flex items-center justify-between text-xs text-on-surface-variant">

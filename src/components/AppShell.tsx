@@ -207,7 +207,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Virtual Wallet
               </span>
             </div>
-            <div className="text-xl font-bold tracking-tight text-on-surface">
+            <div
+              className={`text-xl font-bold tracking-tight ${
+                bankBalance < 0 ? "text-secondary" : "text-on-surface"
+              }`}
+            >
               {formatTHB(bankBalance)}
             </div>
           </div>

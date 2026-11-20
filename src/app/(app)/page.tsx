@@ -111,7 +111,11 @@ export default function DashboardPage() {
               <span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
                 ยอดเงิน Virtual Wallet
               </span>
-              <div className="text-2xl font-bold font-mono text-on-surface tracking-tight mt-1">
+              <div
+                className={`text-2xl font-bold font-mono tracking-tight mt-1 ${
+                  bankBalance < 0 ? "text-secondary" : "text-on-surface"
+                }`}
+              >
                 {formatTHB(bankBalance)}
               </div>
             </div>

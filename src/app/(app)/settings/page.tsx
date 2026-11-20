@@ -154,7 +154,13 @@ export default function SettingsPage() {
           </div>
           <div className="text-right">
             <span className="text-[11px] text-outline block">ยอดเงินคงเหลือ</span>
-            <span className="font-mono font-bold text-primary">{formatTHB(bankBalance)}</span>
+            <span
+              className={`font-mono font-bold ${
+                bankBalance < 0 ? "text-secondary" : "text-primary"
+              }`}
+            >
+              {formatTHB(bankBalance)}
+            </span>
           </div>
         </div>
 
