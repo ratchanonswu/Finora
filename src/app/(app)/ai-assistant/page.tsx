@@ -16,7 +16,7 @@ import {
 import type { OpenRouterMessage, OpenRouterToolCall } from "@/lib/openrouter";
 import type { Category, ChatMessage, TransactionType } from "@/lib/types";
 
-const CHAT_SCROLL_DURATION_MS = 2000;
+const CHAT_SCROLL_DURATION_MS = 625;
 const SCROLL_BOTTOM_THRESHOLD_PX = 48;
 const MAX_TEXTAREA_HEIGHT_PX = 144;
 
@@ -214,7 +214,7 @@ function renderChatMarkdown(text: string): React.ReactNode {
       <div key={bIdx} className="space-y-1">
         {elements}
       </div>
-    );
+    )
   });
 }
 
@@ -930,8 +930,8 @@ export default function AiAssistantPage() {
         typeof tlv.amount === "number" && tlv.amount > 0
           ? tlv.amount
           : typeof vision?.amount === "number" && vision.amount > 0
-          ? vision.amount
-          : 0;
+            ? vision.amount
+            : 0;
 
       const matchingCategories = categories.filter(
         (c) => c.type === txType && c.id !== "recurring"
@@ -1207,468 +1207,466 @@ export default function AiAssistantPage() {
             }}
             className="flex-1 min-h-0 space-y-4 overflow-y-auto p-4 sm:p-5"
           >
-          {chatMessages.map((m) => {
-            const action = m.txAction;
-            const catName = action
-              ? categories.find((c) => c.id === action.categoryId)?.name || action.categoryId
-              : "";
+            {chatMessages.map((m) => {
+              const action = m.txAction;
+              const catName = action
+                ? categories.find((c) => c.id === action.categoryId)?.name || action.categoryId
+                : "";
 
-            return (
-              <div
-                key={m.id}
-                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+              return (
                 <div
-                  className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
-                    m.role === "user"
+                  key={m.id}
+                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed ${m.role === "user"
                       ? "bg-primary-container text-on-primary-container font-medium whitespace-pre-wrap"
                       : m.role === "error"
-                      ? "bg-error-container/20 border border-error/40 text-on-error-container whitespace-pre-wrap"
-                      : "bg-surface-container-low border border-outline-variant/20 text-on-surface"
-                  }`}
-                >
-                  {m.thumbnailUrl && (
-                    <img
-                      src={m.thumbnailUrl}
-                      alt="Uploaded QR or Slip"
-                      onLoad={() => {
-                        if (
-                          !userCancelledScrollRef.current &&
-                          (activeUserMediaIdRef.current === m.id || scrollAnimRef.current !== null)
-                        ) {
-                          animateChatScrollToBottom("media_load");
-                        }
-                      }}
-                      className="max-h-32 w-auto rounded-lg mb-2 border border-white/20 bg-white p-1"
-                    />
-                  )}
+                        ? "bg-error-container/20 border border-error/40 text-on-error-container whitespace-pre-wrap"
+                        : "bg-surface-container-low border border-outline-variant/20 text-on-surface"
+                      }`}
+                  >
+                    {m.thumbnailUrl && (
+                      <img
+                        src={m.thumbnailUrl}
+                        alt="Uploaded QR or Slip"
+                        onLoad={() => {
+                          if (
+                            !userCancelledScrollRef.current &&
+                            (activeUserMediaIdRef.current === m.id || scrollAnimRef.current !== null)
+                          ) {
+                            animateChatScrollToBottom("media_load");
+                          }
+                        }}
+                        className="max-h-32 w-auto rounded-lg mb-2 border border-white/20 bg-white p-1"
+                      />
+                    )}
 
-                  {m.role === "assistant" ? renderChatMarkdown(m.text) : m.text}
+                    {m.role === "assistant" ? renderChatMarkdown(m.text) : m.text}
 
-                  {/* Inline Transaction Action (Flattened with border divider to avoid nested cards) */}
-                  {action && (
-                    <div className="mt-3 pt-3 border-t border-outline-variant/30 text-xs space-y-2.5">
-                      {action.status === "saved" && (
-                        <>
-                          <div className="grid grid-cols-2 gap-y-1 text-on-surface-variant">
-                            <span>ประเภท:</span>
-                            <span
-                              className={`text-right font-semibold ${
-                                action.type === "income" ? "text-primary" : "text-secondary"
-                              }`}
-                            >
-                              {action.type === "income" ? "รายรับ (+)" : "รายจ่าย (-)"}
-                            </span>
-                            <span>รายการ / ร้านค้า:</span>
-                            <span className="text-right font-semibold text-on-surface">
-                              {action.merchant}
-                            </span>
-                            <span>หมวดหมู่:</span>
-                            <span className="text-right text-on-surface">{catName}</span>
-                            <span>จำนวนเงิน:</span>
-                            <span className="text-right font-mono font-bold text-on-surface">
-                              {formatTHB(action.amount)}
-                            </span>
-                          </div>
-                          <div className="pt-1 flex items-center justify-between">
-                            <span className="inline-flex items-center gap-1 text-primary font-semibold">
-                              <span className="material-symbols-outlined text-[15px]">
-                                check_circle
+                    {/* Inline Transaction Action (Flattened with border divider to avoid nested cards) */}
+                    {action && (
+                      <div className="mt-3 pt-3 border-t border-outline-variant/30 text-xs space-y-2.5">
+                        {action.status === "saved" && (
+                          <>
+                            <div className="grid grid-cols-2 gap-y-1 text-on-surface-variant">
+                              <span>ประเภท:</span>
+                              <span
+                                className={`text-right font-semibold ${action.type === "income" ? "text-primary" : "text-secondary"
+                                  }`}
+                              >
+                                {action.type === "income" ? "รายรับ (+)" : "รายจ่าย (-)"}
                               </span>
-                              บันทึกในระบบแล้ว
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => undoChatTransaction(m.id)}
-                              className="text-error hover:underline font-medium"
-                            >
-                              ยกเลิกรายการ (Undo)
-                            </button>
+                              <span>รายการ / ร้านค้า:</span>
+                              <span className="text-right font-semibold text-on-surface">
+                                {action.merchant}
+                              </span>
+                              <span>หมวดหมู่:</span>
+                              <span className="text-right text-on-surface">{catName}</span>
+                              <span>จำนวนเงิน:</span>
+                              <span className="text-right font-mono font-bold text-on-surface">
+                                {formatTHB(action.amount)}
+                              </span>
+                            </div>
+                            <div className="pt-1 flex items-center justify-between">
+                              <span className="inline-flex items-center gap-1 text-primary font-semibold">
+                                <span className="material-symbols-outlined text-[15px]">
+                                  check_circle
+                                </span>
+                                บันทึกในระบบแล้ว
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => undoChatTransaction(m.id)}
+                                className="text-error hover:underline font-medium"
+                              >
+                                ยกเลิกรายการ (Undo)
+                              </button>
+                            </div>
+                          </>
+                        )}
+
+                        {action.status === "undone" && (
+                          <div className="text-on-surface-variant italic">
+                            ยกเลิกรายการ {action.merchant} ({formatTHB(action.amount)}) เรียบร้อยแล้ว
                           </div>
-                        </>
-                      )}
+                        )}
 
-                      {action.status === "undone" && (
-                        <div className="text-on-surface-variant italic">
-                          ยกเลิกรายการ {action.merchant} ({formatTHB(action.amount)}) เรียบร้อยแล้ว
-                        </div>
-                      )}
+                        {action.status === "cancelled" && (
+                          <div className="text-on-surface-variant italic">
+                            ยกเลิกรายการสแกน QR / สลิป ({action.merchant}) แล้ว
+                          </div>
+                        )}
 
-                      {action.status === "cancelled" && (
-                        <div className="text-on-surface-variant italic">
-                          ยกเลิกรายการสแกน QR / สลิป ({action.merchant}) แล้ว
-                        </div>
-                      )}
-
-                      {(action.status === "pending" || action.status === "needs_amount") && (() => {
-                        const amountVal =
-                          pendingAmounts[m.id] ?? (action.amount > 0 ? String(action.amount) : "");
-                        const canSwapParties = Boolean(
-                          action.sender && action.receiver && action.sender !== action.receiver
-                        );
-                        return (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between gap-2 text-on-surface-variant">
-                              <div className="flex items-center gap-1.5">
-                                <span>รายการ / ร้านค้า:</span>
-                                {canSwapParties && (
-                                  <button
-                                    type="button"
-                                    title={`ผู้โอน: ${action.sender} | ผู้รับ: ${action.receiver}`}
-                                    onClick={() => {
+                        {(action.status === "pending" || action.status === "needs_amount") && (() => {
+                          const amountVal =
+                            pendingAmounts[m.id] ?? (action.amount > 0 ? String(action.amount) : "");
+                          const canSwapParties = Boolean(
+                            action.sender && action.receiver && action.sender !== action.receiver
+                          );
+                          return (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2 text-on-surface-variant">
+                                <div className="flex items-center gap-1.5">
+                                  <span>รายการ / ร้านค้า:</span>
+                                  {canSwapParties && (
+                                    <button
+                                      type="button"
+                                      title={`ผู้โอน: ${action.sender} | ผู้รับ: ${action.receiver}`}
+                                      onClick={() => {
+                                        const nextMerchant =
+                                          action.merchant === action.receiver
+                                            ? action.sender!
+                                            : action.receiver!;
+                                        updateChatMessage(m.id, {
+                                          txAction: { ...action, merchant: nextMerchant },
+                                        });
+                                      }}
+                                      className="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low text-[11px] font-medium text-primary hover:bg-surface-container-high"
+                                    >
+                                      ผู้โอน ⇄ ผู้รับ
+                                    </button>
+                                  )}
+                                </div>
+                                <input
+                                  type="text"
+                                  value={action.merchant}
+                                  onChange={(e) =>
+                                    updateChatMessage(m.id, {
+                                      txAction: { ...action, merchant: e.target.value },
+                                    })
+                                  }
+                                  className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs font-semibold text-on-surface text-right w-48 focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-on-surface-variant">ประเภท &amp; หมวดหมู่:</span>
+                                <div className="flex items-center gap-1.5">
+                                  <select
+                                    value={action.type}
+                                    onChange={(e) => {
+                                      const nextType = e.target.value as TransactionType;
+                                      const firstCat =
+                                        categories.find((c) => c.type === nextType && c.id !== "recurring")
+                                          ?.id || "food";
                                       const nextMerchant =
-                                        action.merchant === action.receiver
-                                          ? action.sender!
-                                          : action.receiver!;
+                                        canSwapParties &&
+                                          (action.merchant === action.sender ||
+                                            action.merchant === action.receiver)
+                                          ? nextType === "income"
+                                            ? action.sender!
+                                            : action.receiver!
+                                          : action.merchant;
                                       updateChatMessage(m.id, {
-                                        txAction: { ...action, merchant: nextMerchant },
+                                        txAction: {
+                                          ...action,
+                                          type: nextType,
+                                          categoryId: firstCat,
+                                          merchant: nextMerchant,
+                                        },
                                       });
                                     }}
-                                    className="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low text-[11px] font-medium text-primary hover:bg-surface-container-high"
+                                    className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
                                   >
-                                    ผู้โอน ⇄ ผู้รับ
-                                  </button>
-                                )}
-                              </div>
-                              <input
-                                type="text"
-                                value={action.merchant}
-                                onChange={(e) =>
-                                  updateChatMessage(m.id, {
-                                    txAction: { ...action, merchant: e.target.value },
-                                  })
-                                }
-                                className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs font-semibold text-on-surface text-right w-48 focus:outline-none focus:border-primary"
-                              />
-                            </div>
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-on-surface-variant">ประเภท &amp; หมวดหมู่:</span>
-                              <div className="flex items-center gap-1.5">
-                                <select
-                                  value={action.type}
-                                  onChange={(e) => {
-                                    const nextType = e.target.value as TransactionType;
-                                    const firstCat =
-                                      categories.find((c) => c.type === nextType && c.id !== "recurring")
-                                        ?.id || "food";
-                                    const nextMerchant =
-                                      canSwapParties &&
-                                      (action.merchant === action.sender ||
-                                        action.merchant === action.receiver)
-                                        ? nextType === "income"
-                                          ? action.sender!
-                                          : action.receiver!
-                                        : action.merchant;
-                                    updateChatMessage(m.id, {
-                                      txAction: {
-                                        ...action,
-                                        type: nextType,
-                                        categoryId: firstCat,
-                                        merchant: nextMerchant,
-                                      },
-                                    });
-                                  }}
-                                  className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
-                                >
-                                  <option value="expense">รายจ่าย</option>
-                                  <option value="income">รายรับ</option>
-                                </select>
-                                <select
-                                  value={action.categoryId}
-                                  onChange={(e) =>
-                                    updateChatMessage(m.id, {
-                                      txAction: { ...action, categoryId: e.target.value },
-                                    })
-                                  }
-                                  className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
-                                >
-                                  {categories
-                                    .filter((c) => c.type === action.type && c.id !== "recurring")
-                                    .map((c) => (
-                                      <option key={c.id} value={c.id}>
-                                        {c.name}
-                                      </option>
-                                    ))}
-                                </select>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                min="1"
-                                step="0.01"
-                                placeholder="ระบุยอดเงิน (บาท)"
-                                value={amountVal}
-                                onChange={(e) =>
-                                  setPendingAmounts((prev) => ({
-                                    ...prev,
-                                    [m.id]: e.target.value,
-                                  }))
-                                }
-                                className="flex-1 bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-1.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
-                              />
-                              <button
-                                type="button"
-                                disabled={loading || !(Number(amountVal) > 0)}
-                                onClick={() => handleConfirmPendingTx(m)}
-                                className="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 disabled:opacity-50"
-                              >
-                                ยืนยันบันทึก
-                              </button>
-                              <button
-                                type="button"
-                                disabled={loading}
-                                onClick={() =>
-                                  updateChatMessage(m.id, {
-                                    txAction: { ...action, status: "cancelled" },
-                                  })
-                                }
-                                className="px-3 py-1.5 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-on-surface text-xs"
-                              >
-                                ยกเลิก
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-                  {/* Write Tool Confirmation Block (Flattened with border divider) */}
-                  {m.pendingTool && (
-                    <div className="mt-3 pt-3 border-t border-outline-variant/30 text-xs space-y-2.5">
-                      <div className="font-semibold text-on-surface">{m.pendingTool.summary}</div>
-                      {m.pendingTool.status === "pending" && (() => {
-                        const pt = m.pendingTool;
-                        const updateToolArgs = (nextArgs: Record<string, unknown>) => {
-                          updateChatMessage(m.id, {
-                            pendingTool: {
-                              ...pt,
-                              args: nextArgs,
-                              summary: describeWriteTool(pt.name, nextArgs, {
-                                bankBalance,
-                                transactions,
-                                categories,
-                                recurring,
-                                autoDebitOnExpense: settings.autoDebitOnExpense,
-                              }),
-                            },
-                          });
-                        };
-
-                        return (
-                          <div className="space-y-2">
-                            {pt.name === "add_transaction" && (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <select
-                                  aria-label="เลือกหมวดหมู่"
-                                  value={String(pt.args.categoryId || "")}
-                                  onChange={(e) =>
-                                    updateToolArgs({ ...pt.args, categoryId: e.target.value })
-                                  }
-                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
-                                >
-                                  {categories
-                                    .filter(
-                                      (c) =>
-                                        c.id !== "recurring" &&
-                                        c.type === (pt.args.type === "income" ? "income" : "expense")
-                                    )
-                                    .map((c) => (
-                                      <option key={c.id} value={c.id}>
-                                        {c.name}
-                                      </option>
-                                    ))}
-                                </select>
-                                <select
-                                  aria-label="ช่องทางการชำระเงิน"
-                                  value={String(pt.args.channel || "Virtual Bank Wallet")}
-                                  onChange={(e) =>
-                                    updateToolArgs({ ...pt.args, channel: e.target.value })
-                                  }
-                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
-                                >
-                                  <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
-                                  <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
-                                  <option value="Virtual Card">Virtual Card</option>
-                                  <option value="เงินสด">เงินสด</option>
-                                </select>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  step="0.01"
-                                  aria-label="จำนวนเงิน"
-                                  value={pt.args.amount === "" ? "" : Number(pt.args.amount ?? 0)}
-                                  onChange={(e) =>
-                                    updateToolArgs({
-                                      ...pt.args,
-                                      amount: e.target.value === "" ? "" : Number(e.target.value),
-                                    })
-                                  }
-                                  className="w-28 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
-                                />
-                              </div>
-                            )}
-
-                            {pt.name === "update_category_budget" && (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <select
-                                  aria-label="เลือกหมวดหมู่รายจ่าย"
-                                  value={String(pt.args.categoryId || "")}
-                                  onChange={(e) =>
-                                    updateToolArgs({ ...pt.args, categoryId: e.target.value })
-                                  }
-                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
-                                >
-                                  {categories
-                                    .filter((c) => c.type === "expense" && c.id !== "recurring")
-                                    .map((c) => (
-                                      <option key={c.id} value={c.id}>
-                                        {c.name}
-                                      </option>
-                                    ))}
-                                </select>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="100"
-                                  aria-label="งบประมาณต่อเดือน"
-                                  value={pt.args.budget === "" ? "" : Number(pt.args.budget ?? 0)}
-                                  onChange={(e) =>
-                                    updateToolArgs({
-                                      ...pt.args,
-                                      budget: e.target.value === "" ? "" : Number(e.target.value),
-                                    })
-                                  }
-                                  className="w-32 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
-                                />
-                              </div>
-                            )}
-
-                            {pt.name === "add_recurring_payment" && (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <select
-                                  aria-label="ประเภทรายการประจำ"
-                                  value={pt.args.type === "income" ? "income" : "expense"}
-                                  onChange={(e) => {
-                                    const nextType = e.target.value === "income" ? "income" : "expense";
-                                    updateToolArgs({
-                                      ...pt.args,
-                                      type: nextType,
-                                      categoryId: nextType === "income" ? "salary" : "recurring",
-                                      icon: nextType === "income" ? "payments" : "autorenew",
-                                    });
-                                  }}
-                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
-                                >
-                                  <option value="expense">รายจ่ายประจำ</option>
-                                  <option value="income">รายรับประจำ</option>
-                                </select>
-                                {pt.args.type === "income" && (
+                                    <option value="expense">รายจ่าย</option>
+                                    <option value="income">รายรับ</option>
+                                  </select>
                                   <select
-                                    aria-label="หมวดหมู่รายรับประจำ"
-                                    value={String(pt.args.categoryId || "salary")}
+                                    value={action.categoryId}
                                     onChange={(e) =>
-                                      updateToolArgs({ ...pt.args, categoryId: e.target.value })
+                                      updateChatMessage(m.id, {
+                                        txAction: { ...action, categoryId: e.target.value },
+                                      })
                                     }
-                                    className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                    className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs text-on-surface"
                                   >
                                     {categories
-                                      .filter((c) => c.type === "income")
+                                      .filter((c) => c.type === action.type && c.id !== "recurring")
                                       .map((c) => (
                                         <option key={c.id} value={c.id}>
                                           {c.name}
                                         </option>
                                       ))}
                                   </select>
-                                )}
-                                <select
-                                  aria-label="รอบการตัดเงิน"
-                                  value={String(pt.args.cycle || "monthly")}
-                                  onChange={(e) =>
-                                    updateToolArgs({ ...pt.args, cycle: e.target.value })
-                                  }
-                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
-                                >
-                                  <option value="monthly">รายเดือน</option>
-                                  <option value="weekly">รายสัปดาห์</option>
-                                  <option value="yearly">รายปี</option>
-                                </select>
-                                <input
-                                  type="date"
-                                  aria-label="วันครบกำหนดถัดไป"
-                                  value={String(pt.args.nextDueDate || "")}
-                                  onChange={(e) =>
-                                    updateToolArgs({ ...pt.args, nextDueDate: e.target.value })
-                                  }
-                                  className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
-                                />
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
                                 <input
                                   type="number"
                                   min="1"
                                   step="0.01"
-                                  aria-label="จำนวนเงินต่อรอบ"
-                                  value={pt.args.amount === "" ? "" : Number(pt.args.amount ?? 0)}
+                                  placeholder="ระบุยอดเงิน (บาท)"
+                                  value={amountVal}
                                   onChange={(e) =>
-                                    updateToolArgs({
-                                      ...pt.args,
-                                      amount:
-                                        e.target.value === "" ? "" : Number(e.target.value),
+                                    setPendingAmounts((prev) => ({
+                                      ...prev,
+                                      [m.id]: e.target.value,
+                                    }))
+                                  }
+                                  className="flex-1 bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-1.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={loading || !(Number(amountVal) > 0)}
+                                  onClick={() => handleConfirmPendingTx(m)}
+                                  className="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container text-xs font-semibold hover:opacity-90 disabled:opacity-50"
+                                >
+                                  ยืนยันบันทึก
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={loading}
+                                  onClick={() =>
+                                    updateChatMessage(m.id, {
+                                      txAction: { ...action, status: "cancelled" },
                                     })
                                   }
-                                  className="w-28 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
-                                />
+                                  className="px-3 py-1.5 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-on-surface text-xs"
+                                >
+                                  ยกเลิก
+                                </button>
                               </div>
-                            )}
-
-                            <div className="flex items-center gap-2 pt-0.5">
-                              <button
-                                type="button"
-                                disabled={loading}
-                                onClick={() => handleConfirmTool(m)}
-                                className="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container font-semibold hover:opacity-90 disabled:opacity-50"
-                              >
-                                ยืนยันดำเนินการ
-                              </button>
-                              <button
-                                type="button"
-                                disabled={loading}
-                                onClick={() => handleCancelTool(m)}
-                                className="px-3.5 py-1.5 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-on-surface"
-                              >
-                                ยกเลิก
-                              </button>
                             </div>
-                          </div>
-                        );
-                      })()}
-                      {m.pendingTool.status === "confirmed" && (
-                        <span className="inline-flex items-center gap-1 text-primary font-semibold">
-                          <span className="material-symbols-outlined text-[15px]">check_circle</span>
-                          ยืนยันและดำเนินการเรียบร้อยแล้ว
-                        </span>
-                      )}
-                      {m.pendingTool.status === "cancelled" && (
-                        <span className="text-on-surface-variant italic">ยกเลิกการดำเนินการนี้แล้ว</span>
-                      )}
-                    </div>
-                  )}
+                          );
+                        })()}
+                      </div>
+                    )}
+                    {/* Write Tool Confirmation Block (Flattened with border divider) */}
+                    {m.pendingTool && (
+                      <div className="mt-3 pt-3 border-t border-outline-variant/30 text-xs space-y-2.5">
+                        <div className="font-semibold text-on-surface">{m.pendingTool.summary}</div>
+                        {m.pendingTool.status === "pending" && (() => {
+                          const pt = m.pendingTool;
+                          const updateToolArgs = (nextArgs: Record<string, unknown>) => {
+                            updateChatMessage(m.id, {
+                              pendingTool: {
+                                ...pt,
+                                args: nextArgs,
+                                summary: describeWriteTool(pt.name, nextArgs, {
+                                  bankBalance,
+                                  transactions,
+                                  categories,
+                                  recurring,
+                                  autoDebitOnExpense: settings.autoDebitOnExpense,
+                                }),
+                              },
+                            });
+                          };
+
+                          return (
+                            <div className="space-y-2">
+                              {pt.name === "add_transaction" && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <select
+                                    aria-label="เลือกหมวดหมู่"
+                                    value={String(pt.args.categoryId || "")}
+                                    onChange={(e) =>
+                                      updateToolArgs({ ...pt.args, categoryId: e.target.value })
+                                    }
+                                    className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                  >
+                                    {categories
+                                      .filter(
+                                        (c) =>
+                                          c.id !== "recurring" &&
+                                          c.type === (pt.args.type === "income" ? "income" : "expense")
+                                      )
+                                      .map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          {c.name}
+                                        </option>
+                                      ))}
+                                  </select>
+                                  <select
+                                    aria-label="ช่องทางการชำระเงิน"
+                                    value={String(pt.args.channel || "Virtual Bank Wallet")}
+                                    onChange={(e) =>
+                                      updateToolArgs({ ...pt.args, channel: e.target.value })
+                                    }
+                                    className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                  >
+                                    <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
+                                    <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
+                                    <option value="Virtual Card">Virtual Card</option>
+                                    <option value="เงินสด">เงินสด</option>
+                                  </select>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="0.01"
+                                    aria-label="จำนวนเงิน"
+                                    value={pt.args.amount === "" ? "" : Number(pt.args.amount ?? 0)}
+                                    onChange={(e) =>
+                                      updateToolArgs({
+                                        ...pt.args,
+                                        amount: e.target.value === "" ? "" : Number(e.target.value),
+                                      })
+                                    }
+                                    className="w-28 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                  />
+                                </div>
+                              )}
+
+                              {pt.name === "update_category_budget" && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <select
+                                    aria-label="เลือกหมวดหมู่รายจ่าย"
+                                    value={String(pt.args.categoryId || "")}
+                                    onChange={(e) =>
+                                      updateToolArgs({ ...pt.args, categoryId: e.target.value })
+                                    }
+                                    className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                  >
+                                    {categories
+                                      .filter((c) => c.type === "expense" && c.id !== "recurring")
+                                      .map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                          {c.name}
+                                        </option>
+                                      ))}
+                                  </select>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="100"
+                                    aria-label="งบประมาณต่อเดือน"
+                                    value={pt.args.budget === "" ? "" : Number(pt.args.budget ?? 0)}
+                                    onChange={(e) =>
+                                      updateToolArgs({
+                                        ...pt.args,
+                                        budget: e.target.value === "" ? "" : Number(e.target.value),
+                                      })
+                                    }
+                                    className="w-32 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                  />
+                                </div>
+                              )}
+
+                              {pt.name === "add_recurring_payment" && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <select
+                                    aria-label="ประเภทรายการประจำ"
+                                    value={pt.args.type === "income" ? "income" : "expense"}
+                                    onChange={(e) => {
+                                      const nextType = e.target.value === "income" ? "income" : "expense";
+                                      updateToolArgs({
+                                        ...pt.args,
+                                        type: nextType,
+                                        categoryId: nextType === "income" ? "salary" : "recurring",
+                                        icon: nextType === "income" ? "payments" : "autorenew",
+                                      });
+                                    }}
+                                    className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                  >
+                                    <option value="expense">รายจ่ายประจำ</option>
+                                    <option value="income">รายรับประจำ</option>
+                                  </select>
+                                  {pt.args.type === "income" && (
+                                    <select
+                                      aria-label="หมวดหมู่รายรับประจำ"
+                                      value={String(pt.args.categoryId || "salary")}
+                                      onChange={(e) =>
+                                        updateToolArgs({ ...pt.args, categoryId: e.target.value })
+                                      }
+                                      className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                    >
+                                      {categories
+                                        .filter((c) => c.type === "income")
+                                        .map((c) => (
+                                          <option key={c.id} value={c.id}>
+                                            {c.name}
+                                          </option>
+                                        ))}
+                                    </select>
+                                  )}
+                                  <select
+                                    aria-label="รอบการตัดเงิน"
+                                    value={String(pt.args.cycle || "monthly")}
+                                    onChange={(e) =>
+                                      updateToolArgs({ ...pt.args, cycle: e.target.value })
+                                    }
+                                    className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                  >
+                                    <option value="monthly">รายเดือน</option>
+                                    <option value="weekly">รายสัปดาห์</option>
+                                    <option value="yearly">รายปี</option>
+                                  </select>
+                                  <input
+                                    type="date"
+                                    aria-label="วันครบกำหนดถัดไป"
+                                    value={String(pt.args.nextDueDate || "")}
+                                    onChange={(e) =>
+                                      updateToolArgs({ ...pt.args, nextDueDate: e.target.value })
+                                    }
+                                    className="bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                  />
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="0.01"
+                                    aria-label="จำนวนเงินต่อรอบ"
+                                    value={pt.args.amount === "" ? "" : Number(pt.args.amount ?? 0)}
+                                    onChange={(e) =>
+                                      updateToolArgs({
+                                        ...pt.args,
+                                        amount:
+                                          e.target.value === "" ? "" : Number(e.target.value),
+                                      })
+                                    }
+                                    className="w-28 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                  />
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-2 pt-0.5">
+                                <button
+                                  type="button"
+                                  disabled={loading}
+                                  onClick={() => handleConfirmTool(m)}
+                                  className="px-3.5 py-1.5 rounded-lg bg-primary-container text-on-primary-container font-semibold hover:opacity-90 disabled:opacity-50"
+                                >
+                                  ยืนยันดำเนินการ
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={loading}
+                                  onClick={() => handleCancelTool(m)}
+                                  className="px-3.5 py-1.5 rounded-lg border border-outline-variant/40 text-on-surface-variant hover:text-on-surface"
+                                >
+                                  ยกเลิก
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        {m.pendingTool.status === "confirmed" && (
+                          <span className="inline-flex items-center gap-1 text-primary font-semibold">
+                            <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                            ยืนยันและดำเนินการเรียบร้อยแล้ว
+                          </span>
+                        )}
+                        {m.pendingTool.status === "cancelled" && (
+                          <span className="text-on-surface-variant italic">ยกเลิกการดำเนินการนี้แล้ว</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
+              );
+            })}
+            {loading && (
+              <div className="inline-flex items-center gap-2 text-xs text-on-surface-variant font-mono">
+                <span className="h-3.5 w-3.5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <span>
+                  {loadingStage === "qr_scan"
+                    ? "กำลังสแกน QR / OCR และวิเคราะห์ด้วย Finora AI..."
+                    : loadingStage === "saving"
+                      ? "กำลังบันทึกรายการ..."
+                      : "กำลังประมวลผลด้วย Finora AI..."}
+                </span>
               </div>
-            );
-          })}
-          {loading && (
-            <div className="inline-flex items-center gap-2 text-xs text-on-surface-variant font-mono">
-              <span className="h-3.5 w-3.5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-              <span>
-                {loadingStage === "qr_scan"
-                  ? "กำลังสแกน QR / OCR และวิเคราะห์ด้วย Finora AI..."
-                  : loadingStage === "saving"
-                  ? "กำลังบันทึกรายการ..."
-                  : "กำลังประมวลผลด้วย Finora AI..."}
-              </span>
-            </div>
-          )}
+            )}
           </div>
 
           {showScrollToBottom && (
@@ -1714,9 +1712,8 @@ export default function AiAssistantPage() {
         >
           <label
             title="อัปโหลดรูปภาพ QR Code หรือสลิปโอนเงิน"
-            className={`cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[42px] rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs font-semibold text-on-surface hover:border-primary/60 transition-colors shrink-0 ${
-              inputLocked ? "opacity-50 pointer-events-none" : ""
-            }`}
+            className={`cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[42px] rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs font-semibold text-on-surface hover:border-primary/60 transition-colors shrink-0 ${inputLocked ? "opacity-50 pointer-events-none" : ""
+              }`}
           >
             <span className="material-symbols-outlined text-[18px] text-primary">
               qr_code_scanner
@@ -1771,8 +1768,8 @@ export default function AiAssistantPage() {
       {pendingTxDraft && (() => {
         const canSwapParties = Boolean(
           pendingTxDraft.sender &&
-            pendingTxDraft.receiver &&
-            pendingTxDraft.sender !== pendingTxDraft.receiver
+          pendingTxDraft.receiver &&
+          pendingTxDraft.sender !== pendingTxDraft.receiver
         );
         const modalCats = categories.filter(
           (c) => c.type === pendingTxDraft.type && c.id !== "recurring"
@@ -1851,7 +1848,7 @@ export default function AiAssistantPage() {
                         if (!prev) return prev;
                         const nextMerchant =
                           canSwapParties &&
-                          (prev.merchant === prev.sender || prev.merchant === prev.receiver)
+                            (prev.merchant === prev.sender || prev.merchant === prev.receiver)
                             ? prev.receiver!
                             : prev.merchant;
                         return {
@@ -1863,11 +1860,10 @@ export default function AiAssistantPage() {
                         };
                       });
                     }}
-                    className={`py-2 rounded-md text-sm font-semibold transition-colors ${
-                      pendingTxDraft.type === "expense"
-                        ? "bg-secondary text-on-secondary shadow-sm"
-                        : "text-on-surface-variant hover:text-on-surface"
-                    }`}
+                    className={`py-2 rounded-md text-sm font-semibold transition-colors ${pendingTxDraft.type === "expense"
+                      ? "bg-secondary text-on-secondary shadow-sm"
+                      : "text-on-surface-variant hover:text-on-surface"
+                      }`}
                   >
                     รายจ่าย
                   </button>
@@ -1882,7 +1878,7 @@ export default function AiAssistantPage() {
                         if (!prev) return prev;
                         const nextMerchant =
                           canSwapParties &&
-                          (prev.merchant === prev.sender || prev.merchant === prev.receiver)
+                            (prev.merchant === prev.sender || prev.merchant === prev.receiver)
                             ? prev.sender!
                             : prev.merchant;
                         return {
@@ -1894,11 +1890,10 @@ export default function AiAssistantPage() {
                         };
                       });
                     }}
-                    className={`py-2 rounded-md text-sm font-semibold transition-colors ${
-                      pendingTxDraft.type === "income"
-                        ? "bg-primary-container text-on-primary-container shadow-sm"
-                        : "text-on-surface-variant hover:text-on-surface"
-                    }`}
+                    className={`py-2 rounded-md text-sm font-semibold transition-colors ${pendingTxDraft.type === "income"
+                      ? "bg-primary-container text-on-primary-container shadow-sm"
+                      : "text-on-surface-variant hover:text-on-surface"
+                      }`}
                   >
                     รายรับ
                   </button>
@@ -1921,12 +1916,12 @@ export default function AiAssistantPage() {
                           setPendingTxDraft((prev) =>
                             prev
                               ? {
-                                  ...prev,
-                                  merchant:
-                                    prev.merchant === prev.receiver
-                                      ? prev.sender!
-                                      : prev.receiver!,
-                                }
+                                ...prev,
+                                merchant:
+                                  prev.merchant === prev.receiver
+                                    ? prev.sender!
+                                    : prev.receiver!,
+                              }
                               : prev
                           )
                         }
