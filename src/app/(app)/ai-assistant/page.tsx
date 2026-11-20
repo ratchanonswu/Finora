@@ -185,6 +185,8 @@ function renderChatMarkdown(text: string): React.ReactNode {
 
       if (!trimmed) {
         elements.push(<div key={i} className="h-1.5" />);
+      } else if (/^(?:[-*_]\s*){3,}$/.test(trimmed)) {
+        elements.push(<hr key={i} className="my-3 border-t border-outline-variant/30" />);
       } else {
         const headingMatch = trimmed.match(/^#{1,4}\s+(.+)$/);
         if (headingMatch) {
