@@ -378,6 +378,15 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
   },
 ];
 
+function sumActiveRecurringMonthly(
+  recurring: RecurringPayment[],
+  targetType: TransactionType
+): number {
+  return recurring
+    .filter((r) => r.active && (r.type ?? "expense") === targetType)
+    .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
+}
+
 export function runReadTool(
   name: string,
   args: Record<string, unknown>,
@@ -436,12 +445,8 @@ export function runReadTool(
   }
 
   if (name === "get_recurring_payments") {
-    const activeMonthlyTotal = recurring
-      .filter((r) => r.active && (r.type ?? "expense") === "expense")
-      .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
-    const activeMonthlyIncomeTotal = recurring
-      .filter((r) => r.active && r.type === "income")
-      .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
+    const activeMonthlyTotal = sumActiveRecurringMonthly(recurring, "expense");
+    const activeMonthlyIncomeTotal = sumActiveRecurringMonthly(recurring, "income");
     return {
       activeMonthlyTotal,
       activeMonthlyIncomeTotal,
@@ -461,27 +466,28 @@ export function runReadTool(
     const months = Math.min(12, Math.max(1, Math.round(Number(args.monthsAhead) || 3)));
     const income = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
     const expense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-    const activeRecurringMonthly = recurring
-      .filter((r) => r.active)
-      .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
+    const activeRecurringMonthly = sumActiveRecurringMonthly(recurring, "expense");
+    const activeRecurringIncomeMonthly = sumActiveRecurringMonthly(recurring, "income");
 
-    // Avoid double-counting recurring items if they already appear in transactions; use whichever is higher as baseline outflow.
+    // Avoid double-counting recurring items if they already appear in transactions; use whichever is higher as baseline.
+    const estimatedMonthlyInflow = Math.max(income, activeRecurringIncomeMonthly);
     const estimatedMonthlyOutflow = Math.max(expense, activeRecurringMonthly);
-    const estimatedMonthlyNet = income - estimatedMonthlyOutflow;
+    const estimatedMonthlyNet = estimatedMonthlyInflow - estimatedMonthlyOutflow;
     const projectedBalance = bankBalance + estimatedMonthlyNet * months;
 
     return {
       monthsAhead: months,
       currentBankBalance: bankBalance,
-      baselineMonthlyIncome: income,
+      baselineMonthlyIncome: estimatedMonthlyInflow,
       baselineMonthlyOutflow: estimatedMonthlyOutflow,
       activeRecurringMonthly,
+      activeRecurringIncomeMonthly,
       estimatedMonthlyNet,
       projectedBalance,
       lowBalanceRisk: projectedBalance < activeRecurringMonthly,
       assumptions: [
         "คำนวณจากยอดรายรับและรายจ่ายที่บันทึกไว้ในระบบปัจจุบันเป็นฐานรายเดือน",
-        `รวมภาระค่าบริการตัดอัตโนมัติ (Recurring) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringMonthly.toLocaleString("en-US")} บาท`,
+        `รวมรายรับประจำ (Recurring Income) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringIncomeMonthly.toLocaleString("en-US")} บาท และภาระรายจ่ายประจำ (Recurring Expense) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringMonthly.toLocaleString("en-US")} บาท`,
         "สมมติให้พฤติกรรมการใช้จ่ายและรายรับคงที่ตลอดช่วงเวลาที่คาดการณ์",
       ],
     };

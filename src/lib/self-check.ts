@@ -56,6 +56,9 @@ const predRes = runReadTool("get_financial_prediction", { monthsAhead: 3 }, {
   recurring: INITIAL_RECURRING,
 });
 assert.equal(predRes.monthsAhead, 3);
+assert.equal(predRes.activeRecurringMonthly, 13500);
+assert.equal(predRes.activeRecurringIncomeMonthly, 50000);
+assert.equal(predRes.baselineMonthlyIncome, 50000);
 assert.equal(Array.isArray(predRes.assumptions), true);
 
 // 9. Write-tool validator normalizes aliases, rejects unknown categories, and guards overdrafts
