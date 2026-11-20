@@ -251,7 +251,6 @@ export default function AiAssistantPage() {
     updateCategoryBudget,
     addRecurring,
     toggleRecurring,
-    executeBankAction,
   } = useFinora();
 
   const [input, setInput] = useState("");
@@ -595,6 +594,8 @@ export default function AiAssistantPage() {
       quotaResetAt: settings.quotaResetAt,
     };
 
+    let retriedMissingTool = false;
+
     for (let step = 0; step < 4; step++) {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
@@ -617,10 +618,28 @@ export default function AiAssistantPage() {
 
       const toolCalls: OpenRouterToolCall[] | undefined = data.toolCalls;
       if (!toolCalls || toolCalls.length === 0) {
+        const replyText = String(data.reply || "");
+        const looksLikeFakeToolConfirm =
+          !retriedMissingTool &&
+          /กดยืนยันในการ์ด|การ์ดที่ระบบแสดง|กำลังส่งรายการให้คุณยืนยัน|เตรียมดำเนินการนี้ให้เรียบร้อย|ต้องการให้บันทึกเป็นรายรับ|ต้องการให้บันทึกเป็นรายจ่าย/.test(
+            replyText
+          );
+
+        if (looksLikeFakeToolConfirm) {
+          retriedMissingTool = true;
+          history.push({ role: "assistant", content: replyText });
+          history.push({
+            role: "user",
+            content:
+              "[ระบบ] คุณยังไม่ได้ส่ง Function Call (tool_calls) จริง ทำให้หน้าต่างหรือการ์ดยืนยันไม่ปรากฏบนหน้าจอ กรุณาเรียกใช้ Tool ที่เกี่ยวข้อง (เช่น add_transaction, update_category_budget, add_recurring_payment หรือ toggle_recurring) ทันทีโดยใช้ค่าเริ่มต้นสำหรับฟิลด์ที่ผู้ใช้ไม่ได้ระบุค่ะ",
+          });
+          continue;
+        }
+
         appendChatMessage({
           id: `a-${Date.now()}`,
           role: "assistant",
-          text: data.reply,
+          text: replyText,
         });
         return;
       }
@@ -792,22 +811,6 @@ export default function AiAssistantPage() {
           icon: String(args.icon || (isInc ? "payments" : "autorenew")),
         });
         resultText = `เพิ่ม${isInc ? "รายรับประจำ" : "รายการตัดเงินอัตโนมัติ"}สำเร็จ: ${check.summary}`;
-      } else if (pt.name === "virtual_bank_transfer") {
-        const res = await executeBankAction(
-          args.type === "credit" ? "credit" : "debit",
-          Number(args.amount) || 0,
-          String(args.title || ""),
-          String(args.counterparty || "Finora Sandbox")
-        );
-        if (!res.ok) {
-          appendChatMessage({
-            id: `e-${Date.now()}`,
-            role: "error",
-            text: `ทำรายการไม่สำเร็จ: ${res.error || "ไม่สามารถทำรายการได้"}`,
-          });
-          return;
-        }
-        resultText = `ทำรายการสำเร็จ: ${check.summary}`;
       }
 
       updateChatMessage(msg.id, {
@@ -1535,26 +1538,6 @@ export default function AiAssistantPage() {
                                     updateToolArgs({
                                       ...pt.args,
                                       budget: e.target.value === "" ? "" : Number(e.target.value),
-                                    })
-                                  }
-                                  className="w-32 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
-                                />
-                              </div>
-                            )}
-
-                            {pt.name === "virtual_bank_transfer" && (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-on-surface-variant">จำนวนเงิน:</span>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  step="0.01"
-                                  aria-label="จำนวนเงินโอน"
-                                  value={pt.args.amount === "" ? "" : Number(pt.args.amount ?? 0)}
-                                  onChange={(e) =>
-                                    updateToolArgs({
-                                      ...pt.args,
-                                      amount: e.target.value === "" ? "" : Number(e.target.value),
                                     })
                                   }
                                   className="w-32 bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
