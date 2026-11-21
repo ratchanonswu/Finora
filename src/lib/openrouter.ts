@@ -38,6 +38,14 @@ export interface LLMMetrics {
   latencyMs: number;
 }
 
+const OPENROUTER_TIMEOUT_MS = 45_000;
+const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
+const RETRY_DELAYS_MS = [1000, 2000];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function callOpenRouter(options: {
   messages: OpenRouterMessage[];
   apiKeyOverride?: string;
@@ -74,53 +82,90 @@ export async function callOpenRouter(options: {
     };
   }
 
+  const requestBody = JSON.stringify({
+    model,
+    messages: options.messages,
+    ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
+    ...(options.jsonMode ? { response_format: { type: "json_object" } } : {}),
+    ...(options.tools?.length ? { tools: options.tools, tool_choice: "auto" } : {}),
+  });
+
   try {
     const startMs = Date.now();
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-        "X-Title": "Finora AI Wealth Engine",
-      },
-      body: JSON.stringify({
-        model,
-        messages: options.messages,
-        ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
-        ...(options.jsonMode ? { response_format: { type: "json_object" } } : {}),
-        ...(options.tools?.length ? { tools: options.tools, tool_choice: "auto" } : {}),
-      }),
-    });
+    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+          "X-Title": "Finora AI Wealth Engine",
+        },
+        body: requestBody,
+        signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      const msg = data?.error?.message || `OpenRouter API Error (${res.status})`;
-      return { ok: false, status: res.status, error: msg };
+      const rawText = await res.text();
+      let data: {
+        error?: { message?: string };
+        choices?: Array<{ message?: { content?: unknown; tool_calls?: unknown } }>;
+        model?: unknown;
+        usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown };
+      } | null = null;
+      if (rawText) {
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          data = null;
+        }
+      }
+
+      if (!res.ok) {
+        if (RETRYABLE_STATUSES.has(res.status) && attempt < RETRY_DELAYS_MS.length) {
+          console.warn("[LLM] retryable status", { status: res.status, attempt: attempt + 1 });
+          await sleep(RETRY_DELAYS_MS[attempt]);
+          continue;
+        }
+        const msg = data?.error?.message || `OpenRouter API Error (${res.status})`;
+        return { ok: false, status: res.status, error: msg };
+      }
+
+      if (!data) {
+        return { ok: false, status: 502, error: "OpenRouter ส่งข้อมูลที่ไม่ใช่รูปแบบ JSON" };
+      }
+
+      const message = data?.choices?.[0]?.message;
+      const toolCalls: OpenRouterToolCall[] | undefined =
+        Array.isArray(message?.tool_calls) && message.tool_calls.length > 0
+          ? (message.tool_calls as OpenRouterToolCall[])
+          : undefined;
+      const content = typeof message?.content === "string" ? message.content : undefined;
+
+      if (!toolCalls && (!content || !content.trim())) {
+        return { ok: false, status: 502, error: "AI ไม่ได้ส่งข้อความตอบกลับ" };
+      }
+
+      const metrics: LLMMetrics = {
+        model: String(data?.model || model),
+        inputTokens: Number(data?.usage?.prompt_tokens || 0),
+        outputTokens: Number(data?.usage?.completion_tokens || 0),
+        totalTokens: Number(data?.usage?.total_tokens || 0),
+        latencyMs: Date.now() - startMs,
+      };
+      console.info("[LLM]", metrics);
+
+      return { ok: true, status: 200, text: content || "", toolCalls, metrics };
     }
 
-    const message = data?.choices?.[0]?.message;
-    const toolCalls: OpenRouterToolCall[] | undefined =
-      Array.isArray(message?.tool_calls) && message.tool_calls.length > 0
-        ? message.tool_calls
-        : undefined;
-    const content = typeof message?.content === "string" ? message.content : undefined;
-
-    if (!toolCalls && (!content || !content.trim())) {
-      return { ok: false, status: 502, error: "AI ไม่ได้ส่งข้อความตอบกลับ" };
-    }
-
-    const metrics: LLMMetrics = {
-      model: String(data?.model || model),
-      inputTokens: Number(data?.usage?.prompt_tokens || 0),
-      outputTokens: Number(data?.usage?.completion_tokens || 0),
-      totalTokens: Number(data?.usage?.total_tokens || 0),
-      latencyMs: Date.now() - startMs,
-    };
-    console.info("[LLM]", metrics);
-
-    return { ok: true, status: 200, text: content || "", toolCalls, metrics };
+    return { ok: false, status: 503, error: "บริการ AI ไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่อีกครั้ง" };
   } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      return {
+        ok: false,
+        status: 504,
+        error: "การเชื่อมต่อ AI ใช้เวลานานเกินกำหนด (45 วินาที) กรุณาลองใหม่อีกครั้ง",
+      };
+    }
     return {
       ok: false,
       status: 500,
