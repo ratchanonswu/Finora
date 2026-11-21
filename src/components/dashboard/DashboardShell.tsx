@@ -10,7 +10,6 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
   const {
     theme,
     toggleTheme,
-    bankBalance,
     user,
     logoutUser,
     setTxModalOpen,
@@ -337,69 +336,18 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-white dark:bg-surface-container border border-slate-200/80 dark:border-outline-variant/40 shadow-xl overflow-hidden z-40 animate-modal-in">
-              <div className="px-4 py-3 border-b border-slate-100 dark:border-outline-variant/20">
-                <div className="text-sm font-semibold text-slate-900 dark:text-on-surface truncate">
-                  {user.name}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-on-surface-variant truncate">
-                  {user.email}
-                </div>
-              </div>
-              <div className="p-2 space-y-1 text-xs">
-                <Link
-                  href="/virtual-bank"
-                  onClick={() => setProfileOpen(false)}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg text-slate-700 dark:text-on-surface hover:bg-slate-100/80 dark:hover:bg-surface-container-high"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[17px] text-emerald-600 dark:text-primary">
-                      account_balance_wallet
-                    </span>
-                    Virtual Wallet
-                  </span>
-                  <span
-                    className={`font-mono font-semibold ${
-                      bankBalance < 0 ? "text-red-500 dark:text-secondary" : ""
-                    }`}
-                  >
-                    {formatTHB(bankBalance)}
-                  </span>
-                </Link>
-                <Link
-                  href="/settings"
-                  onClick={() => setProfileOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-on-surface hover:bg-slate-100/80 dark:hover:bg-surface-container-high"
-                >
-                  <span className="material-symbols-outlined text-[17px] text-slate-500 dark:text-on-surface-variant">
-                    settings
-                  </span>
-                  <span>ตั้งค่าโปรไฟล์และระบบ</span>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    toggleTheme();
-                    setProfileOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-on-surface hover:bg-slate-100/80 dark:hover:bg-surface-container-high text-left"
-                >
-                  <span className="material-symbols-outlined text-[17px] text-slate-500 dark:text-on-surface-variant">
-                    {theme === "light" ? "dark_mode" : "light_mode"}
-                  </span>
-                  <span>{theme === "light" ? "เปิด Dark Mode" : "เปิด Light Mode"}</span>
-                </button>
-              </div>
-              <div className="p-2 border-t border-slate-100 dark:border-outline-variant/20">
-                <button
-                  type="button"
-                  onClick={logoutUser}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold text-red-600 dark:text-error hover:bg-red-50 dark:hover:bg-error-container/15 text-left"
-                >
-                  <span className="material-symbols-outlined text-[17px]">logout</span>
-                  <span>ออกจากระบบ</span>
-                </button>
-              </div>
+            <div className="absolute right-0 top-full mt-2 w-44 rounded-2xl bg-white dark:bg-surface-container border border-slate-200/80 dark:border-outline-variant/40 shadow-xl overflow-hidden z-40 animate-modal-in p-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileOpen(false);
+                  logoutUser();
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 dark:text-error hover:bg-red-50 dark:hover:bg-error-container/15 text-left transition-colors"
+              >
+                <span className="material-symbols-outlined text-[17px]">logout</span>
+                <span>ออกจากระบบ</span>
+              </button>
             </div>
           )}
         </div>
