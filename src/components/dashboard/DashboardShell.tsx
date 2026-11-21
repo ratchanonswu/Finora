@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useFinora } from "@/context/FinoraContext";
-import { formatTHB, formatThaiDate } from "@/lib/seed";
 import { buildDashboardNotifications } from "./dashboard-utils";
 
 export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
@@ -19,26 +18,15 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
     settings,
   } = useFinora();
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const searchBoxRef = useRef<HTMLDivElement | null>(null);
   const notifBoxRef = useRef<HTMLDivElement | null>(null);
   const profileBoxRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        setSearchOpen(true);
-        setNotifOpen(false);
-        setProfileOpen(false);
-      } else if (e.key === "Escape") {
-        setSearchOpen(false);
+      if (e.key === "Escape") {
         setNotifOpen(false);
         setProfileOpen(false);
       }
@@ -50,9 +38,6 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
   useEffect(() => {
     const onPointerDown = (e: MouseEvent) => {
       const target = e.target as Node;
-      if (searchBoxRef.current && !searchBoxRef.current.contains(target)) {
-        setSearchOpen(false);
-      }
       if (notifBoxRef.current && !notifBoxRef.current.contains(target)) {
         setNotifOpen(false);
       }
@@ -69,26 +54,10 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
     [categories, transactions, recurring, settings]
   );
 
-  const searchMatches = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-    return transactions
-      .filter((tx) => {
-        const cat = categories.find((c) => c.id === tx.categoryId);
-        return (
-          tx.title.toLowerCase().includes(q) ||
-          tx.channel.toLowerCase().includes(q) ||
-          tx.ref.toLowerCase().includes(q) ||
-          (cat?.name.toLowerCase().includes(q) ?? false)
-        );
-      })
-      .slice(0, 6);
-  }, [searchQuery, transactions, categories]);
-
   return (
     <header className="sticky top-0 z-30 h-16 bg-white/90 dark:bg-surface/90 backdrop-blur-md border-b border-slate-200/80 dark:border-outline-variant/30 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
-      {/* Left: Mobile Drawer Trigger + Search */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
+      {/* Left: Mobile Drawer Trigger */}
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={onOpenMobileMenu}
@@ -97,106 +66,6 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
         >
           <span className="material-symbols-outlined">menu</span>
         </button>
-
-        <div ref={searchBoxRef} className="relative flex-1 max-w-md">
-          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-outline text-[18px] pointer-events-none">
-            search
-          </span>
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchQuery}
-            onFocus={() => setSearchOpen(true)}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setSearchOpen(true);
-            }}
-            placeholder="ค้นหารายการ, หมวดหมู่ หรือช่องทาง..."
-            aria-label="ค้นหาธุรกรรม"
-            className="w-full bg-slate-100/80 dark:bg-surface-container-low border border-slate-200/70 dark:border-outline-variant/40 rounded-xl pl-10 pr-14 py-2 text-sm text-slate-900 dark:text-on-surface placeholder:text-slate-400 dark:placeholder:text-outline focus:outline-none focus:bg-white dark:focus:bg-surface-container focus:border-emerald-500 dark:focus:border-primary transition-colors"
-          />
-          {searchQuery ? (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              aria-label="ล้างคำค้นหา"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-on-surface"
-            >
-              <span className="material-symbols-outlined text-[16px]">close</span>
-            </button>
-          ) : (
-            <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-white dark:bg-surface-container border border-slate-200/80 dark:border-outline-variant/40 text-[10px] font-mono text-slate-400 dark:text-outline absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-              ⌘K
-            </kbd>
-          )}
-
-          {/* Search Results Popover */}
-          {searchOpen && searchQuery.trim() && (
-            <div className="absolute left-0 right-0 top-full mt-2 rounded-2xl bg-white dark:bg-surface-container border border-slate-200/80 dark:border-outline-variant/40 shadow-xl overflow-hidden z-40 animate-modal-in">
-              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-outline-variant/20 flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-on-surface-variant">
-                <span>ผลการค้นหาธุรกรรม ({searchMatches.length})</span>
-                <Link
-                  href="/transactions"
-                  onClick={() => setSearchOpen(false)}
-                  className="text-emerald-600 dark:text-primary hover:underline"
-                >
-                  ดูทั้งหมด →
-                </Link>
-              </div>
-              {searchMatches.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-500 dark:text-on-surface-variant">
-                  ไม่พบรายการที่ตรงกับ &ldquo;{searchQuery.trim()}&rdquo;
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100 dark:divide-outline-variant/20 max-h-80 overflow-y-auto">
-                  {searchMatches.map((tx) => {
-                    const cat = categories.find((c) => c.id === tx.categoryId);
-                    return (
-                      <Link
-                        key={tx.id}
-                        href="/transactions"
-                        onClick={() => setSearchOpen(false)}
-                        className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-surface-container-high/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div
-                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                            style={{
-                              backgroundColor: `${cat?.color || "#10B981"}1A`,
-                              color: cat?.color || "#10B981",
-                            }}
-                          >
-                            <span className="material-symbols-outlined text-[16px]">
-                              {cat?.icon || "receipt_long"}
-                            </span>
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-xs font-semibold text-slate-900 dark:text-on-surface truncate">
-                              {tx.title}
-                            </div>
-                            <div className="text-[11px] text-slate-500 dark:text-on-surface-variant truncate">
-                              {formatThaiDate(tx.date)} • {cat?.name || tx.categoryId}
-                            </div>
-                          </div>
-                        </div>
-                        <span
-                          className={`text-xs font-mono font-bold shrink-0 ${
-                            tx.type === "income"
-                              ? "text-emerald-600 dark:text-primary"
-                              : "text-red-500 dark:text-secondary"
-                          }`}
-                        >
-                          {tx.type === "income" ? "+" : "-"}
-                          {formatTHB(Math.abs(tx.amount))}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Right Controls */}
