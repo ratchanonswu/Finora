@@ -13,8 +13,8 @@
 | **Styling & Theme** | Tailwind CSS 3.4 + CSS Custom Properties (`globals.css`) | Dual Theme (`Light Fintech` / `Emerald Nocturne Dark`) และ Material Symbols Outlined |
 | **State & Persistence** | React Context (`FinoraContext`) + `localStorage` / `sessionStorage` | เก็บสถานะธุรกรรม (`finora_state_v1`) และประวัติแชทแยกตามอีเมลผู้ใช้ (`finora_chat_session_v1:<email>`) |
 | **AI / LLM Gateway** | OpenRouter API (`src/lib/openrouter.ts`) | Chat Completions, Multi-Tool Function Calling, และ Multimodal Vision สำหรับอ่านสลิป |
-| **QR & OCR Pipeline** | `jsqr` (`src/lib/qr-decoder.ts`) + OCR.space Engine 1 (`src/lib/ocr.ts`) | ถอดรหัส EMVCo TLV PromptPay QR ฝั่ง Client ควบคู่กับ OCR ภาษาไทยฝั่ง Server |
-| **Testing** | Node.js Native Type-Stripping (`src/lib/self-check.ts`) | ชุดทดสอบ Deterministic Unit & Integration (`npm run test:check`) 17 หมวดตรวจสอบ |
+| **Slip Image & OCR Pipeline** | Browser Canvas (`src/lib/slip-image.ts`) + OCR.space Engine 1 (`src/lib/ocr.ts`) | เตรียม/ย่อขนาดรูปสลิปฝั่ง Client (`<= 2MB` ส่งตรง) ควบคู่กับ OCR ภาษาไทยฝั่ง Server |
+| **Testing** | Node.js Native Type-Stripping (`src/lib/self-check.ts`) | ชุดทดสอบ Deterministic Unit & Integration (`npm run test:check`) 23 หมวดตรวจสอบ |
 
 ---
 
@@ -25,7 +25,7 @@
 - **Authentication Routes:** [src/app/(auth)/login/page.tsx](file:///c:/Gitwork/Finora/src/app/(auth)/login/page.tsx), [register/page.tsx](file:///c:/Gitwork/Finora/src/app/(auth)/register/page.tsx), [forgot-password/page.tsx](file:///c:/Gitwork/Finora/src/app/(auth)/forgot-password/page.tsx) (ครอบด้วย [src/components/AuthShell.tsx](file:///c:/Gitwork/Finora/src/components/AuthShell.tsx))
 - **Server API Endpoints:**
   - `POST /api/ai/chat` ([src/app/api/ai/chat/route.ts](file:///c:/Gitwork/Finora/src/app/api/ai/chat/route.ts)) — สร้าง System Prompt (`buildFinoraSystemPrompt`) และเรียก OpenRouter พร้อม `FINORA_TOOLS`
-  - `POST /api/ai/qr` ([src/app/api/ai/qr/route.ts](file:///c:/Gitwork/Finora/src/app/api/ai/qr/route.ts)) — รัน Hybrid OCR (`extractSlipOcrText`) + Vision LLM (`buildQrSlipPrompt` → `parseQrSlipResult`)
+  - `POST /api/ai/slip` ([src/app/api/ai/slip/route.ts](file:///c:/Gitwork/Finora/src/app/api/ai/slip/route.ts)) — รัน Hybrid OCR (`extractSlipOcrText`) + Vision LLM (`buildSlipPrompt` → `parseSlipResult`)
   - `GET | POST /api/virtual-bank` ([src/app/api/virtual-bank/route.ts](file:///c:/Gitwork/Finora/src/app/api/virtual-bank/route.ts)) — ประมวลผลการเพิ่ม/ลดยอด Virtual Wallet ผ่าน `executeBankTransfer`
 - **Verification Entry Point:** [src/lib/self-check.ts](file:///c:/Gitwork/Finora/src/lib/self-check.ts) (`npm run test:check`)
 
@@ -39,9 +39,9 @@
 flowchart TD
     subgraph Client["🌐 Client Layer (Next.js App Router)"]
         Pages["Pages: Dashboard (/), Transactions, Categories, Recurring, Virtual Bank, Settings"]
-        AIPage["AI Assistant & QR Scanner (/ai-assistant)"]
-        Modals["TransactionModal & Batch Confirmation Modal"]
-        QRDec["Client QR Decoder (jsqr + EMVCo TLV Parser)"]
+        AIPage["AI Assistant & Slip Scanner (/ai-assistant)"]
+        Modals["TransactionModal & Batch/Chained Confirmation Modal"]
+        SlipPrep["Client Slip Image Prep (src/lib/slip-image.ts)"]
     end
 
     subgraph State["🧠 State & Domain Layer"]
@@ -54,7 +54,7 @@ flowchart TD
 
     subgraph Server["🚪 Next.js API Routes (/api/*)"]
         ChatAPI["POST /api/ai/chat"]
-        QRAPI["POST /api/ai/qr"]
+        SlipAPI["POST /api/ai/slip"]
         BankAPI["POST /api/virtual-bank"]
         Prompts["Prompt Builder & Slip Parser (src/lib/prompts.ts)"]
         BankSvc["Virtual Wallet Service (src/lib/bank-service.ts)"]
@@ -67,7 +67,7 @@ flowchart TD
 
     Pages --> Ctx
     AIPage --> Ctx
-    AIPage --> QRDec
+    AIPage --> SlipPrep
     AIPage --> Tools
     Modals --> Ctx
     Ctx <--> Storage
@@ -76,16 +76,16 @@ flowchart TD
     Tools --> Seed
 
     AIPage -->|POST messages + financialSummary| ChatAPI
-    AIPage -->|POST imageBase64 + qrRaw| QRAPI
+    AIPage -->|POST imageBase64 + mimeType| SlipAPI
     Ctx -->|POST credit / debit| BankAPI
 
     ChatAPI --> Prompts
     ChatAPI --> Tools
     ChatAPI --> OpenRouter
 
-    QRAPI --> OCRSpace
-    QRAPI --> Prompts
-    QRAPI --> OpenRouter
+    SlipAPI --> OCRSpace
+    SlipAPI --> Prompts
+    SlipAPI --> OpenRouter
 
     BankAPI --> BankSvc
 ```
@@ -123,7 +123,7 @@ sequenceDiagram
 | Path | Primary Responsibility |
 |---|---|
 | `src/app/(app)/page.tsx` | หน้า **ภาพรวมการเงิน (Dashboard)**: การ์ดสรุป 4 มิติ, AI Insights, กราฟแท่ง 6 เดือน, สัดส่วนรายจ่ายตามหมวดหมู่ และรายการล่าสุด |
-| `src/app/(app)/ai-assistant/page.tsx` | หน้า **ผู้ช่วย AI & สแกน QR/สลิป**: ระบบแชท Markdown, `runToolLoop`, สแกนรูป QR/สลิป, และ **Batch Confirmation Modal** |
+| `src/app/(app)/ai-assistant/page.tsx` | หน้า **ผู้ช่วย AI & สแกนสลิป**: ระบบแชท Markdown, `runToolLoop`, สแกนรูปสลิปด้วย OCR + Vision AI, และ **Batch/Chained Confirmation Modal** |
 | `src/app/(app)/transactions/page.tsx` | หน้า **รายรับรายจ่ายทั้งหมด**: ค้นหา/กรองธุรกรรม, แก้ไขวันที่แบบ Inline (`<input type="date">`), และลบรายการ |
 | `src/app/(app)/categories/page.tsx` | หน้า **จัดการหมวดหมู่**: แยกแท็บหมวดรายจ่าย/รายรับ, ตั้งงบประมาณรายเดือน, สร้างหมวดหมู่กำหนดเองพร้อมสีไม่ซ้ำ |
 | `src/app/(app)/recurring/page.tsx` | หน้า **ตัด/รับเงินอัตโนมัติ (Recurring)**: จัดการทั้งรายจ่ายประจำและรายรับประจำ (เช่น เงินเดือน), สั่งตัด/รับยอดทันทีรายตัวหรือทั้งหมด |
@@ -133,14 +133,14 @@ sequenceDiagram
 | `src/components/TransactionModal.tsx` | ป๊อปอัป **"บันทึกธุรกรรมใหม่"** แบบ Manual พร้อมตัวเลือกหมวดหมู่ ช่องทาง และวันที่ทำรายการ (`<input type="date">`) |
 | `src/context/FinoraContext.tsx` | ศูนย์กลาง State ของแอป: จัดการ Transactions (เรียงวันที่ล่าสุดขึ้นก่อนเสมอ), Categories, Recurring, Virtual Wallet (`bankBalanceRef`), และ Chat Session |
 | `src/lib/ai-tools.ts` | นิยาม `FINORA_TOOLS` (5 Read Tools + 4 Write Tools), `CATEGORY_ALIASES`, `resolveCategory` (พร้อม title fallback), และ `validateAndNormalizeWriteTool` |
-| `src/lib/prompts.ts` | `FINORA_PROMPT_VERSION = "2.6.0"`, `buildFinoraSystemPrompt`, `buildQrSlipPrompt`, และ `parseQrSlipResult` (จับคู่ชื่อผู้โอน/ผู้รับกับชื่อผู้ใช้เพื่อแยก `income`/`expense`) |
+| `src/lib/prompts.ts` | `FINORA_PROMPT_VERSION = "2.8.0"`, `buildFinoraSystemPrompt`, `buildSlipPrompt`, และ `parseSlipResult` (จับคู่ชื่อผู้โอน/ผู้รับกับชื่อผู้ใช้เพื่อแยก `income`/`expense`) |
 | `src/lib/bank-service.ts` | Pure function `executeBankTransfer` สำหรับคำนวณยอด `bankBalance` (อนุญาตให้ติดลบได้) และสร้าง `BankLedgerEntry` |
 | `src/lib/rollover.ts` | `simulateRolloverToDate` จำลองเหตุการณ์การเงินตามลำดับเวลา: รีเซ็ตโควต้า → รับรายรับประจำ → ตัดบิลรายจ่ายประจำ (ตัดยอดแม้ติดลบ) |
-| `src/lib/seed.ts` | ข้อมูลตั้งต้น (`INITIAL_*`), ตัวจัดรูปแบบ `formatTHB` (รองรับ `-฿...`), `formatThaiDate` (เฉพาะวัน/เดือน/ปี), ตัวจัดการวันที่ (`todayYmd`, `ymdToIso`, `toDateInputValue`, `normalizeTransactionDate`), และ `parsePromptPayPayload` |
+| `src/lib/seed.ts` | ข้อมูลตั้งต้น (`INITIAL_*`), ตัวจัดรูปแบบ `formatTHB` (รองรับ `-฿...`), `formatThaiDate` (เฉพาะวัน/เดือน/ปี), ตัวจัดการวันที่ (`todayYmd`, `ymdToIso`, `toDateInputValue`, `normalizeTransactionDate`), และ `isInCurrentQuotaCycle` |
 | `src/lib/ocr.ts` | `extractSlipOcrText` เรียก OCR.space Engine 1 (`language: "tha"`) พร้อม timeout 8 วินาที และจำกัดขนาดไฟล์ 1 MB |
 | `src/lib/openrouter.ts` | `callOpenRouter` HTTP client พร้อมตัวเก็บสถิติ `LLMMetrics` (tokens & latency) |
-| `src/lib/qr-decoder.ts` | ถอดรหัส QR จากไฟล์รูปภาพบน `<canvas>` ด้วย `jsqr` และย่อขนาดภาพสำหรับส่ง Vision API |
-| `src/lib/self-check.ts` | ชุดทดสอบอัตโนมัติ 17 หัวข้อครอบคลุมทุกฟังก์ชันหลักใน `src/lib/` |
+| `src/lib/slip-image.ts` | เตรียมรูปภาพสลิปสำหรับ OCR/Vision API (`prepareSlipImage`: ส่งตรง `<= 2MB`, ย่อ `2048px`, และสร้าง thumbnail `180px`) |
+| `src/lib/self-check.ts` | ชุดทดสอบอัตโนมัติ 23 หัวข้อครอบคลุมทุกฟังก์ชันหลักใน `src/lib/` |
 
 ---
 
@@ -157,7 +157,7 @@ sequenceDiagram
 4. **การป้องกัน AI วนลูปเมื่อสั่งหลายรายการ (`runToolLoop` Batching):**
    - เมื่อ LLM ส่ง `add_transaction` มาหลาย `tool_calls` ในรอบเดียวกัน `runToolLoop` ใน `src/app/(app)/ai-assistant/page.tsx` จะรวบทุกรายการที่ผ่านการตรวจสอบเข้า `pendingTxDraft.items` เพื่อแสดงใน **Batch Confirmation Modal** หน้าต่างเดียว และตั้ง `continueAfterConfirm: false` เพื่อไม่ให้ยิงเรียก LLM ซ้ำหลังผู้ใช้กดยืนยัน
 5. **หมวดหมู่สงวน `"recurring"` (Reserved Category):**
-   - หมวด `id: "recurring"` ใช้สำหรับรายการตัดบิลอัตโนมัติและคำนวณงบอัตโนมัติผ่าน `syncCategoriesWithRecurring` เท่านั้น ห้ามให้ผู้ใช้หรือ AI เลือกหมวดนี้ใน `add_transaction`, `update_category_budget`, หรือ `parseQrSlipResult`
+   - หมวด `id: "recurring"` ใช้สำหรับรายการตัดบิลอัตโนมัติและคำนวณงบอัตโนมัติผ่าน `syncCategoriesWithRecurring` เท่านั้น ห้ามให้ผู้ใช้หรือ AI เลือกหมวดนี้ใน `add_transaction`, `update_category_budget`, หรือ `parseSlipResult`
 6. **Environment Variables (`.env.local`):**
    - `OPENROUTER_API_KEY` (จำเป็นสำหรับ AI Chat และ Vision; หรือใส่ Override Key ได้ในหน้า Settings ของแอป)
    - `OPENROUTER_MODEL` (ค่าเริ่มต้น `google/gemini-2.5-flash`)

@@ -1,23 +1,24 @@
-# 📘 สมุดคู่มือ AI Tools & Prompts ของ Finora (`FINORA_PROMPT_VERSION = "2.7.0"`)
+# 📘 สมุดคู่มือ AI Tools & Prompts ของ Finora (`FINORA_PROMPT_VERSION = "2.8.0"`)
 
-> เอกสารอ้างอิงฉบับสมบูรณ์สำหรับดูภาพรวมการทำงานของ **System Prompts**, **QR/Slip Vision Prompts**, **Function Calling Tools ทั้ง 9 ตัว**, **ระบบ Validation / Normalization / Fallback**, และ **Execution Flow** ของผู้ช่วย AI ฟิโนร่า
+> เอกสารอ้างอิงฉบับสมบูรณ์สำหรับดูภาพรวมการทำงานของ **System Prompts**, **Slip Vision Prompts**, **Function Calling Tools ทั้ง 9 ตัว**, **ระบบ Validation / Normalization / Fallback**, และ **Execution Flow** ของผู้ช่วย AI ฟิโนร่า
 >
 > - **ไฟล์ต้นทางหลัก:**
->   - [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) — System Prompt, QR/Slip Prompt, และ Slip JSON Parser
+>   - [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) — System Prompt, Slip Vision Prompt, และ Slip JSON Parser
 >   - [src/lib/ai-tools.ts](file:///c:/Gitwork/Finora/src/lib/ai-tools.ts) — นิยาม Tools ทั้ง 9 ตัว, Category Resolver, Read Executor, และ Write Validator
+>   - [src/lib/slip-image.ts](file:///c:/Gitwork/Finora/src/lib/slip-image.ts) — `prepareSlipImage` เตรียมรูปภาพ/ย่อขนาด/thumbnail ฝั่ง Client
 >   - [src/app/(app)/ai-assistant/page.tsx](file:///c:/Gitwork/Finora/src/app/(app)/ai-assistant/page.tsx) — `buildFinancialSummary`, `runToolLoop`, และ Batch/Chained Confirmation Modal
->   - [src/app/api/ai/chat/route.ts](file:///c:/Gitwork/Finora/src/app/api/ai/chat/route.ts) & [src/app/api/ai/qr/route.ts](file:///c:/Gitwork/Finora/src/app/api/ai/qr/route.ts) — Server API Endpoints
+>   - [src/app/api/ai/chat/route.ts](file:///c:/Gitwork/Finora/src/app/api/ai/chat/route.ts) & [src/app/api/ai/slip/route.ts](file:///c:/Gitwork/Finora/src/app/api/ai/slip/route.ts) — Server API Endpoints
 
 ---
 
 ## 🧭 สารบัญ
 
 1. [ภาพรวมสถาปัตยกรรม AI ของ Finora](#1-ภาพรวมสถาปัตยกรรม-ai-ของ-finora)
-2. [ส่วนที่ 1: System Prompts (Chat & QR/Slip Vision)](#2-ส่วนที่-1-system-prompts-chat--qrslip-vision)
+2. [ส่วนที่ 1: System Prompts (Chat & Slip Vision)](#2-ส่วนที่-1-system-prompts-chat--slip-vision)
    - [2.1 Chat System Prompt (`buildFinoraSystemPrompt`)](#21-chat-system-prompt-buildfinorasystemprompt)
    - [2.2 Dynamic Financial Context (`buildFinancialSummary`)](#22-dynamic-financial-context-buildfinancialsummary)
-   - [2.3 QR / Slip Vision Prompt (`buildQrSlipPrompt`)](#23-qr--slip-vision-prompt-buildqrslipprompt)
-   - [2.4 การแปลงผลและตรวจจับผู้โอน/ผู้รับ (`parseQrSlipResult`)](#24-การแปลงผลและตรวจจับผู้โอนผู้รับ-parseqrslipresult)
+   - [2.3 Slip Vision Prompt (`buildSlipPrompt`)](#23-slip-vision-prompt-buildslipprompt)
+   - [2.4 การแปลงผลและตรวจจับผู้โอน/ผู้รับ (`parseSlipResult`)](#24-การแปลงผลและตรวจจับผู้โอนผู้รับ-parseslipresult)
 3. [ส่วนที่ 2: สารานุกรม AI Tools ทั้ง 9 ตัว (`FINORA_TOOLS`)](#3-ส่วนที่-2-สารานุกรม-ai-tools-ทั้ง-9-ตัว-finora_tools)
    - [3.1 Read Tools (5 ตัว — รันอัตโนมัติทันที)](#31-read-tools-5-ตัว--รันอัตโนมัติทันที)
    - [3.2 Write Tools (4 ตัว — ต้องผ่าน UI Confirmation)](#32-write-tools-4-ตัว--ต้องผ่าน-ui-confirmation)
@@ -35,7 +36,7 @@
 flowchart TD
     subgraph Modes["โหมดการทำงานของ Finora AI"]
         Chat["💬 โหมดแชท & สั่งงาน (/api/ai/chat)"]
-        QR["📷 โหมดสแกน QR / สลิป (/api/ai/qr)"]
+        Slip["🧾 โหมดสแกนสลิป (/api/ai/slip)"]
     end
 
     Chat --> SysPrompt["buildFinoraSystemPrompt(financialSummary)"]
@@ -45,16 +46,16 @@ flowchart TD
     ORChat -->|add_transaction หรือ add_category+add_transaction| BatchModal["validateAndNormalizeWriteTool()\n-> เปิด Batch/Chained Confirmation Modal"]
     ORChat -->|add_category เดี่ยว / update_category_budget / add_recurring_payment| CardConfirm["validateAndNormalizeWriteTool()\n-> แสดงการ์ดยืนยันในแชท"]
 
-    QR --> ClientQR["1. Client ถอดบาร์โค้ดด้วย jsqr + parsePromptPayPayload()"]
-    ClientQR --> ServerOCR["2. Server สกัดข้อความภาษาไทยด้วย OCR.space (Engine 1, 8s timeout)"]
-    ServerOCR --> VisionPrompt["3. buildQrSlipPrompt(qrRaw, categoryList, userName, ocrText)"]
-    VisionPrompt --> ORVision["4. OpenRouter Vision LLM -> parseQrSlipResult()"]
+    Slip --> ClientPrep["1. Client เตรียมภาพด้วย prepareSlipImage() (<= 2MB ส่งตรง / 2048px)"]
+    ClientPrep --> ServerOCR["2. Server สกัดข้อความภาษาไทยด้วย OCR.space (Engine 1, 8s timeout)"]
+    ServerOCR --> VisionPrompt["3. buildSlipPrompt(categoryList, userName, ocrText)"]
+    VisionPrompt --> ORVision["4. OpenRouter Vision LLM -> parseSlipResult()"]
     ORVision --> BatchModal
 ```
 
 ---
 
-## 2. ส่วนที่ 1: System Prompts (Chat & QR/Slip Vision)
+## 2. ส่วนที่ 1: System Prompts (Chat & Slip Vision)
 
 ### 2.1 Chat System Prompt (`buildFinoraSystemPrompt`)
 อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts#L18-L57) แบ่งออกเป็น **5 หมวดคำสั่งหลัก**:
@@ -130,12 +131,11 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 
 ---
 
-### 2.3 QR / Slip Vision Prompt (`buildQrSlipPrompt`)
-อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) ใช้สำหรับวิเคราะห์รูปสลิปธนาคาร / e-Wallet / ป้าย QR PromptPay โดยรับข้อมูลเสริม 4 ส่วน:
-1. **`qrRaw`**: ข้อมูลดิบ EMVCo TLV ที่อ่านได้จากบาร์โค้ด QR ด้วย `jsqr`
-2. **`ocrText`**: ข้อความภาษาไทยที่อ่านได้จาก OCR.space Engine 1 (`extractSlipOcrText` + `cleanOcrText` ลบข้อความเตือน `[Note: ...]`) — **ข้าม OCR อัตโนมัติ** เมื่อป้าย QR TLV มีทั้ง `merchant` และ `amount > 0` ครบแล้วเพื่อประหยัดเวลา 1.5–3 วินาที
-3. **`userName`**: ชื่อผู้ใช้เจ้าของบัญชีในระบบ (เช่น `"คุณธนภัทร วงศ์เจริญ"`) เพื่อใช้แยกแยะว่าผู้ใช้เป็น **ผู้โอน (`expense`)** หรือ **ผู้รับเงิน (`income`)**
-4. **`categoryList`**: รายชื่อ `id` หมวดหมู่ที่มีในระบบ
+### 2.3 Slip Vision Prompt (`buildSlipPrompt`)
+อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) ใช้สำหรับวิเคราะห์รูปสลิปโอนเงินธนาคาร / ใบเสร็จ e-Wallet โดยรับข้อมูลเสริม 3 ส่วน:
+1. **`ocrText`**: ข้อความภาษาไทยที่อ่านได้จาก OCR.space Engine 1 (`extractSlipOcrText` + `cleanOcrText` ลบข้อความเตือน `[Note: ...]`) ส่งให้ Vision LLM ใช้ยืนยันตัวสะกดและตัวเลข
+2. **`userName`**: ชื่อผู้ใช้เจ้าของบัญชีในระบบ (เช่น `"คุณธนภัทร วงศ์เจริญ"`) เพื่อใช้แยกแยะว่าผู้ใช้เป็น **ผู้โอน (`expense`)** หรือ **ผู้รับเงิน (`income`)**
+3. **`categoryList`**: รายชื่อ `id` หมวดหมู่ที่มีในระบบ
 
 **โครงสร้าง JSON ที่บังคับให้ Vision LLM ตอบกลับ:**
 ```json
@@ -152,13 +152,13 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 }
 ```
 
-### 2.4 การแปลงผลและตรวจจับผู้โอน/ผู้รับ (`parseQrSlipResult`)
+### 2.4 การแปลงผลและตรวจจับผู้โอน/ผู้รับ (`parseSlipResult`)
 อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) ทำหน้าที่ Post-process JSON จาก Vision LLM:
 - **ทำความสะอาดชื่อที่ถูกตัดคำ (`cleanSlipName`):** ลบ `...` หรือเศษพยัญชนะย่อท้ายบรรทัด เช่น `"นาย ชัยณรงค์ แ..."` → `"นาย ชัยณรงค์"`
 - **ตรวจสอบชื่อผู้ใช้ (`namesLikelyMatch`):** ตัดคำนำหน้า (`คุณ`, `นาย`, `นางสาว`, `Mr.`, ฯลฯ) แล้วเทียบกับ `userName`:
   - ถ้า **`receiver` ตรงกับผู้ใช้** (และ `sender` เป็นคนอื่น) → บังคับตั้ง `type = "income"` และใช้ `merchant = sender`
   - ถ้า **`sender` ตรงกับผู้ใช้** → บังคับตั้ง `type = "expense"` และใช้ `merchant = receiver`
-- **สกัดวันที่จากสลิป (`date`):** แปลงวันที่บนสลิป (ทั้ง พ.ศ. และ ค.ศ.) ด้วย `normalizeTransactionDate` และแนบ `date` เข้า Modal อัตโนมัติ (ถ้าเป็นป้าย QR หรือไม่พบวันที่จะใช้ `todayYmd()`)
+- **สกัดวันที่จากสลิป (`date`):** แปลงวันที่บนสลิป (ทั้ง พ.ศ. และ ค.ศ.) ด้วย `normalizeTransactionDate` และแนบ `date` เข้า Modal อัตโนมัติ (ถ้าไม่พบวันที่ชัดเจนจะใช้ `todayYmd()`, และถ้าสลิปเบลออ่านยอดไม่ได้จะเปิด Modal ให้กรอกยอดเองผ่าน `needsAmount`)
 - **ป้องกันหมวดหมู่สงวน:** หาก LLM ตอบ `categoryId: "recurring"` หรือรหัสที่ไม่อยู่ในระบบ จะถูกแทนที่ด้วยค่าเริ่มต้น (`"food"` สำหรับรายจ่าย หรือ `"salary"` สำหรับรายรับ)
 
 ---
