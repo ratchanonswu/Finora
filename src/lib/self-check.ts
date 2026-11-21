@@ -436,6 +436,14 @@ const augFilter = runReadTool(
 assert.equal(augFilter.totalMatchedCount, 1);
 assert.equal(augFilter.totalMatchedAmount, 900);
 
+const swappedFilter = runReadTool(
+  "get_transactions",
+  { startDate: "2026-09-30", endDate: "2026-09-01", type: "expense" },
+  cycleSnapshot
+);
+assert.equal(swappedFilter.totalMatchedCount, 1);
+assert.equal(swappedFilter.totalMatchedAmount, 900);
+
 const badRange = runReadTool("get_transactions", { startDate: "31/02" }, cycleSnapshot);
 assert.equal(typeof badRange.error, "string");
 

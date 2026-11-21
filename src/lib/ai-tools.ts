@@ -456,17 +456,20 @@ export function runReadTool(
       args.startDate !== undefined && args.startDate !== null ? String(args.startDate).trim() : "";
     const rawEnd =
       args.endDate !== undefined && args.endDate !== null ? String(args.endDate).trim() : "";
-    const startYmd = rawStart ? normalizeTransactionDate(rawStart) : null;
+    let startYmd = rawStart ? normalizeTransactionDate(rawStart) : null;
     if (rawStart && !startYmd) {
       return {
         error: `รูปแบบ startDate "${rawStart}" ไม่ถูกต้อง กรุณาระบุเป็น YYYY-MM-DD หรือ DD/MM`,
       };
     }
-    const endYmd = rawEnd ? normalizeTransactionDate(rawEnd) : null;
+    let endYmd = rawEnd ? normalizeTransactionDate(rawEnd) : null;
     if (rawEnd && !endYmd) {
       return {
         error: `รูปแบบ endDate "${rawEnd}" ไม่ถูกต้อง กรุณาระบุเป็น YYYY-MM-DD หรือ DD/MM`,
       };
+    }
+    if (startYmd && endYmd && startYmd > endYmd) {
+      [startYmd, endYmd] = [endYmd, startYmd];
     }
     const currentCycleOnly = args.currentCycleOnly === true;
     const limit = Math.min(30, Math.max(1, Number(args.limit) || 10));
