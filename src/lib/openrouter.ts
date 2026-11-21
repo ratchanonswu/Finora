@@ -90,9 +90,9 @@ export async function callOpenRouter(options: {
     ...(options.tools?.length ? { tools: options.tools, tool_choice: "auto" } : {}),
   });
 
-  try {
-    const startMs = Date.now();
-    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+  const startMs = Date.now();
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -155,21 +155,26 @@ export async function callOpenRouter(options: {
       console.info("[LLM]", metrics);
 
       return { ok: true, status: 200, text: content || "", toolCalls, metrics };
-    }
-
-    return { ok: false, status: 503, error: "บริการ AI ไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่อีกครั้ง" };
-  } catch (err) {
-    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+    } catch (err) {
+      if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+        return {
+          ok: false,
+          status: 504,
+          error: "การเชื่อมต่อ AI ใช้เวลานานเกินกำหนด (45 วินาที) กรุณาลองใหม่อีกครั้ง",
+        };
+      }
+      if (attempt < RETRY_DELAYS_MS.length) {
+        console.warn("[LLM] transient network error, retrying", { attempt: attempt + 1 });
+        await sleep(RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
       return {
         ok: false,
-        status: 504,
-        error: "การเชื่อมต่อ AI ใช้เวลานานเกินกำหนด (45 วินาที) กรุณาลองใหม่อีกครั้ง",
+        status: 500,
+        error: err instanceof Error ? err.message : "ไม่สามารถเชื่อมต่อ OpenRouter API ได้",
       };
     }
-    return {
-      ok: false,
-      status: 500,
-      error: err instanceof Error ? err.message : "ไม่สามารถเชื่อมต่อ OpenRouter API ได้",
-    };
   }
+
+  return { ok: false, status: 503, error: "บริการ AI ไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่อีกครั้ง" };
 }
