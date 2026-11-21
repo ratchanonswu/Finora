@@ -613,19 +613,13 @@ export default function AiAssistantPage() {
     [bankBalance, transactions, categories, recurring, settings.quotaResetAt]
   );
 
-  const runToolLoop = async (
-    initialHistory: OpenRouterMessage[],
-    overrideCategories?: Category[]
-  ) => {
+  const runToolLoop = async (initialHistory: OpenRouterMessage[]) => {
     const history = [...initialHistory];
-    const activeCategories = overrideCategories ?? categories;
-    const summaryText = overrideCategories
-      ? buildFinancialSummary(overrideCategories)
-      : financialSummary;
+    const summaryText = financialSummary;
     const snapshot = {
       bankBalance,
       transactions,
-      categories: activeCategories,
+      categories,
       recurring,
       autoDebitOnExpense: settings.autoDebitOnExpense,
       quotaResetAt: settings.quotaResetAt,
@@ -710,7 +704,8 @@ export default function AiAssistantPage() {
 
       const txItems: PendingTxItem[] = [];
       let hasOtherWrite = false;
-      for (const { tc, args, parseError } of parsedCalls) {
+      for (let idx = 0; idx < parsedCalls.length; idx++) {
+        const { tc, args, parseError } = parsedCalls[idx];
         if (parseError) {
           history.push({
             role: "tool",
@@ -752,7 +747,7 @@ export default function AiAssistantPage() {
           } else {
             hasOtherWrite = true;
             appendChatMessage({
-              id: `t-${Date.now()}-${tc.id}`,
+              id: `t-${Date.now()}-${idx}-${tc.id}`,
               role: "assistant",
               text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
               pendingTool: {
@@ -761,7 +756,6 @@ export default function AiAssistantPage() {
                 args: check.args,
                 summary: check.summary,
                 status: "pending",
-                continueAfterConfirm: false,
               },
             });
           }
@@ -845,7 +839,6 @@ export default function AiAssistantPage() {
 
     setLoading(true);
     let resultText = "";
-    let nextCategories = categories;
     try {
       const args = check.args;
       if (pt.name === "add_transaction") {
@@ -896,25 +889,6 @@ export default function AiAssistantPage() {
         role: "assistant",
         text: confirmMsg,
       });
-
-      if (pt.continueAfterConfirm) {
-        const prior: OpenRouterMessage[] = chatMessages
-          .filter((m) => m.id !== "welcome" && (m.role === "user" || m.role === "assistant"))
-          .slice(-8)
-          .map((m) => ({ role: m.role as "user" | "assistant", content: m.text }));
-        await runToolLoop(
-          [
-            ...prior,
-            { role: "assistant", content: confirmMsg },
-            {
-              role: "user",
-              content:
-                "[ระบบ] ผู้ใช้ยืนยันการดำเนินการข้างต้นเรียบร้อยแล้ว หากยังมีขั้นตอนถัดไปในคำขอก่อนหน้าของ User ให้เรียกใช้ Tool ต่อได้เลย หากครบทุกขั้นตอนแล้วให้ตอบสรุปสั้นๆ ค่ะ",
-            },
-          ],
-          nextCategories
-        );
-      }
     } catch {
       appendChatMessage({
         id: `e-${Date.now()}`,
