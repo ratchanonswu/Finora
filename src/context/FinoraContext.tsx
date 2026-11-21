@@ -22,6 +22,7 @@ import {
   advanceDueDate,
   computeRecurringMonthlyBudget,
   isBaseCategory,
+  normalizeTransactionDate,
   toDateInputValue,
   ymdToIso,
 } from "@/lib/seed";
@@ -52,7 +53,7 @@ interface FinoraContextValue extends FinoraState {
     tx: Omit<Transaction, "id" | "ref" | "status">
   ) => Promise<{ ok: boolean; error?: string; transactionId?: string }>;
   updateTransactionDate: (id: string, dateYmd: string) => void;
-  deleteTransaction: (id: string) => void;
+  deleteTransaction: (id: string, options?: { refundWallet?: boolean }) => Promise<void>;
   chatMessages: ChatMessage[];
   appendChatMessage: (msg: ChatMessage) => void;
   updateChatMessage: (id: string, patch: Partial<ChatMessage>) => void;
@@ -393,8 +394,9 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateTransactionDate = (id: string, dateYmd: string) => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateYmd)) return;
-    const nextIso = ymdToIso(dateYmd);
+    const normalized = normalizeTransactionDate(dateYmd);
+    if (!normalized) return;
+    const nextIso = ymdToIso(normalized);
     setState((prev) => ({
       ...prev,
       transactions: sortTransactionsByDateDesc(
@@ -403,11 +405,26 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
-  const deleteTransaction = (id: string) =>
+  const deleteTransaction = async (
+    id: string,
+    options?: { refundWallet?: boolean }
+  ): Promise<void> => {
+    const refundWallet = options?.refundWallet ?? true;
+    const target = state.transactions.find((t) => t.id === id);
+    if (refundWallet && target && state.settings.autoDebitOnExpense && target.amount > 0) {
+      const bankRes = await executeBankAction(
+        target.type === "expense" ? "credit" : "debit",
+        target.amount,
+        `ลบรายการ: ${target.title}`,
+        "Finora Delete Reversal"
+      );
+      if (!bankRes.ok) return;
+    }
     setState((prev) => ({
       ...prev,
       transactions: prev.transactions.filter((t) => t.id !== id),
     }));
+  };
 
   const appendChatMessage = (msg: ChatMessage) =>
     setChatMessages((prev) => [...prev, msg]);
@@ -442,7 +459,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (action.transactionId) {
-      deleteTransaction(action.transactionId);
+      await deleteTransaction(action.transactionId, { refundWallet: false });
     }
 
     updateChatMessage(messageId, {
