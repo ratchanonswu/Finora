@@ -1,9 +1,9 @@
 import { normalizeTransactionDate } from "./seed.ts";
 import type { TransactionType } from "./types.ts";
 
-export const FINORA_PROMPT_VERSION = "2.7.0";
+export const FINORA_PROMPT_VERSION = "2.8.0";
 
-export interface QrSlipAnalysisResult {
+export interface SlipAnalysisResult {
   isValidPaymentImage: boolean;
   type: TransactionType;
   merchant: string;
@@ -56,8 +56,7 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 3. คำทักทายสั้น ๆ (เช่น "สวัสดี", "ขอบคุณ") ตอบรับสั้น ๆ ตามบุคลิกแล้วชวนคุยเรื่องการเงินได้ทันทีค่ะ`;
 }
 
-export function buildQrSlipPrompt(
-  qrRaw: string | undefined,
+export function buildSlipPrompt(
   categoryList: string,
   userName?: string,
   ocrText?: string
@@ -65,8 +64,7 @@ export function buildQrSlipPrompt(
   const cleanUser = userName?.trim() || "";
   const cleanOcr = ocrText?.trim() || "";
   return [
-    "วิเคราะห์รูปภาพนี้ว่าเป็นป้าย QR Code รับเงิน (PromptPay / Thai QR Payment) หรือสลิปธุรกรรมธนาคาร/e-Wallet หรือไม่",
-    qrRaw ? `ข้อมูลดิบที่อ่านได้จากบาร์โค้ด QR: ${qrRaw}` : "ไม่พบบาร์โค้ดจากตัวอ่านเบื้องต้น ให้ตรวจสอบจากภาพโดยตรง",
+    "วิเคราะห์รูปภาพนี้ว่าเป็นสลิปโอนเงินธนาคารหรือใบเสร็จชำระเงิน e-Wallet ที่ถูกต้องหรือไม่",
     cleanOcr
       ? `ข้อความที่อ่านได้จาก OCR (ใช้ช่วยยืนยันตัวสะกดภาษาไทยและตัวเลขให้ตรงกับภาพ):\n${cleanOcr}`
       : "",
@@ -74,22 +72,21 @@ export function buildQrSlipPrompt(
     `หมวดหมู่ที่เลือกได้: ${categoryList}`,
     "ตอบกลับเป็น JSON เท่านั้นตามโครงสร้างนี้:",
     '{ "isValidPaymentImage": boolean, "type": "expense" | "income", "sender": string, "receiver": string, "merchant": string, "promptPayId": string, "amount": number, "categoryId": string, "date": string }',
-    "กฎสำคัญสำหรับสลิปและป้าย QR หลายฟอร์แมต:",
-    "1. ถ้ารูปนี้ไม่ใช่ QR Code และไม่ใช่สลิปโอนเงิน/จ่ายบิลหรือป้ายรับเงิน ให้ตั้ง isValidPaymentImage = false",
+    "กฎสำคัญสำหรับสลิปและใบเสร็จหลายฟอร์แมต:",
+    "1. ถ้ารูปนี้ไม่ใช่สลิปโอนเงินธนาคาร ใบเสร็จชำระบริการ หรือหลักฐานการจ่ายเงิน ให้ตั้ง isValidPaymentImage = false",
     '2. แยกผู้โอน (sender) และผู้รับ/ร้านค้า (receiver) ตามโครงสร้างสลิปแต่ละแบบ:',
     '   - กรณีสลิปโอนเงินธนาคาร (เรียง บน->ล่าง เช่น K+, SCB, KTB, BBL หรือ ซ้าย->ขวา เช่น Krungsri, TTB): sender คือฝั่งต้นทาง/ผู้โอน, receiver คือฝั่งปลายทาง/ผู้รับหรือร้านค้า',
     '   - กรณีสลิป e-Wallet / ใบเสร็จชำระบริการที่ไม่มีชื่อผู้โอนและไม่มีลูกศร (เช่น TrueMoney ที่มีชื่อร้านค้า/บริการและยอดเงินอยู่ด้านบน ตามด้วย "ช่องทางการชำระเงิน: วอลเล็ท", "Biller ID", "Ref 1/2/3"): ให้ตั้ง sender = "" และใช้ชื่อร้านค้า/บริการด้านบนเป็น receiver (ห้ามเอาชื่อแอปเช่น "truemoney", "วอลเล็ท" หรือ "สถานที่ทำรายการ" มาเป็นชื่อผู้โอน/ร้านค้า)',
-    '   - กรณีป้าย QR ร้านค้า: ให้ตั้ง sender = "" และใช้ชื่อร้านบนป้ายเป็น receiver',
     '   - หากชื่อร้านค้าขึ้นบรรทัดใหม่ (เช่น บรรทัดแรกมีชื่อร้านไม่จบแล้วต่ออีกบรรทัดเหนือชื่อบุคคลหรือเลขบัญชี) ให้เชื่อมทุกบรรทัดของชื่อร้านเข้าด้วยกันให้ครบ',
     '   - อ่านตัวอักษรภาษาไทยตามรูปอักษรที่เห็นจริงอย่างระมัดระวัง ห้ามอ่านลายน้ำพื้นหลังมาปน และห้ามเดาหรือแปลความหมายคำไทยต่อจากคำภาษาอังกฤษข้างหน้า',
     '   - หากชื่อท้ายบรรทัดถูกแอปธนาคารตัดคำด้วย "..." (เช่น "นาย กิตติ แ...") ให้ตัดเศษตัวอักษรย่อและ "..." ท้ายชื่อออก',
     '3. การตัดสิน type และ merchant:',
     '   - หากมีชื่อผู้ใช้ในระบบ และ receiver ตรงหรือคล้ายกับชื่อผู้ใช้ (ส่วน sender เป็นคนอื่น) ให้ตั้ง type = "income" และ merchant = sender',
-    '   - กรณีอื่นทั้งหมด (ผู้โอนตรงกับชื่อผู้ใช้, หรือไม่ตรงทั้งคู่, หรือเป็นป้าย QR ร้านค้า) ให้ตั้ง type = "expense" และ merchant = receiver (ถ้าไม่มี receiver ค่อยใช้ sender)',
+    '   - กรณีอื่นทั้งหมด (ผู้โอนตรงกับชื่อผู้ใช้ หรือไม่ตรงทั้งคู่) ให้ตั้ง type = "expense" และ merchant = receiver (ถ้าไม่มี receiver ค่อยใช้ sender)',
     '4. promptPayId: เลขพร้อมเพย์ เบอร์โทร Biller ID หรือรหัสอ้างอิง/เลขที่รายการที่ปรากฏในภาพ (ถ้าไม่มีให้ส่ง "")',
-    '5. amount: ยอดเงินที่โอนหรือชำระสุทธิเป็นตัวเลขเท่านั้น (ห้ามใช้ยอดค่าธรรมเนียม 0.00 และห้ามเอาเลขที่อ้างอิงมาเป็นยอดเงิน; ถ้าเป็นป้าย QR ที่ไม่ได้ระบุยอดเงิน ให้ส่ง 0 เสมอ)',
+    '5. amount: ยอดเงินที่โอนหรือชำระสุทธิเป็นตัวเลขเท่านั้น (ห้ามใช้ยอดค่าธรรมเนียม 0.00 และห้ามเอาเลขที่อ้างอิงมาเป็นยอดเงิน)',
     '6. categoryId: เลือก id หมวดหมู่ที่ตรงกับ type และชื่อร้าน/บันทึกช่วยจำในสลิปที่สุด (รายรับใช้ "salary" หรือ "investment", รายจ่ายถ้าไม่แน่ใจใช้ "food" ห้ามเลือก "recurring")',
-    '7. date: หากในสลิปมีวันที่ทำรายการชัดเจน ให้ตอบเป็น YYYY-MM-DD (ค.ศ. เช่น พ.ศ. 2569 = ค.ศ. 2026); ถ้าเป็นป้าย QR หรือไม่พบวันที่ชัดเจนให้ส่ง ""',
+    '7. date: หากในสลิปมีวันที่ทำรายการชัดเจน ให้ตอบเป็น YYYY-MM-DD (ค.ศ. เช่น พ.ศ. 2569 = ค.ศ. 2026); ถ้าไม่พบวันที่ชัดเจนให้ส่ง ""',
   ]
     .filter(Boolean)
     .join("\n");
@@ -125,11 +122,11 @@ function namesLikelyMatch(extracted: string, userName?: string): boolean {
   return aFirst.length >= 3 && aFirst === bFirst;
 }
 
-export function parseQrSlipResult(
+export function parseSlipResult(
   rawText: string,
   validCategoryIds?: string[],
   userName?: string
-): { ok: true; data: QrSlipAnalysisResult } | { ok: false; error: string } {
+): { ok: true; data: SlipAnalysisResult } | { ok: false; error: string } {
   try {
     const cleaned = String(rawText || "")
       .replace(/^```(?:json)?\s*/i, "")

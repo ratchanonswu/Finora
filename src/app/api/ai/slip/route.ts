@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { extractSlipOcrText } from "@/lib/ocr";
 import { callOpenRouter } from "@/lib/openrouter";
-import { buildQrSlipPrompt, parseQrSlipResult } from "@/lib/prompts";
-import { parsePromptPayPayload } from "@/lib/seed";
+import { buildSlipPrompt, parseSlipResult } from "@/lib/prompts";
 
 export async function POST(request: Request) {
   try {
-    const { imageBase64, mimeType, qrRaw, categories, userName, apiKeyOverride } =
+    const { imageBase64, mimeType, categories, userName, apiKeyOverride } =
       await request.json();
 
     if (!imageBase64 || typeof imageBase64 !== "string") {
@@ -26,14 +25,8 @@ export async function POST(request: Request) {
             .join(", ")
         : "food, shopping, housing, transport, entertainment, salary, investment";
 
-    const tlv =
-      typeof qrRaw === "string" && qrRaw.trim() ? parsePromptPayPayload(qrRaw) : {};
-    const skipOcr = Boolean(tlv.merchant && typeof tlv.amount === "number" && tlv.amount > 0);
-    if (skipOcr) {
-      console.info("[OCR] skipped", { reason: "qr_tlv_complete" });
-    }
-    const ocrText = skipOcr ? undefined : await extractSlipOcrText(imageBase64, mimeType);
-    const prompt = buildQrSlipPrompt(qrRaw, categoryList, userName, ocrText);
+    const ocrText = await extractSlipOcrText(imageBase64, mimeType);
+    const prompt = buildSlipPrompt(categoryList, userName, ocrText);
 
     const result = await callOpenRouter({
       apiKeyOverride,
@@ -60,7 +53,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    const validated = parseQrSlipResult(
+    const validated = parseSlipResult(
       result.text,
       filteredCats.map((c) => c.id),
       userName

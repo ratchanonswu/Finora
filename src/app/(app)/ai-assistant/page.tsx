@@ -9,12 +9,11 @@ import {
   isInCurrentQuotaCycle,
   nextCategoryColor,
   normalizeTransactionDate,
-  parsePromptPayPayload,
   todayYmd,
   ymdToIso,
 } from "@/lib/seed";
 import { IconColorPicker } from "@/components/IconColorPicker";
-import { decodeQrImage } from "@/lib/qr-decoder";
+import { prepareSlipImage } from "@/lib/slip-image";
 import {
   describeWriteTool,
   getToolExecutionPriority,
@@ -254,7 +253,7 @@ interface PendingCategoryItem {
 }
 
 interface PendingTxDraft {
-  source: "qr" | "chat_tool";
+  source: "slip" | "chat_tool";
   thumbnailUrl?: string;
   newCategories?: PendingCategoryItem[];
   items: PendingTxItem[];
@@ -282,7 +281,7 @@ export default function AiAssistantPage() {
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [loadingStage, setLoadingStage] = useState<"chat" | "qr_scan" | "saving" | null>(null);
+  const [loadingStage, setLoadingStage] = useState<"chat" | "slip_scan" | "saving" | null>(null);
   const [pendingAmounts, setPendingAmounts] = useState<Record<string, string>>({});
   const [pendingTxDraft, setPendingTxDraft] = useState<PendingTxDraft | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -297,7 +296,7 @@ export default function AiAssistantPage() {
   const prevChatMetaRef = useRef<{
     count: number;
     lastId: string | null;
-    loadingStage: "chat" | "qr_scan" | "saving" | null;
+    loadingStage: "chat" | "slip_scan" | "saving" | null;
   }>({
     count: chatMessages.length,
     lastId: chatMessages[chatMessages.length - 1]?.id ?? null,
@@ -517,8 +516,8 @@ export default function AiAssistantPage() {
 
     const hasNewMessage =
       chatMessages.length > prev.count && Boolean(lastMsg && lastMsg.id !== prev.lastId);
-    const startedQrAttach =
-      loadingStage === "qr_scan" && prev.loadingStage !== "qr_scan";
+    const startedSlipAttach =
+      loadingStage === "slip_scan" && prev.loadingStage !== "slip_scan";
 
     prevChatMetaRef.current = {
       count: chatMessages.length,
@@ -532,7 +531,7 @@ export default function AiAssistantPage() {
         activeUserMediaIdRef.current = lastMsg.id;
       }
       animateChatScrollToBottom("new_message");
-    } else if (startedQrAttach) {
+    } else if (startedSlipAttach) {
       userCancelledScrollRef.current = false;
       animateChatScrollToBottom("user_action");
     } else if (hasNewMessage && !userCancelledScrollRef.current) {
@@ -995,21 +994,20 @@ export default function AiAssistantPage() {
     updateChatMessage(msg.id, { pendingTool: { ...pt, status: "cancelled" } });
   };
 
-  const handleQrOrSlipFile = async (file: File) => {
+  const handleSlipFile = async (file: File) => {
     if (inputLocked) return;
     setLoading(true);
-    setLoadingStage("qr_scan");
+    setLoadingStage("slip_scan");
 
     try {
-      const { qrRaw, imageBase64, mimeType, thumbnailDataUrl } = await decodeQrImage(file);
+      const { imageBase64, mimeType, thumbnailDataUrl } = await prepareSlipImage(file);
       appendChatMessage({
         id: `u-${Date.now()}`,
         role: "user",
-        text: "ส่งรูปภาพ QR / สลิป",
+        text: "ส่งรูปภาพสลิป",
         thumbnailUrl: thumbnailDataUrl,
       });
 
-      const tlv = qrRaw ? parsePromptPayPayload(qrRaw) : {};
       let vision: {
         isValidPaymentImage?: boolean;
         type?: TransactionType;
@@ -1024,13 +1022,12 @@ export default function AiAssistantPage() {
 
       let visionError = "";
       try {
-        const res = await fetch("/api/ai/qr", {
+        const res = await fetch("/api/ai/slip", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             imageBase64,
             mimeType,
-            qrRaw,
             userName: user.name,
             categories: categories.map((c) => ({ id: c.id, name: c.name, type: c.type })),
             apiKeyOverride: settings.geminiApiKeyOverride,
@@ -1046,30 +1043,22 @@ export default function AiAssistantPage() {
         visionError = "ไม่สามารถเชื่อมต่อบริการ AI ได้";
       }
 
-      if (!qrRaw && !vision?.isValidPaymentImage) {
+      if (!vision?.isValidPaymentImage) {
         appendChatMessage({
           id: `e-${Date.now()}`,
           role: "error",
           text: visionError
             ? `ไม่สามารถอ่านรูปภาพด้วย AI ได้ (${visionError})`
-            : "ไม่พบ QR Code หรือข้อมูลการชำระเงินในรูปภาพนี้ กรุณาอัปโหลดรูปป้าย QR หรือสลิปธนาคารที่ชัดเจนนะคะ",
+            : "ไม่พบข้อมูลสลิปหรือใบเสร็จในรูปภาพนี้ กรุณาอัปโหลดรูปสลิปโอนเงินหรือใบเสร็จที่ชัดเจนนะคะ",
         });
         return;
       }
 
       const txType: TransactionType = vision?.type === "income" ? "income" : "expense";
-      const merchant =
-        tlv.merchant ||
-        vision?.merchant ||
-        (tlv.isPromptPayOrSlip ? "ร้านค้า PromptPay" : qrRaw?.slice(0, 40) || "รายการสแกน QR");
-      const promptPayId =
-        tlv.promptPayId || vision?.promptPayId || (qrRaw ? qrRaw.slice(0, 20) : "-");
+      const merchant = vision?.merchant || "รายการจากสลิป";
+      const promptPayId = vision?.promptPayId || "-";
       const amount =
-        typeof tlv.amount === "number" && tlv.amount > 0
-          ? tlv.amount
-          : typeof vision?.amount === "number" && vision.amount > 0
-            ? vision.amount
-            : 0;
+        typeof vision?.amount === "number" && vision.amount > 0 ? vision.amount : 0;
 
       const matchingCategories = categories.filter(
         (c) => c.type === txType && c.id !== "recurring"
@@ -1080,11 +1069,11 @@ export default function AiAssistantPage() {
           : guessCategoryId(merchant, txType);
 
       setPendingTxDraft({
-        source: "qr",
+        source: "slip",
         thumbnailUrl: thumbnailDataUrl,
         items: [
           {
-            id: `qr-${Date.now()}`,
+            id: `slip-${Date.now()}`,
             type: txType,
             merchant,
             ...(vision?.sender ? { sender: vision.sender } : {}),
@@ -1092,7 +1081,7 @@ export default function AiAssistantPage() {
             promptPayId,
             amount: amount > 0 ? String(amount) : "",
             categoryId: validCategory,
-            channel: "สแกน QR / สลิป (AI Chat)",
+            channel: "สแกนสลิป (AI Chat)",
             date: vision?.date || todayYmd(),
             needsAmount: !(amount > 0),
           },
@@ -1298,8 +1287,8 @@ export default function AiAssistantPage() {
       const catName =
         allKnownCategories.find((c) => c.id === finalCategoryId)?.name || finalCategoryId;
       const confirmText =
-        draft.source === "qr"
-          ? `บันทึกรายการจาก QR / สลิป **${p.merchant}** (${catName}) ยอด **${formatTHB(p.amount)}** วันที่ ${formatThaiDate(p.date)} เรียบร้อยแล้วค่ะ`
+        draft.source === "slip"
+          ? `บันทึกรายการจากสลิป **${p.merchant}** (${catName}) ยอด **${formatTHB(p.amount)}** วันที่ ${formatThaiDate(p.date)} เรียบร้อยแล้วค่ะ`
           : `บันทึกรายการ **${p.merchant}** (${catName}) ยอด **${formatTHB(p.amount)}** วันที่ ${formatThaiDate(p.date)} เรียบร้อยแล้วค่ะ`;
 
       savedMessages.push({
@@ -1367,15 +1356,15 @@ export default function AiAssistantPage() {
         id: `a-${Date.now()}`,
         role: "assistant",
         text:
-          draft.source === "qr"
-            ? "ยกเลิกรายการสแกน QR / สลิปนี้แล้วค่ะ"
+          draft.source === "slip"
+            ? "ยกเลิกรายการสลิปนี้แล้วค่ะ"
             : "ยกเลิกรายการบันทึกธุรกรรมนี้แล้วค่ะ",
         txAction: {
           status: "cancelled",
           type: item.type,
           merchant:
             item.merchant.trim() ||
-            (draft.source === "qr" ? "รายการสแกน QR" : "รายการจาก AI"),
+            (draft.source === "slip" ? "รายการจากสลิป" : "รายการจาก AI"),
           ...(item.sender ? { sender: item.sender } : {}),
           ...(item.receiver ? { receiver: item.receiver } : {}),
           promptPayId: item.promptPayId || "-",
@@ -1402,11 +1391,11 @@ export default function AiAssistantPage() {
     const txDate = action.date || todayYmd();
     setLoading(true);
     const saveRes = await addTransaction({
-      title: action.merchant.trim() || "รายการสแกน QR",
+      title: action.merchant.trim() || "รายการจากสลิป",
       amount: rawAmount,
       type: action.type,
       categoryId: action.categoryId,
-      channel: "สแกน QR / สลิป (AI Chat)",
+      channel: "สแกนสลิป (AI Chat)",
       date: ymdToIso(txDate),
     });
     setLoading(false);
@@ -1435,7 +1424,7 @@ export default function AiAssistantPage() {
     const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
     if (file) {
       e.preventDefault();
-      handleQrOrSlipFile(file);
+      handleSlipFile(file);
     }
   };
 
@@ -1446,10 +1435,10 @@ export default function AiAssistantPage() {
       <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight m-0">
-            ผู้ช่วย AI &amp; สแกน QR / สลิปอัตโนมัติ
+            ผู้ช่วย AI &amp; สแกนสลิปอัตโนมัติ
           </h1>
           <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5 line-clamp-2 sm:line-clamp-none">
-            ถามคำถามการเงิน หรือส่งรูป QR Code / สลิปธนาคารเพื่อให้บอทจัดหมวดหมู่และบันทึกรายรับ-รายจ่ายทันที
+            ถามคำถามการเงิน หรือส่งรูปสลิปธนาคารเพื่อให้บอทจัดหมวดหมู่และบันทึกรายรับ-รายจ่ายทันที
           </p>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
@@ -1514,7 +1503,7 @@ export default function AiAssistantPage() {
                     {m.thumbnailUrl && (
                       <img
                         src={m.thumbnailUrl}
-                        alt="Uploaded QR or Slip"
+                        alt="Uploaded Slip"
                         onLoad={() => {
                           if (
                             !userCancelledScrollRef.current &&
@@ -1587,7 +1576,7 @@ export default function AiAssistantPage() {
 
                         {action.status === "cancelled" && (
                           <div className="text-on-surface-variant italic">
-                            ยกเลิกรายการสแกน QR / สลิป ({action.merchant}) แล้ว
+                            ยกเลิกรายการสลิป ({action.merchant}) แล้ว
                           </div>
                         )}
 
@@ -2054,8 +2043,8 @@ export default function AiAssistantPage() {
               <div className="inline-flex items-center gap-2 text-xs text-on-surface-variant font-mono">
                 <span className="h-3.5 w-3.5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                 <span>
-                  {loadingStage === "qr_scan"
-                    ? "กำลังสแกน QR / OCR และวิเคราะห์ด้วย Finora AI..."
+                  {loadingStage === "slip_scan"
+                    ? "กำลังอ่านสลิป (OCR) และวิเคราะห์ด้วย Finora AI..."
                     : loadingStage === "saving"
                       ? "กำลังบันทึกรายการ..."
                       : "กำลังประมวลผลด้วย Finora AI..."}
@@ -2106,14 +2095,14 @@ export default function AiAssistantPage() {
           className="shrink-0 p-3 sm:p-4 border-t border-outline-variant/30 bg-surface-container flex items-end gap-2"
         >
           <label
-            title="อัปโหลดรูปภาพ QR Code หรือสลิปโอนเงิน"
+            title="อัปโหลดรูปภาพสลิปโอนเงินหรือใบเสร็จ"
             className={`cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[42px] rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs font-semibold text-on-surface hover:border-primary/60 transition-colors shrink-0 ${inputLocked ? "opacity-50 pointer-events-none" : ""
               }`}
           >
             <span className="material-symbols-outlined text-[18px] text-primary">
-              qr_code_scanner
+              receipt_long
             </span>
-            <span className="hidden sm:inline">ส่ง QR / สลิป</span>
+            <span className="hidden sm:inline">ส่งสลิป</span>
             <input
               type="file"
               accept="image/*"
@@ -2121,7 +2110,7 @@ export default function AiAssistantPage() {
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 e.target.value = "";
-                if (f) handleQrOrSlipFile(f);
+                if (f) handleSlipFile(f);
               }}
               className="hidden"
             />
@@ -2159,9 +2148,9 @@ export default function AiAssistantPage() {
         </form>
       </div>
 
-      {/* Blocking Transaction Confirmation Modal (QR / Slip & AI Chat Tool Batch) */}
+      {/* Blocking Transaction Confirmation Modal (Slip & AI Chat Tool Batch) */}
       {pendingTxDraft && (() => {
-        const isQrSource = pendingTxDraft.source === "qr";
+        const isSlipSource = pendingTxDraft.source === "slip";
         const draftCats = pendingTxDraft.newCategories ?? [];
         const hasNewCats = draftCats.length > 0;
         const isBatch = pendingTxDraft.items.length > 1;
@@ -2241,8 +2230,8 @@ export default function AiAssistantPage() {
           pendingTxDraft.items.every(
             (it) => it.merchant.trim().length > 0 && Number(it.amount) > 0 && Boolean(it.date)
           );
-        const modalTitle = isQrSource
-          ? "ตรวจสอบข้อมูลจาก QR / สลิป"
+        const modalTitle = isSlipSource
+          ? "ตรวจสอบข้อมูลจากสลิป"
           : hasNewCats
             ? `ตรวจสอบหมวดหมู่ใหม่ (${draftCats.length}) และธุรกรรม (${pendingTxDraft.items.length})`
             : isBatch
@@ -2262,7 +2251,7 @@ export default function AiAssistantPage() {
               <div className="shrink-0 flex items-start justify-between gap-3 px-6 py-4 border-b border-outline-variant/30">
                 <div className="flex items-start gap-2.5">
                   <span className="material-symbols-outlined text-primary text-[22px] mt-0.5">
-                    {isQrSource ? "qr_code_scanner" : "receipt_long"}
+                    receipt_long
                   </span>
                   <div>
                     <h2
@@ -2290,13 +2279,13 @@ export default function AiAssistantPage() {
                     <div className="flex items-center gap-3.5 p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
                       <img
                         src={pendingTxDraft.thumbnailUrl}
-                        alt="QR or Slip Preview"
+                        alt="Slip Preview"
                         className="h-16 w-16 object-contain rounded-md bg-white p-1 border border-outline-variant/30 shrink-0"
                       />
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-semibold text-on-surface truncate">
-                            {firstItem.merchant || "รายการสแกน QR"}
+                            {firstItem.merchant || "รายการจากสลิป"}
                           </span>
                           {firstItem.needsAmount && (
                             <span className="px-2 py-0.5 rounded-full bg-secondary/15 text-secondary text-[10px] font-semibold">
@@ -2616,10 +2605,10 @@ export default function AiAssistantPage() {
 
                         <div
                           className={`grid grid-cols-1 ${
-                            !isQrSource ? "sm:grid-cols-2" : ""
+                            !isSlipSource ? "sm:grid-cols-2" : ""
                           } gap-3`}
                         >
-                          {!isQrSource && (
+                          {!isSlipSource && (
                             <div>
                               <label
                                 htmlFor={`tx-modal-channel-${idx}`}
