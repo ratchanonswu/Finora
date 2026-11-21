@@ -75,9 +75,9 @@ flowchart TD
     Ctx --> Seed
     Tools --> Seed
 
-    AIPage -->|POST messages + financialSummary| ChatAPI
-    AIPage -->|POST imageBase64 + mimeType| SlipAPI
-    Ctx -->|POST credit / debit| BankAPI
+    AIPage -->|"POST messages + financialSummary"| ChatAPI
+    AIPage -->|"POST imageBase64 + mimeType"| SlipAPI
+    Ctx -->|"POST credit / debit"| BankAPI
 
     ChatAPI --> Prompts
     ChatAPI --> Tools
