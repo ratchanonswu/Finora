@@ -10,7 +10,7 @@ export function BudgetOverviewCard({ budgetSummary }: { budgetSummary: BudgetOve
     <div className="h-full rounded-2xl bg-white dark:bg-surface-container border border-slate-200/75 dark:border-outline-variant/30 p-5 sm:p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.06)] dark:shadow-none flex flex-col justify-between gap-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-primary-container/20 text-emerald-600 dark:text-primary flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-primary-container/20 text-emerald-700 dark:text-primary flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[18px]">flag</span>
           </div>
           <h2 className="text-base font-bold text-slate-900 dark:text-on-surface m-0 truncate">
@@ -20,7 +20,7 @@ export function BudgetOverviewCard({ budgetSummary }: { budgetSummary: BudgetOve
 
         <Link
           href="/categories"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-primary hover:underline shrink-0"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-primary hover:underline shrink-0"
         >
           <span>จัดการงบทั้งหมด</span>
           <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
@@ -29,15 +29,15 @@ export function BudgetOverviewCard({ budgetSummary }: { budgetSummary: BudgetOve
 
       {!budgetSummary.hasBudgets ? (
         <div className="flex-1 min-h-[160px] rounded-xl border border-dashed border-slate-200 dark:border-outline-variant/30 flex flex-col items-center justify-center gap-2 text-center p-4">
-          <span className="material-symbols-outlined text-[28px] text-slate-300 dark:text-outline">
+          <span className="material-symbols-outlined text-[28px] text-slate-400 dark:text-outline">
             category
           </span>
-          <p className="text-xs font-medium text-slate-500 dark:text-on-surface-variant">
+          <p className="text-xs font-medium text-slate-600 dark:text-on-surface-variant">
             ยังไม่มีการกำหนดงบประมาณรายเดือนในหมวดหมู่
           </p>
           <Link
             href="/categories"
-            className="text-xs font-semibold text-emerald-600 dark:text-primary hover:underline"
+            className="text-xs font-semibold text-emerald-700 dark:text-primary hover:underline"
           >
             ตั้งงบประมาณหมวดหมู่ →
           </Link>
@@ -62,10 +62,10 @@ export function BudgetOverviewCard({ budgetSummary }: { budgetSummary: BudgetOve
                     <span
                       className={`font-mono font-semibold shrink-0 ${
                         cat.over
-                          ? "text-red-500 dark:text-error"
+                          ? "text-red-600 dark:text-error"
                           : isNear
-                            ? "text-amber-600 dark:text-amber-300"
-                            : "text-slate-500 dark:text-on-surface-variant"
+                            ? "text-amber-700 dark:text-amber-300"
+                            : "text-slate-600 dark:text-on-surface-variant"
                       }`}
                     >
                       {cat.pct}%
@@ -75,7 +75,7 @@ export function BudgetOverviewCard({ budgetSummary }: { budgetSummary: BudgetOve
                   <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-surface-container-highest overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
-                        cat.over ? "bg-red-500 dark:bg-error" : ""
+                        cat.over ? "bg-red-600 dark:bg-error" : ""
                       }`}
                       style={{
                         width: `${barWidth}%`,
@@ -84,11 +84,11 @@ export function BudgetOverviewCard({ budgetSummary }: { budgetSummary: BudgetOve
                     />
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-on-surface-variant">
+                  <div className="flex items-center justify-between text-[11px] font-mono text-slate-600 dark:text-on-surface-variant">
                     <span>
                       {formatTHB(cat.spent)} / {formatTHB(cat.budget)}
                     </span>
-                    <span className={cat.over ? "text-red-500 dark:text-error font-semibold" : ""}>
+                    <span className={cat.over ? "text-red-600 dark:text-error font-semibold" : ""}>
                       {cat.over
                         ? `เกิน ${formatTHB(Math.abs(cat.remaining))}`
                         : `เหลือ ${formatTHB(cat.remaining)}`}
@@ -99,7 +99,7 @@ export function BudgetOverviewCard({ budgetSummary }: { budgetSummary: BudgetOve
             })}
           </div>
           <div className="pt-3 border-t border-slate-100 dark:border-outline-variant/20 flex items-center justify-between gap-2 text-xs">
-            <span className="text-slate-500 dark:text-on-surface-variant truncate">
+            <span className="text-slate-600 dark:text-on-surface-variant truncate">
               รวม {budgetSummary.items.length} หมวด • {budgetSummary.cycleLabel}
             </span>
             <span className="font-mono font-semibold text-slate-700 dark:text-on-surface shrink-0">

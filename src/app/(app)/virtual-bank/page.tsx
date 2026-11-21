@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useFinora } from "@/context/FinoraContext";
 import { formatTHB, formatThaiDate } from "@/lib/seed";
+import { useDialogAccessibility } from "@/lib/useDialogAccessibility";
 
 export default function VirtualBankPage() {
   const { bankBalance, ledger, executeBankAction } = useFinora();
@@ -14,6 +15,9 @@ export default function VirtualBankPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const confirmDialogRef = useRef<HTMLDivElement | null>(null);
+
+  useDialogAccessibility(confirmOpen, confirmDialogRef, () => setConfirmOpen(false), !loading);
 
   const parsedAmount = Number(amount);
 
@@ -67,6 +71,7 @@ export default function VirtualBankPage() {
 
       {feedback && (
         <div
+          role={feedback.type === "ok" ? "status" : "alert"}
           className={`p-3.5 rounded-xl border text-sm flex items-center gap-2 ${
             feedback.type === "ok"
               ? "border-primary/40 bg-primary-container/15 text-primary"
@@ -135,10 +140,14 @@ export default function VirtualBankPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+              <label
+                htmlFor="vb-amount"
+                className="block text-xs font-semibold text-on-surface-variant mb-1"
+              >
                 จำนวนเงิน (THB)
               </label>
               <input
+                id="vb-amount"
                 type="number"
                 step="0.01"
                 min="1"
@@ -146,33 +155,41 @@ export default function VirtualBankPage() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="1,000.00"
-                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono text-on-surface"
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+              <label
+                htmlFor="vb-counterparty"
+                className="block text-xs font-semibold text-on-surface-variant mb-1"
+              >
                 {actionType === "credit" ? "แหล่งที่มาของเงิน" : "บัญชีปลายทาง / ผู้รับเงิน"}
               </label>
               <input
+                id="vb-counterparty"
                 type="text"
                 value={counterparty}
                 onChange={(e) => setCounterparty(e.target.value)}
                 placeholder={actionType === "credit" ? "เช่น SCB Easy, เงินเดือน" : "เช่น KBank, ร้านค้า"}
-                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface"
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+              <label
+                htmlFor="vb-title"
+                className="block text-xs font-semibold text-on-surface-variant mb-1"
+              >
                 บันทึกช่วยจำ
               </label>
               <input
+                id="vb-title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="รายละเอียดรายการ"
-                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface"
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
               />
             </div>
 
@@ -239,12 +256,23 @@ export default function VirtualBankPage() {
       {/* Confirmation Modal */}
       {confirmOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-backdrop-in"
           role="dialog"
           aria-modal="true"
+          aria-labelledby="vb-confirm-title"
+          onClick={() => {
+            if (!loading) setConfirmOpen(false);
+          }}
         >
-          <div className="w-full max-w-md rounded-xl bg-surface-container border border-outline-variant/40 p-6 shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-on-surface m-0">ยืนยันการทำรายการ</h3>
+          <div
+            ref={confirmDialogRef}
+            tabIndex={-1}
+            className="w-full max-w-md rounded-xl bg-surface-container border border-outline-variant/40 p-6 shadow-2xl space-y-4 animate-modal-in focus:outline-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="vb-confirm-title" className="text-lg font-bold text-on-surface m-0">
+              ยืนยันการทำรายการ
+            </h3>
             <p className="text-sm text-on-surface-variant leading-relaxed">
               คุณต้องการ{actionType === "credit" ? "เติมเงินเข้าบัญชี" : "โอนเงินออกจากบัญชี"}จำนวน{" "}
               <strong className="text-on-surface font-mono">{formatTHB(parsedAmount)}</strong>{" "}
@@ -253,8 +281,9 @@ export default function VirtualBankPage() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
+                disabled={loading}
                 onClick={() => setConfirmOpen(false)}
-                className="px-4 py-2 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high"
+                className="px-4 py-2 rounded-lg text-sm text-on-surface-variant hover:bg-surface-container-high disabled:opacity-50"
               >
                 ยกเลิก
               </button>
@@ -262,7 +291,7 @@ export default function VirtualBankPage() {
                 type="button"
                 disabled={loading}
                 onClick={handleConfirmExecute}
-                className="px-5 py-2 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90"
+                className="px-5 py-2 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 disabled:opacity-50"
               >
                 {loading ? "กำลังดำเนินการ..." : "ยืนยันรายการ"}
               </button>

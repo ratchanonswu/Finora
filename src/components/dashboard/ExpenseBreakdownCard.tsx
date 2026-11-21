@@ -130,8 +130,21 @@ export function ExpenseBreakdownCard({
                     strokeDasharray={seg.dashArray}
                     strokeDashoffset={seg.dashOffset}
                     opacity={hoveredId && !isActive ? 0.45 : 1}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`${seg.name}: ${formatTHB(seg.amount)} (${seg.pct}%)`}
+                    aria-pressed={isActive}
                     onMouseEnter={() => setHoveredId(seg.id)}
-                    className="cursor-pointer transition-all duration-150"
+                    onFocus={() => setHoveredId(seg.id)}
+                    onBlur={() => setHoveredId(null)}
+                    onClick={() => setHoveredId((prev) => (prev === seg.id ? null : seg.id))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setHoveredId((prev) => (prev === seg.id ? null : seg.id));
+                      }
+                    }}
+                    className="cursor-pointer transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                   />
                 );
               })}
@@ -142,23 +155,28 @@ export function ExpenseBreakdownCard({
               <span className="text-base font-bold font-mono text-slate-900 dark:text-on-surface leading-tight">
                 {formatCompactTHB(activeSlice ? activeSlice.amount : breakdown.totalExpense)}
               </span>
-              <span className="text-[10px] font-medium text-slate-500 dark:text-on-surface-variant truncate max-w-[78px] mt-0.5">
+              <span className="text-[10px] font-medium text-slate-600 dark:text-on-surface-variant truncate max-w-[78px] mt-0.5">
                 {activeSlice ? `${activeSlice.name}` : "รวมค่าใช้จ่าย"}
               </span>
             </div>
           </div>
 
           {/* Legend */}
-          <div className="flex-1 w-full space-y-2.5 min-w-0">
+          <div className="flex-1 w-full space-y-1.5 min-w-0">
             {displaySlices.map((slice) => {
               const isActive = hoveredId === slice.id;
               return (
-                <div
+                <button
                   key={slice.id}
+                  type="button"
+                  aria-pressed={isActive}
                   onMouseEnter={() => setHoveredId(slice.id)}
                   onMouseLeave={() => setHoveredId(null)}
-                  className={`flex items-center justify-between gap-2 px-2 py-1 -mx-2 rounded-lg text-xs cursor-pointer transition-colors ${
-                    isActive ? "bg-slate-100/80 dark:bg-surface-container-high/60" : ""
+                  onFocus={() => setHoveredId(slice.id)}
+                  onBlur={() => setHoveredId(null)}
+                  onClick={() => setHoveredId((prev) => (prev === slice.id ? null : slice.id))}
+                  className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 -mx-2 rounded-lg text-xs text-left transition-colors ${
+                    isActive ? "bg-slate-100/80 dark:bg-surface-container-high/60" : "hover:bg-slate-50 dark:hover:bg-surface-container-high/30"
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -171,14 +189,14 @@ export function ExpenseBreakdownCard({
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 font-mono">
-                    <span className="text-[11px] text-slate-400 dark:text-outline hidden sm:inline lg:hidden xl:inline">
+                    <span className="text-[11px] text-slate-600 dark:text-outline hidden sm:inline lg:hidden xl:inline">
                       {formatTHB(slice.amount)}
                     </span>
                     <span className="font-bold text-slate-900 dark:text-on-surface w-9 text-right">
                       {slice.pct}%
                     </span>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { CATEGORY_PALETTE } from "@/lib/seed";
+import { useDialogAccessibility } from "@/lib/useDialogAccessibility";
 
 export const COLOR_CHOICES = [
   "#EA580C",
@@ -61,8 +62,11 @@ export function IconColorPicker({
   onColorChange,
 }: IconColorPickerProps) {
   const [open, setOpen] = useState(false);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   const currentIconLabel =
     ICON_CHOICES.find((o) => o.icon === icon)?.label ?? icon;
+
+  useDialogAccessibility(open, popoverRef, () => setOpen(false), true);
 
   return (
     <div className="relative">
@@ -98,10 +102,12 @@ export function IconColorPicker({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
+            ref={popoverRef}
+            tabIndex={-1}
             role="dialog"
+            aria-modal="true"
             aria-label={dialogLabel}
-            onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-            className="absolute z-50 left-0 top-full mt-2 w-80 rounded-xl bg-surface-container border border-outline-variant/40 shadow-xl p-3.5 space-y-3 origin-top-left animate-modal-in"
+            className="absolute z-50 left-0 top-full mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl bg-surface-container border border-outline-variant/40 shadow-xl p-3.5 space-y-3 origin-top-left animate-modal-in focus:outline-none"
           >
             <div>
               <span className="block text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider mb-2">
@@ -117,7 +123,7 @@ export function IconColorPicker({
                       aria-label={`เลือกสี ${hex}`}
                       aria-pressed={active}
                       onClick={() => onColorChange(hex)}
-                      className={`w-6 h-6 rounded-full flex items-center justify-center transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                         active
                           ? "scale-110 ring-2 ring-on-surface ring-offset-2 ring-offset-surface-container"
                           : "hover:scale-105"

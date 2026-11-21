@@ -45,13 +45,19 @@ interface FinoraContextValue extends FinoraState {
   hydrated: boolean;
   isTxModalOpen: boolean;
   setTxModalOpen: (open: boolean) => void;
+  editingTransaction: Transaction | null;
+  openEditTransaction: (tx: Transaction) => void;
   toggleTheme: () => void;
-  loginUser: (email: string, name?: string) => void;
+  loginUser: (email: string, name?: string, remember?: boolean) => void;
   registerUser: (email: string, name: string) => void;
   logoutUser: () => void;
   addTransaction: (
     tx: Omit<Transaction, "id" | "ref" | "status">
   ) => Promise<{ ok: boolean; error?: string; transactionId?: string }>;
+  updateTransaction: (
+    id: string,
+    tx: Omit<Transaction, "id" | "ref" | "status">
+  ) => Promise<{ ok: boolean; error?: string }>;
   updateTransactionDate: (id: string, dateYmd: string) => void;
   deleteTransaction: (id: string, options?: { refundWallet?: boolean }) => Promise<void>;
   chatMessages: ChatMessage[];
@@ -86,6 +92,7 @@ interface FinoraContextValue extends FinoraState {
 
 const STORAGE_KEY = "finora_state_v1";
 const CHAT_SESSION_KEY = "finora_chat_session_v1";
+const SESSION_ACTIVE_KEY = "finora_session_active_v1";
 
 function chatSessionKeyFor(email: string): string {
   return `${CHAT_SESSION_KEY}:${email.trim().toLowerCase()}`;
@@ -166,7 +173,19 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   const catSeqRef = useRef(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
   const [hydrated, setHydrated] = useState(false);
-  const [isTxModalOpen, setTxModalOpen] = useState(false);
+  const [isTxModalOpen, setTxModalOpenRaw] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [rememberSession, setRememberSession] = useState(true);
+
+  const setTxModalOpen = (open: boolean) => {
+    setTxModalOpenRaw(open);
+    if (!open) setEditingTransaction(null);
+  };
+
+  const openEditTransaction = (tx: Transaction) => {
+    setEditingTransaction(tx);
+    setTxModalOpenRaw(true);
+  };
 
   useEffect(() => {
     try {
@@ -223,11 +242,15 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
           parsed.categories ?? DEFAULT_STATE.categories,
           loadedRecurring
         );
+        const hasActiveTabSession = sessionStorage.getItem(SESSION_ACTIVE_KEY) === "1";
         const mergedUser: UserProfile = {
           ...INITIAL_USER,
           ...(parsed.user && typeof parsed.user === "object" ? parsed.user : {}),
-          isLoggedIn: Boolean(parsed.user?.isLoggedIn),
+          isLoggedIn: Boolean(parsed.user?.isLoggedIn) || hasActiveTabSession,
         };
+        if (!parsed.user?.isLoggedIn && hasActiveTabSession) {
+          setRememberSession(false);
+        }
         activeUser = mergedUser;
         setState((prev) => ({
           ...prev,
@@ -249,11 +272,14 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated) return;
     document.documentElement.classList.toggle("dark", state.theme === "dark");
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      const persistedState: FinoraState = rememberSession
+        ? state
+        : { ...state, user: { ...state.user, isLoggedIn: false } };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
     } catch {
       // Ignore quota errors
     }
-  }, [state, hydrated]);
+  }, [state, hydrated, rememberSession]);
 
   useEffect(() => {
     if (!hydrated || !state.user.isLoggedIn || !state.user.email) return;
@@ -267,7 +293,14 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = () =>
     setState((prev) => ({ ...prev, theme: prev.theme === "light" ? "dark" : "light" }));
 
-  const loginUser = (email: string, name?: string) => {
+  const loginUser = (email: string, name?: string, remember = true) => {
+    setRememberSession(remember);
+    try {
+      if (remember) sessionStorage.removeItem(SESSION_ACTIVE_KEY);
+      else sessionStorage.setItem(SESSION_ACTIVE_KEY, "1");
+    } catch {
+      // Ignore sessionStorage errors
+    }
     setState((prev) => {
       const isMockUser = email.toLowerCase() === INITIAL_USER.email.toLowerCase();
       return {
@@ -294,6 +327,12 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
 
   // New registered users start with a clean account (no mock transactions/balance), keeping base categories.
   const registerUser = (email: string, name: string) => {
+    setRememberSession(true);
+    try {
+      sessionStorage.removeItem(SESSION_ACTIVE_KEY);
+    } catch {
+      // Ignore sessionStorage errors
+    }
     setState((prev) => ({
       ...prev,
       categories: syncCategoriesWithRecurring(INITIAL_CATEGORIES, []),
@@ -317,6 +356,12 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logoutUser = () => {
+    setRememberSession(true);
+    try {
+      sessionStorage.removeItem(SESSION_ACTIVE_KEY);
+    } catch {
+      // Ignore sessionStorage errors
+    }
     setState((prev) => ({
       ...prev,
       user: { ...prev.user, isLoggedIn: false },
@@ -392,6 +437,36 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
       transactions: sortTransactionsByDateDesc([newTx, ...prev.transactions]),
     }));
     return { ok: true, transactionId: newTx.id };
+  };
+
+  const updateTransaction = async (
+    id: string,
+    tx: Omit<Transaction, "id" | "ref" | "status">
+  ): Promise<{ ok: boolean; error?: string }> => {
+    const target = state.transactions.find((t) => t.id === id);
+    if (!target) return { ok: false, error: "ไม่พบรายการธุรกรรม" };
+
+    const oldSigned = target.type === "income" ? target.amount : -target.amount;
+    const newSigned = tx.type === "income" ? tx.amount : -tx.amount;
+    const walletDelta = newSigned - oldSigned;
+
+    if (state.settings.autoDebitOnExpense && walletDelta !== 0) {
+      const bankRes = await executeBankAction(
+        walletDelta > 0 ? "credit" : "debit",
+        Math.abs(walletDelta),
+        `แก้ไขรายการ: ${tx.title}`,
+        tx.channel || "Finora Edit"
+      );
+      if (!bankRes.ok) return bankRes;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      transactions: sortTransactionsByDateDesc(
+        prev.transactions.map((t) => (t.id === id ? { ...t, ...tx } : t))
+      ),
+    }));
+    return { ok: true };
   };
 
   const updateTransactionDate = (id: string, dateYmd: string) => {
@@ -692,11 +767,14 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
         hydrated,
         isTxModalOpen,
         setTxModalOpen,
+        editingTransaction,
+        openEditTransaction,
         toggleTheme,
         loginUser,
         registerUser,
         logoutUser,
         addTransaction,
+        updateTransaction,
         updateTransactionDate,
         deleteTransaction,
         chatMessages,

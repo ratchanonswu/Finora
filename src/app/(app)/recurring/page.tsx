@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { COLOR_CHOICES, IconColorPicker } from "@/components/IconColorPicker";
 import { useFinora } from "@/context/FinoraContext";
 import { formatTHB } from "@/lib/seed";
+import type { RecurringPayment } from "@/lib/types";
 
 export default function RecurringPage() {
   const {
@@ -29,6 +31,8 @@ export default function RecurringPage() {
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RecurringPayment | null>(null);
+  const [confirmPayAllOpen, setConfirmPayAllOpen] = useState(false);
 
   const isIncomeTab = tab === "income";
 
@@ -117,6 +121,7 @@ export default function RecurringPage() {
     setFeedback(null);
     const res = await payAllActiveRecurring(tab);
     setBusy(false);
+    setConfirmPayAllOpen(false);
     setFeedback(
       res.ok
         ? {
@@ -148,7 +153,7 @@ export default function RecurringPage() {
           <button
             type="button"
             disabled={busy || activeItems.length === 0}
-            onClick={handlePayAll}
+            onClick={() => setConfirmPayAllOpen(true)}
             className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border text-sm font-semibold disabled:opacity-50 shadow-sm transition-colors ${
               isIncomeTab
                 ? "border-primary/40 bg-primary-container/15 text-primary hover:bg-primary-container/25"
@@ -199,6 +204,7 @@ export default function RecurringPage() {
 
       {feedback && (
         <div
+          role={feedback.ok ? "status" : "alert"}
           className={`p-3.5 rounded-xl border text-sm flex items-center justify-between gap-3 animate-page-in ${
             feedback.ok
               ? "border-primary/40 bg-primary-container/20 text-on-surface"
@@ -219,7 +225,7 @@ export default function RecurringPage() {
             type="button"
             onClick={() => setFeedback(null)}
             aria-label="ปิดการแจ้งเตือน"
-            className="text-on-surface-variant hover:text-on-surface"
+            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
@@ -232,10 +238,14 @@ export default function RecurringPage() {
           className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end animate-page-in"
         >
           <div className="lg:col-span-2">
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+            <label
+              htmlFor="rec-title-input"
+              className="block text-xs font-semibold text-on-surface-variant mb-1"
+            >
               {isIncomeTab ? "ชื่อแหล่งรายได้" : "ชื่อค่าบริการ / บิล"}
             </label>
             <input
+              id="rec-title-input"
               type="text"
               required
               value={title}
@@ -245,32 +255,40 @@ export default function RecurringPage() {
                   ? "เช่น เงินเดือนประจำ, ค่าเช่าคอนโด"
                   : "เช่น YouTube Premium, ค่าฟิตเนส"
               }
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+            <label
+              htmlFor="rec-amount-input"
+              className="block text-xs font-semibold text-on-surface-variant mb-1"
+            >
               จำนวนเงิน (THB)
             </label>
             <input
+              id="rec-amount-input"
               type="number"
               required
               min="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder={isIncomeTab ? "55000" : "299"}
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-on-surface"
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
             />
           </div>
           {isIncomeTab && (
             <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+              <label
+                htmlFor="rec-income-cat"
+                className="block text-xs font-semibold text-on-surface-variant mb-1"
+              >
                 หมวดหมู่รายรับ
               </label>
               <select
+                id="rec-income-cat"
                 value={incomeCategoryId}
                 onChange={(e) => setIncomeCategoryId(e.target.value)}
-                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
               >
                 {incomeCategories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -281,13 +299,17 @@ export default function RecurringPage() {
             </div>
           )}
           <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+            <label
+              htmlFor="rec-cycle"
+              className="block text-xs font-semibold text-on-surface-variant mb-1"
+            >
               {isIncomeTab ? "รอบรับเงิน" : "รอบตัดเงิน"}
             </label>
             <select
+              id="rec-cycle"
               value={cycle}
               onChange={(e) => setCycle(e.target.value as "monthly" | "weekly" | "yearly")}
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface"
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
             >
               <option value="monthly">รายเดือน</option>
               <option value="weekly">รายสัปดาห์</option>
@@ -295,15 +317,19 @@ export default function RecurringPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+            <label
+              htmlFor="rec-due-date"
+              className="block text-xs font-semibold text-on-surface-variant mb-1"
+            >
               {isIncomeTab ? "วันรับเงินถัดไป" : "วันตัดเงินถัดไป"}
             </label>
             <input
+              id="rec-due-date"
               type="date"
               required
               value={nextDueDate}
               onChange={(e) => setNextDueDate(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-on-surface"
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
             />
           </div>
           <IconColorPicker
@@ -421,8 +447,8 @@ export default function RecurringPage() {
                       type="button"
                       aria-label={`ลบรายการ ${item.title}`}
                       title="ลบรายการ"
-                      onClick={() => deleteRecurring(item.id)}
-                      className="p-1.5 rounded-lg text-outline hover:text-error hover:bg-error/10 transition-colors"
+                      onClick={() => setDeleteTarget(item)}
+                      className="p-2 rounded-lg text-outline hover:text-error hover:bg-error/10 transition-colors"
                     >
                       <span className="material-symbols-outlined text-[18px] leading-none">
                         delete
@@ -435,6 +461,41 @@ export default function RecurringPage() {
           })
         )}
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="ต้องการลบรายการประจำนี้ใช่ไหม?"
+        description={
+          deleteTarget
+            ? `รายการ "${deleteTarget.title}" (${formatTHB(deleteTarget.amount)}) จะถูกลบออกจากการตัด/รับเงินอัตโนมัติ (ประวัติธุรกรรมที่บันทึกไปแล้วจะยังคงอยู่)`
+            : ""
+        }
+        confirmLabel="ยืนยันลบรายการ"
+        icon="delete"
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteRecurring(deleteTarget.id);
+            setDeleteTarget(null);
+          }
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmPayAllOpen}
+        title={isIncomeTab ? "ยืนยันรับยอดรายการประจำทั้งหมด" : "ยืนยันตัดยอดรายการประจำทั้งหมด"}
+        description={`ระบบจะ${
+          isIncomeTab ? "บันทึกรับยอด" : "ตัดยอดชำระ"
+        }รายการที่เปิดใช้งานอยู่ทั้งหมด ${activeItems.length} รายการ รวมเป็นเงิน ${formatTHB(
+          activeSum
+        )}`}
+        confirmLabel={isIncomeTab ? "ยืนยันรับยอดทั้งหมด" : "ยืนยันตัดยอดทั้งหมด"}
+        variant={isIncomeTab ? "primary" : "danger"}
+        icon="payments"
+        loading={busy}
+        onConfirm={handlePayAll}
+        onCancel={() => setConfirmPayAllOpen(false)}
+      />
     </div>
   );
 }
