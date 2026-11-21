@@ -4,7 +4,7 @@ import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } 
 import { cleanOcrText } from "./ocr.ts";
 import { buildQrSlipPrompt, parseQrSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
-import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, formatTHB, formatThaiDate, isBaseCategory, nextCategoryColor, normalizeTransactionDate, parsePromptPayPayload, relativeDateYmd } from "./seed.ts";
+import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, formatTHB, formatThaiDate, isBaseCategory, isInCurrentQuotaCycle, nextCategoryColor, normalizeTransactionDate, parsePromptPayPayload, relativeDateYmd, todayYmd } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -483,7 +483,22 @@ assert.equal(predRolling.baselineMonthlyOutflow, 1000);
 const lowBudgetWarn = validateAndNormalizeWriteTool(
   "update_category_budget",
   { categoryId: "food", budget: 500 },
-  snap
+  {
+    ...snap,
+    transactions: [
+      {
+        id: "cur-month-food",
+        ref: "CUR-1",
+        title: "Lunch Today",
+        amount: 1500,
+        type: "expense",
+        categoryId: "food",
+        channel: "Virtual Bank Wallet",
+        date: `${todayYmd()}T12:00:00+07:00`,
+        status: "completed",
+      },
+    ],
+  }
 );
 assert.equal(lowBudgetWarn.ok, true);
 if (lowBudgetWarn.ok) assert.equal(lowBudgetWarn.summary.includes("⚠️"), true);
@@ -503,4 +518,50 @@ const badRecDate = validateAndNormalizeWriteTool(
 );
 assert.equal(badRecDate.ok, false);
 
-console.log("Finora self-check passed (22/22 checks)");
+// 23. Unset quotaResetAt falls back to current local month while preserving explicit reset cutoffs
+const cycleRefDate = new Date(2026, 10, 21);
+assert.equal(isInCurrentQuotaCycle("2026-11-15T12:00:00+07:00", undefined, cycleRefDate), true);
+assert.equal(isInCurrentQuotaCycle("2026-08-15T12:00:00+07:00", undefined, cycleRefDate), false);
+assert.equal(isInCurrentQuotaCycle("2026-12-01T12:00:00+07:00", undefined, cycleRefDate), false);
+assert.equal(
+  isInCurrentQuotaCycle("2026-10-10T12:00:00+07:00", "2026-10-01T00:00:00+07:00", cycleRefDate),
+  true
+);
+assert.equal(isInCurrentQuotaCycle("not-a-date", undefined, cycleRefDate), false);
+
+const unsetResetCatSummary = runReadTool("get_categories", {}, {
+  bankBalance: 10000,
+  categories: INITIAL_CATEGORIES,
+  recurring: INITIAL_RECURRING,
+  transactions: [
+    {
+      id: "old-90d-food",
+      ref: "OLD-90F",
+      title: "Old Food",
+      amount: 4000,
+      type: "expense",
+      categoryId: "food",
+      channel: "Virtual Bank Wallet",
+      date: `${relativeDateYmd(-90)}T12:00:00+07:00`,
+      status: "completed",
+    },
+    {
+      id: "cur-food",
+      ref: "CUR-F",
+      title: "Current Month Food",
+      amount: 1200,
+      type: "expense",
+      categoryId: "food",
+      channel: "Virtual Bank Wallet",
+      date: `${todayYmd()}T12:00:00+07:00`,
+      status: "completed",
+    },
+  ],
+}) as {
+  categories: Array<{ id: string; spent: number; remainingBudget: number }>;
+};
+const unsetFoodCat = unsetResetCatSummary.categories.find((c) => c.id === "food");
+assert.equal(unsetFoodCat?.spent, 1200);
+assert.equal(unsetFoodCat?.remainingBudget, 8800);
+
+console.log("Finora self-check passed (23/23 checks)");

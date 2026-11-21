@@ -69,6 +69,7 @@ export interface BudgetOverviewSummary {
   totalRemaining: number;
   usedPct: number;
   hasBudgets: boolean;
+  cycleLabel: string;
 }
 
 export interface ExpenseSlice {
@@ -534,7 +535,8 @@ export function buildBarChartSeries(
 export function computeBudgetOverview(
   categories: Category[],
   transactions: Transaction[],
-  quotaResetAt?: string
+  quotaResetAt?: string,
+  now = new Date()
 ): BudgetOverviewSummary {
   const budgetedCats = categories.filter(
     (c) => c.type === "expense" && c.id !== "recurring" && c.budget > 0
@@ -547,7 +549,7 @@ export function computeBudgetOverview(
           (t) =>
             t.type === "expense" &&
             t.categoryId === cat.id &&
-            isInCurrentQuotaCycle(t.date, quotaResetAt)
+            isInCurrentQuotaCycle(t.date, quotaResetAt, now)
         )
         .reduce((s, t) => s + t.amount, 0);
       const pct = cat.budget > 0 ? Math.round((spent / cat.budget) * 100) : 0;
@@ -569,6 +571,7 @@ export function computeBudgetOverview(
   const totalSpent = items.reduce((s, i) => s + i.spent, 0);
   const totalRemaining = totalBudget - totalSpent;
   const usedPct = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0;
+  const hasValidReset = Boolean(quotaResetAt && !Number.isNaN(new Date(quotaResetAt).getTime()));
 
   return {
     items,
@@ -577,6 +580,7 @@ export function computeBudgetOverview(
     totalRemaining,
     usedPct,
     hasBudgets: totalBudget > 0,
+    cycleLabel: hasValidReset ? "รอบงบปัจจุบัน" : "เดือนนี้",
   };
 }
 
@@ -698,7 +702,7 @@ export function buildDashboardNotifications(
   const alerts: DashboardNotification[] = [];
 
   if (settings.notifyBudget80) {
-    const budgetSummary = computeBudgetOverview(categories, transactions, settings.quotaResetAt);
+    const budgetSummary = computeBudgetOverview(categories, transactions, settings.quotaResetAt, now);
     for (const cat of budgetSummary.items) {
       if (cat.pct >= 80) {
         alerts.push({

@@ -149,9 +149,21 @@ export const INITIAL_SETTINGS: AppSettings = {
   quotaResetDay: 1,
 };
 
-export function isInCurrentQuotaCycle(txDate: string, quotaResetAt?: string): boolean {
-  if (!quotaResetAt) return true;
-  return new Date(txDate).getTime() > new Date(quotaResetAt).getTime();
+export function isInCurrentQuotaCycle(
+  txDate: string,
+  quotaResetAt?: string,
+  now = new Date()
+): boolean {
+  const txTime = new Date(txDate).getTime();
+  if (Number.isNaN(txTime)) return false;
+  if (quotaResetAt) {
+    const resetTime = new Date(quotaResetAt).getTime();
+    if (!Number.isNaN(resetTime)) {
+      return txTime > resetTime;
+    }
+  }
+  const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return toDateInputValue(txDate).slice(0, 7) === currentYm;
 }
 
 export function advanceDueDate(dateStr: string, cycle: "monthly" | "weekly" | "yearly"): string {
