@@ -298,7 +298,7 @@ export default function SettingsPage() {
                 จัดหมวดหมู่ธุรกรรมอัตโนมัติด้วย AI
               </div>
               <div className="text-xs text-on-surface-variant">
-                ให้ AI ช่วยเลือกหมวดหมู่ที่เหมาะสมจากชื่อร้านค้าหรือสลิป QR
+                ให้ AI ช่วยเลือกหมวดหมู่ที่เหมาะสมจากชื่อร้านค้าหรือสลิปโอนเงิน
               </div>
             </div>
             <input

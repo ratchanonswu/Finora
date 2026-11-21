@@ -10,7 +10,7 @@ import { DashboardHeader } from "./dashboard/DashboardShell";
 
 const AI_NAV_ITEM = {
   href: "/ai-assistant",
-  label: "ผู้ช่วย AI & สแกน QR",
+  label: "ผู้ช่วย AI & สแกนสลิป",
   icon: "auto_awesome",
   badge: "AI",
 };

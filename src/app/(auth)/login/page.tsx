@@ -17,8 +17,8 @@ const HIGHLIGHTS = [
     desc: "ทดสอบการตัดเงินอัตโนมัติและการจัดสรรเงินใน Sandbox ปลอดภัย",
   },
   {
-    icon: "qr_code_scanner",
-    title: "PromptPay QR Verification",
+    icon: "document_scanner",
+    title: "AI Slip Verification",
     desc: "สแกนและตรวจสอบข้อมูลสลิปธุรกรรมอย่างรวดเร็ว",
   },
 ];
