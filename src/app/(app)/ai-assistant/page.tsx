@@ -7,11 +7,13 @@ import {
   formatTHB,
   formatThaiDate,
   isInCurrentQuotaCycle,
+  nextCategoryColor,
   normalizeTransactionDate,
   parsePromptPayPayload,
   todayYmd,
   ymdToIso,
 } from "@/lib/seed";
+import { IconColorPicker } from "@/components/IconColorPicker";
 import { decodeQrImage } from "@/lib/qr-decoder";
 import {
   describeWriteTool,
@@ -242,9 +244,19 @@ interface PendingTxItem {
   needsAmount?: boolean;
 }
 
+interface PendingCategoryItem {
+  id: string;
+  name: string;
+  type: TransactionType;
+  budget: string;
+  icon: string;
+  color: string;
+}
+
 interface PendingTxDraft {
   source: "qr" | "chat_tool";
   thumbnailUrl?: string;
+  newCategories?: PendingCategoryItem[];
   items: PendingTxItem[];
   error?: string;
 }
@@ -264,8 +276,8 @@ export default function AiAssistantPage() {
     undoChatTransaction,
     addTransaction,
     updateCategoryBudget,
+    addCategory,
     addRecurring,
-    toggleRecurring,
   } = useFinora();
 
   const [input, setInput] = useState("");
@@ -662,7 +674,7 @@ export default function AiAssistantPage() {
           history.push({
             role: "user",
             content:
-              "[ระบบ] คุณยังไม่ได้ส่ง Function Call (tool_calls) จริง ทำให้หน้าต่างหรือการ์ดยืนยันไม่ปรากฏบนหน้าจอ กรุณาเรียกใช้ Tool ที่เกี่ยวข้อง (เช่น add_transaction, update_category_budget, add_recurring_payment หรือ toggle_recurring) ทันทีโดยใช้ค่าเริ่มต้นสำหรับฟิลด์ที่ผู้ใช้ไม่ได้ระบุค่ะ",
+              "[ระบบ] คุณยังไม่ได้ส่ง Function Call (tool_calls) จริง ทำให้หน้าต่างหรือการ์ดยืนยันไม่ปรากฏบนหน้าจอ กรุณาเรียกใช้ Tool ที่เกี่ยวข้อง (เช่น add_transaction, update_category_budget, add_category หรือ add_recurring_payment) ทันทีโดยใช้ค่าเริ่มต้นสำหรับฟิลด์ที่ผู้ใช้ไม่ได้ระบุค่ะ",
           });
           continue;
         }
@@ -702,8 +714,15 @@ export default function AiAssistantPage() {
             getToolExecutionPriority(b.tc.function.name, b.args)
         );
 
+      const workingCategories: Category[] = [...categories];
+      const draftCategories: PendingCategoryItem[] = [];
       const txItems: PendingTxItem[] = [];
-      let hasOtherWrite = false;
+      const otherWriteCards: Array<{
+        tc: OpenRouterToolCall;
+        args: Record<string, unknown>;
+        summary: string;
+      }> = [];
+
       for (let idx = 0; idx < parsedCalls.length; idx++) {
         const { tc, args, parseError } = parsedCalls[idx];
         if (parseError) {
@@ -717,16 +736,45 @@ export default function AiAssistantPage() {
           });
           continue;
         }
+        const effectiveSnapshot = { ...snapshot, categories: workingCategories };
         if (READ_TOOL_NAMES.has(tc.function.name)) {
-          const out = runReadTool(tc.function.name, args, snapshot);
+          const out = runReadTool(tc.function.name, args, effectiveSnapshot);
           history.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(out) });
         } else if (WRITE_TOOL_NAMES.has(tc.function.name)) {
-          const check = validateAndNormalizeWriteTool(tc.function.name, args, snapshot);
+          const check = validateAndNormalizeWriteTool(tc.function.name, args, effectiveSnapshot);
           if (!check.ok) {
             history.push({
               role: "tool",
               tool_call_id: tc.id,
               content: JSON.stringify({ error: check.error }),
+            });
+          } else if (tc.function.name === "add_category") {
+            const draftId = `draft-cat-${draftCategories.length}`;
+            const catType: TransactionType =
+              check.args.type === "income" ? "income" : "expense";
+            const catBudget = Number(check.args.budget) || 0;
+            const catIcon = String(
+              check.args.icon || (catType === "income" ? "payments" : "label")
+            );
+            const catColor = String(
+              check.args.color || nextCategoryColor(workingCategories.map((c) => c.color))
+            );
+            const catName = String(check.args.name || "");
+            draftCategories.push({
+              id: draftId,
+              name: catName,
+              type: catType,
+              budget: String(catBudget),
+              icon: catIcon,
+              color: catColor,
+            });
+            workingCategories.push({
+              id: draftId,
+              name: catName,
+              type: catType,
+              budget: catBudget,
+              icon: catIcon,
+              color: catColor,
             });
           } else if (tc.function.name === "add_transaction") {
             const txType: TransactionType =
@@ -745,18 +793,10 @@ export default function AiAssistantPage() {
               needsAmount: !(Number.isFinite(amt) && amt > 0),
             });
           } else {
-            hasOtherWrite = true;
-            appendChatMessage({
-              id: `t-${Date.now()}-${idx}-${tc.id}`,
-              role: "assistant",
-              text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
-              pendingTool: {
-                toolCallId: tc.id,
-                name: tc.function.name,
-                args: check.args,
-                summary: check.summary,
-                status: "pending",
-              },
+            otherWriteCards.push({
+              tc,
+              args: check.args,
+              summary: check.summary,
             });
           }
         } else {
@@ -770,15 +810,58 @@ export default function AiAssistantPage() {
         }
       }
 
+      for (let i = 0; i < otherWriteCards.length; i++) {
+        const card = otherWriteCards[i];
+        appendChatMessage({
+          id: `t-${Date.now()}-${i}-${card.tc.id}`,
+          role: "assistant",
+          text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
+          pendingTool: {
+            toolCallId: card.tc.id,
+            name: card.tc.function.name,
+            args: card.args,
+            summary: card.summary,
+            status: "pending",
+          },
+        });
+      }
+
       if (txItems.length > 0) {
         setPendingTxDraft({
           source: "chat_tool",
+          ...(draftCategories.length > 0 ? { newCategories: draftCategories } : {}),
           items: txItems,
         });
         return;
       }
 
-      if (hasOtherWrite) return;
+      if (draftCategories.length > 0) {
+        for (let i = 0; i < draftCategories.length; i++) {
+          const dc = draftCategories[i];
+          const cardArgs: Record<string, unknown> = {
+            name: dc.name,
+            type: dc.type,
+            budget: Number(dc.budget) || 0,
+            icon: dc.icon,
+            color: dc.color,
+          };
+          appendChatMessage({
+            id: `t-${Date.now()}-cat-${i}-${dc.id}`,
+            role: "assistant",
+            text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
+            pendingTool: {
+              toolCallId: dc.id,
+              name: "add_category",
+              args: cardArgs,
+              summary: describeWriteTool("add_category", cardArgs, snapshot),
+              status: "pending",
+            },
+          });
+        }
+        return;
+      }
+
+      if (otherWriteCards.length > 0) return;
     }
 
     appendChatMessage({
@@ -862,9 +945,15 @@ export default function AiAssistantPage() {
       } else if (pt.name === "update_category_budget") {
         updateCategoryBudget(String(args.categoryId), Number(args.budget) || 0);
         resultText = `อัปเดตสำเร็จ: ${check.summary}`;
-      } else if (pt.name === "toggle_recurring") {
-        toggleRecurring(String(args.recurringId));
-        resultText = `อัปเดตสำเร็จ: ${check.summary}`;
+      } else if (pt.name === "add_category") {
+        addCategory({
+          name: String(args.name || ""),
+          type: args.type === "income" ? "income" : "expense",
+          budget: Number(args.budget) || 0,
+          icon: String(args.icon || (args.type === "income" ? "payments" : "label")),
+          color: String(args.color || nextCategoryColor(categories.map((c) => c.color))),
+        });
+        resultText = `สร้างหมวดหมู่สำเร็จ: ${check.summary}`;
       } else if (pt.name === "add_recurring_payment") {
         const isInc = args.type === "income";
         addRecurring({
@@ -1024,7 +1113,7 @@ export default function AiAssistantPage() {
   const handleConfirmTxDraft = async () => {
     if (!pendingTxDraft || pendingTxDraft.items.length === 0 || loading) return;
     const draft = pendingTxDraft;
-    const snapshot = {
+    const baseSnapshot = {
       bankBalance,
       transactions,
       categories,
@@ -1033,6 +1122,67 @@ export default function AiAssistantPage() {
       quotaResetAt: settings.quotaResetAt,
     };
 
+    const workingCategories: Category[] = [...categories];
+    const preparedCategories: Array<{
+      draftId: string;
+      name: string;
+      type: TransactionType;
+      budget: number;
+      icon: string;
+      color: string;
+      summary: string;
+    }> = [];
+
+    for (let i = 0; i < (draft.newCategories?.length ?? 0); i++) {
+      const dc = draft.newCategories![i];
+      const prefix =
+        (draft.newCategories?.length ?? 0) > 1
+          ? `หมวดหมู่ใหม่ที่ ${i + 1}: `
+          : "หมวดหมู่ใหม่: ";
+      const catCheck = validateAndNormalizeWriteTool(
+        "add_category",
+        {
+          name: dc.name,
+          type: dc.type,
+          budget: dc.type === "income" ? 0 : dc.budget,
+          icon: dc.icon,
+          color: dc.color,
+        },
+        { ...baseSnapshot, categories: workingCategories }
+      );
+      if (!catCheck.ok) {
+        setPendingTxDraft((prev) => (prev ? { ...prev, error: `${prefix}${catCheck.error}` } : prev));
+        return;
+      }
+      const normType: TransactionType = catCheck.args.type === "income" ? "income" : "expense";
+      const normName = String(catCheck.args.name || "");
+      const normBudget = Number(catCheck.args.budget) || 0;
+      const normIcon = String(
+        catCheck.args.icon || (normType === "income" ? "payments" : "label")
+      );
+      const normColor = String(
+        catCheck.args.color || nextCategoryColor(workingCategories.map((c) => c.color))
+      );
+      preparedCategories.push({
+        draftId: dc.id,
+        name: normName,
+        type: normType,
+        budget: normBudget,
+        icon: normIcon,
+        color: normColor,
+        summary: catCheck.summary,
+      });
+      workingCategories.push({
+        id: dc.id,
+        name: normName,
+        type: normType,
+        budget: normBudget,
+        icon: normIcon,
+        color: normColor,
+      });
+    }
+
+    const effectiveSnapshot = { ...baseSnapshot, categories: workingCategories };
     const prepared: Array<{
       item: PendingTxItem;
       merchant: string;
@@ -1077,7 +1227,7 @@ export default function AiAssistantPage() {
             channel: item.channel,
             date: normalizedDate,
           },
-          snapshot
+          effectiveSnapshot
         );
         if (!check.ok) {
           setPendingTxDraft((prev) => (prev ? { ...prev, error: `${prefix}${check.error}` } : prev));
@@ -1102,16 +1252,39 @@ export default function AiAssistantPage() {
     setLoadingStage("saving");
     const baseTs = Date.now();
     const savedMessages: ChatMessage[] = [];
+    const draftIdMap = new Map<string, string>();
+    const createdCategories: Category[] = [];
+
+    for (let i = 0; i < preparedCategories.length; i++) {
+      const pc = preparedCategories[i];
+      const created = addCategory({
+        name: pc.name,
+        type: pc.type,
+        budget: pc.budget,
+        icon: pc.icon,
+        color: pc.color,
+      });
+      draftIdMap.set(pc.draftId, created.id);
+      createdCategories.push(created);
+      savedMessages.push({
+        id: `a-cat-${baseTs}-${i}`,
+        role: "assistant",
+        text: `สร้างหมวดหมู่สำเร็จ: ${pc.summary} เรียบร้อยแล้วค่ะ`,
+      });
+    }
+
+    const allKnownCategories = [...categories, ...createdCategories];
     let failedAtIndex = -1;
     let failureError = "";
 
     for (let i = 0; i < prepared.length; i++) {
       const p = prepared[i];
+      const finalCategoryId = draftIdMap.get(p.categoryId) ?? p.categoryId;
       const saveRes = await addTransaction({
         title: p.merchant,
         amount: p.amount,
         type: p.item.type,
-        categoryId: p.categoryId,
+        categoryId: finalCategoryId,
         channel: p.channel,
         date: ymdToIso(p.date),
       });
@@ -1123,7 +1296,7 @@ export default function AiAssistantPage() {
       }
 
       const catName =
-        categories.find((c) => c.id === p.categoryId)?.name || p.categoryId;
+        allKnownCategories.find((c) => c.id === finalCategoryId)?.name || finalCategoryId;
       const confirmText =
         draft.source === "qr"
           ? `บันทึกรายการจาก QR / สลิป **${p.merchant}** (${catName}) ยอด **${formatTHB(p.amount)}** วันที่ ${formatThaiDate(p.date)} เรียบร้อยแล้วค่ะ`
@@ -1142,7 +1315,7 @@ export default function AiAssistantPage() {
           ...(p.item.receiver ? { receiver: p.item.receiver } : {}),
           promptPayId: p.item.promptPayId || "-",
           amount: p.amount,
-          categoryId: p.categoryId,
+          categoryId: finalCategoryId,
           date: p.date,
         },
       });
@@ -1160,7 +1333,11 @@ export default function AiAssistantPage() {
         prev
           ? {
               ...prev,
-              items: prev.items.slice(failedAtIndex),
+              newCategories: undefined,
+              items: prev.items.slice(failedAtIndex).map((it) => ({
+                ...it,
+                categoryId: draftIdMap.get(it.categoryId) ?? it.categoryId,
+              })),
               error: failureError,
             }
           : prev
@@ -1174,7 +1351,16 @@ export default function AiAssistantPage() {
   const handleCancelTxDraft = () => {
     if (!pendingTxDraft || loading) return;
     const draft = pendingTxDraft;
+    const newCatCount = draft.newCategories?.length ?? 0;
     setPendingTxDraft(null);
+    if (newCatCount > 0) {
+      appendChatMessage({
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        text: `ยกเลิกการสร้างหมวดหมู่ (${newCatCount} หมวด) และรายการบันทึกธุรกรรม (${draft.items.length} รายการ) แล้วค่ะ`,
+      });
+      return;
+    }
     if (draft.items.length === 1) {
       const item = draft.items[0];
       appendChatMessage({
@@ -1650,6 +1836,108 @@ export default function AiAssistantPage() {
                                 </div>
                               )}
 
+                              {pt.name === "add_category" && (
+                                <div className="space-y-2.5">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="block text-[11px] text-on-surface-variant mb-1">
+                                        ชื่อหมวดหมู่
+                                      </label>
+                                      <input
+                                        type="text"
+                                        aria-label="ชื่อหมวดหมู่"
+                                        value={String(pt.args.name || "")}
+                                        onChange={(e) =>
+                                          updateToolArgs({ ...pt.args, name: e.target.value })
+                                        }
+                                        className="w-full bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[11px] text-on-surface-variant mb-1">
+                                        ประเภท
+                                      </label>
+                                      <select
+                                        aria-label="ประเภทหมวดหมู่"
+                                        value={pt.args.type === "income" ? "income" : "expense"}
+                                        onChange={(e) => {
+                                          const nextType =
+                                            e.target.value === "income" ? "income" : "expense";
+                                          const curIcon = String(pt.args.icon || "label");
+                                          const nextIcon =
+                                            nextType === "income"
+                                              ? curIcon === "label"
+                                                ? "payments"
+                                                : curIcon
+                                              : curIcon === "payments"
+                                                ? "label"
+                                                : curIcon;
+                                          updateToolArgs({
+                                            ...pt.args,
+                                            type: nextType,
+                                            budget:
+                                              nextType === "income" ? 0 : pt.args.budget ?? 0,
+                                            icon: nextIcon,
+                                          });
+                                        }}
+                                        className="w-full bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                      >
+                                        <option value="expense">หมวดรายจ่าย</option>
+                                        <option value="income">หมวดรายรับ</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
+                                    <IconColorPicker
+                                      id={`tool-cat-picker-${m.id}`}
+                                      label="ไอคอน & สี"
+                                      colorSectionLabel="สีหมวดหมู่"
+                                      dialogLabel="เลือกสีและไอคอนหมวดหมู่"
+                                      icon={String(
+                                        pt.args.icon ||
+                                          (pt.args.type === "income" ? "payments" : "label")
+                                      )}
+                                      color={String(
+                                        pt.args.color ||
+                                          nextCategoryColor(categories.map((c) => c.color))
+                                      )}
+                                      onIconChange={(nextIcon) =>
+                                        updateToolArgs({ ...pt.args, icon: nextIcon })
+                                      }
+                                      onColorChange={(nextColor) =>
+                                        updateToolArgs({ ...pt.args, color: nextColor })
+                                      }
+                                    />
+                                    {pt.args.type !== "income" && (
+                                      <div>
+                                        <label className="block text-[11px] text-on-surface-variant mb-1">
+                                          งบประมาณต่อเดือน (บาท)
+                                        </label>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="100"
+                                          aria-label="งบประมาณต่อเดือน"
+                                          value={
+                                            pt.args.budget === "" ? "" : Number(pt.args.budget ?? 0)
+                                          }
+                                          onChange={(e) =>
+                                            updateToolArgs({
+                                              ...pt.args,
+                                              budget:
+                                                e.target.value === ""
+                                                  ? ""
+                                                  : Number(e.target.value),
+                                            })
+                                          }
+                                          className="w-full bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
                               {pt.name === "add_recurring_payment" && (
                                 <div className="flex flex-wrap items-center gap-2">
                                   <select
@@ -1874,8 +2162,52 @@ export default function AiAssistantPage() {
       {/* Blocking Transaction Confirmation Modal (QR / Slip & AI Chat Tool Batch) */}
       {pendingTxDraft && (() => {
         const isQrSource = pendingTxDraft.source === "qr";
+        const draftCats = pendingTxDraft.newCategories ?? [];
+        const hasNewCats = draftCats.length > 0;
         const isBatch = pendingTxDraft.items.length > 1;
         const firstItem = pendingTxDraft.items[0];
+        const fallbackCategoryIdForType = (
+          txType: TransactionType,
+          remainingDrafts: PendingCategoryItem[] = draftCats
+        ) =>
+          remainingDrafts.find((c) => c.type === txType)?.id ||
+          categories.find((c) => c.type === txType && c.id !== "recurring")?.id ||
+          (txType === "income" ? "salary" : "food");
+        const updateDraftCategory = (catId: string, patch: Partial<PendingCategoryItem>) => {
+          setPendingTxDraft((prev) => {
+            if (!prev || !prev.newCategories) return prev;
+            const nextCats = prev.newCategories.map((dc) =>
+              dc.id === catId ? { ...dc, ...patch } : dc
+            );
+            const updatedCat = nextCats.find((dc) => dc.id === catId);
+            const nextItems =
+              updatedCat && patch.type
+                ? prev.items.map((it) =>
+                    it.categoryId === catId && it.type !== updatedCat.type
+                      ? { ...it, categoryId: fallbackCategoryIdForType(it.type, nextCats) }
+                      : it
+                  )
+                : prev.items;
+            return { ...prev, error: undefined, newCategories: nextCats, items: nextItems };
+          });
+        };
+        const removeDraftCategory = (catId: string) => {
+          setPendingTxDraft((prev) => {
+            if (!prev || !prev.newCategories) return prev;
+            const nextCats = prev.newCategories.filter((dc) => dc.id !== catId);
+            const nextItems = prev.items.map((it) =>
+              it.categoryId === catId
+                ? { ...it, categoryId: fallbackCategoryIdForType(it.type, nextCats) }
+                : it
+            );
+            return {
+              ...prev,
+              error: undefined,
+              newCategories: nextCats.length > 0 ? nextCats : undefined,
+              items: nextItems,
+            };
+          });
+        };
         const updateDraftItem = (itemId: string, patch: Partial<PendingTxItem>) => {
           setPendingTxDraft((prev) =>
             prev
@@ -1898,16 +2230,24 @@ export default function AiAssistantPage() {
               : prev
           );
         };
+        const allCategoriesValid = draftCats.every(
+          (dc) =>
+            dc.name.trim().length > 0 &&
+            (dc.type === "income" || dc.budget === "" || Number(dc.budget) >= 0)
+        );
         const allItemsValid =
+          allCategoriesValid &&
           pendingTxDraft.items.length > 0 &&
           pendingTxDraft.items.every(
             (it) => it.merchant.trim().length > 0 && Number(it.amount) > 0 && Boolean(it.date)
           );
         const modalTitle = isQrSource
           ? "ตรวจสอบข้อมูลจาก QR / สลิป"
-          : isBatch
-            ? `ตรวจสอบรายการธุรกรรมจากแชท AI (${pendingTxDraft.items.length} รายการ)`
-            : "ตรวจสอบรายการธุรกรรมจากแชท AI";
+          : hasNewCats
+            ? `ตรวจสอบหมวดหมู่ใหม่ (${draftCats.length}) และธุรกรรม (${pendingTxDraft.items.length})`
+            : isBatch
+              ? `ตรวจสอบรายการธุรกรรมจากแชท AI (${pendingTxDraft.items.length} รายการ)`
+              : "ตรวจสอบรายการธุรกรรมจากแชท AI";
 
         return (
           <div
@@ -1917,7 +2257,7 @@ export default function AiAssistantPage() {
             aria-labelledby="tx-confirm-modal-title"
           >
             <div
-              className={`w-full ${isBatch ? "max-w-2xl" : "max-w-lg"} max-h-[88vh] rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden flex flex-col animate-modal-in`}
+              className={`w-full ${isBatch || hasNewCats ? "max-w-2xl" : "max-w-lg"} max-h-[88vh] rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden flex flex-col animate-modal-in`}
             >
               <div className="shrink-0 flex items-start justify-between gap-3 px-6 py-4 border-b border-outline-variant/30">
                 <div className="flex items-start gap-2.5">
@@ -1973,13 +2313,145 @@ export default function AiAssistantPage() {
                     </div>
                   )}
 
+                  {hasNewCats && (
+                    <div className="space-y-3">
+                      <div className="text-xs font-bold text-primary uppercase tracking-wider">
+                        หมวดหมู่ใหม่ที่จะสร้าง ({draftCats.length} หมวด)
+                      </div>
+                      {draftCats.map((dc, cIdx) => (
+                        <div
+                          key={dc.id}
+                          className="rounded-xl border border-primary/30 bg-primary-container/5 p-4 space-y-3"
+                        >
+                          <div className="flex items-center justify-between gap-2 pb-1 border-b border-outline-variant/20">
+                            <span className="text-xs font-bold text-primary">
+                              หมวดหมู่ใหม่ #{cIdx + 1}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={loading}
+                              onClick={() => removeDraftCategory(dc.id)}
+                              title="นำหมวดหมู่นี้ออก"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-on-surface-variant hover:text-error hover:bg-error-container/20 disabled:opacity-40"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">close</span>
+                              <span>นำออก</span>
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label
+                                htmlFor={`tx-modal-newcat-name-${cIdx}`}
+                                className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1"
+                              >
+                                ชื่อหมวดหมู่
+                              </label>
+                              <input
+                                id={`tx-modal-newcat-name-${cIdx}`}
+                                type="text"
+                                disabled={loading}
+                                value={dc.name}
+                                onChange={(e) =>
+                                  updateDraftCategory(dc.id, { name: e.target.value })
+                                }
+                                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary"
+                              />
+                            </div>
+                            <div>
+                              <label
+                                htmlFor={`tx-modal-newcat-type-${cIdx}`}
+                                className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1"
+                              >
+                                ประเภทหมวดหมู่
+                              </label>
+                              <select
+                                id={`tx-modal-newcat-type-${cIdx}`}
+                                disabled={loading}
+                                value={dc.type}
+                                onChange={(e) => {
+                                  const nextType: TransactionType =
+                                    e.target.value === "income" ? "income" : "expense";
+                                  const nextIcon =
+                                    nextType === "income"
+                                      ? dc.icon === "label"
+                                        ? "payments"
+                                        : dc.icon
+                                      : dc.icon === "payments"
+                                        ? "label"
+                                        : dc.icon;
+                                  updateDraftCategory(dc.id, {
+                                    type: nextType,
+                                    budget: nextType === "income" ? "0" : dc.budget,
+                                    icon: nextIcon,
+                                  });
+                                }}
+                                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary"
+                              >
+                                <option value="expense">หมวดรายจ่าย</option>
+                                <option value="income">หมวดรายรับ</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                            <IconColorPicker
+                              id={`modal-newcat-picker-${dc.id}`}
+                              label="ไอคอน & สี"
+                              colorSectionLabel="สีหมวดหมู่"
+                              dialogLabel="เลือกสีและไอคอนหมวดหมู่"
+                              icon={dc.icon}
+                              color={dc.color}
+                              onIconChange={(nextIcon) =>
+                                updateDraftCategory(dc.id, { icon: nextIcon })
+                              }
+                              onColorChange={(nextColor) =>
+                                updateDraftCategory(dc.id, { color: nextColor })
+                              }
+                            />
+                            {dc.type !== "income" && (
+                              <div>
+                                <label
+                                  htmlFor={`tx-modal-newcat-budget-${cIdx}`}
+                                  className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1"
+                                >
+                                  งบประมาณต่อเดือน (THB)
+                                </label>
+                                <input
+                                  id={`tx-modal-newcat-budget-${cIdx}`}
+                                  type="number"
+                                  min="0"
+                                  step="100"
+                                  disabled={loading}
+                                  placeholder="0"
+                                  value={dc.budget}
+                                  onChange={(e) =>
+                                    updateDraftCategory(dc.id, { budget: e.target.value })
+                                  }
+                                  className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {pendingTxDraft.items.map((item, idx) => {
                     const canSwapParties = Boolean(
                       item.sender && item.receiver && item.sender !== item.receiver
                     );
-                    const modalCats = categories.filter(
-                      (c) => c.type === item.type && c.id !== "recurring"
-                    );
+                    const matchingDraftCats = draftCats
+                      .filter((c) => c.type === item.type)
+                      .map((c) => ({
+                        id: c.id,
+                        name: `${c.name.trim() || "หมวดใหม่"} (หมวดใหม่)`,
+                      }));
+                    const existingModalCats = categories
+                      .filter((c) => c.type === item.type && c.id !== "recurring")
+                      .map((c) => ({ id: c.id, name: c.name }));
+                    const modalCats = [...matchingDraftCats, ...existingModalCats];
                     const handleSwitchType = (nextType: TransactionType) => {
                       const firstCat =
                         categories.find((c) => c.type === nextType && c.id !== "recurring")
@@ -2002,26 +2474,28 @@ export default function AiAssistantPage() {
                       <div
                         key={item.id}
                         className={
-                          isBatch
+                          isBatch || hasNewCats
                             ? "rounded-xl border border-outline-variant/30 bg-surface-container-low/40 p-4 space-y-3"
                             : "space-y-4"
                         }
                       >
-                        {isBatch && (
+                        {(isBatch || hasNewCats) && (
                           <div className="flex items-center justify-between gap-2 pb-1 border-b border-outline-variant/20">
                             <span className="text-xs font-bold text-primary">
-                              รายการที่ {idx + 1}
+                              {isBatch ? `รายการที่ ${idx + 1}` : "รายการธุรกรรม"}
                             </span>
-                            <button
-                              type="button"
-                              disabled={loading}
-                              onClick={() => removeDraftItem(item.id)}
-                              title="นำรายการนี้ออก"
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-on-surface-variant hover:text-error hover:bg-error-container/20 disabled:opacity-40"
-                            >
-                              <span className="material-symbols-outlined text-[14px]">close</span>
-                              <span>นำออก</span>
-                            </button>
+                            {isBatch && (
+                              <button
+                                type="button"
+                                disabled={loading}
+                                onClick={() => removeDraftItem(item.id)}
+                                title="นำรายการนี้ออก"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-on-surface-variant hover:text-error hover:bg-error-container/20 disabled:opacity-40"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">close</span>
+                                <span>นำออก</span>
+                              </button>
+                            )}
                           </div>
                         )}
 
@@ -2215,9 +2689,11 @@ export default function AiAssistantPage() {
                   >
                     {loading
                       ? "กำลังบันทึก..."
-                      : isBatch
-                        ? `ยืนยันบันทึกทั้งหมด (${pendingTxDraft.items.length} รายการ)`
-                        : "ยืนยันบันทึก"}
+                      : hasNewCats
+                        ? "ยืนยันสร้างหมวดและบันทึกทั้งหมด"
+                        : isBatch
+                          ? `ยืนยันบันทึกทั้งหมด (${pendingTxDraft.items.length} รายการ)`
+                          : "ยืนยันบันทึก"}
                   </button>
                 </div>
               </form>
