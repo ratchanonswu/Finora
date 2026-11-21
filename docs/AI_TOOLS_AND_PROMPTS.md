@@ -113,7 +113,7 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 ---
 
 ### 2.2 Dynamic Financial Context (`buildFinancialSummary`)
-สร้างโดย [src/app/(app)/ai-assistant/page.tsx](file:///c:/Gitwork/Finora/src/app/(app)/ai-assistant/page.tsx) แล้วแนบเข้า `# Financial Context` ทุกครั้งที่ส่งแชท (กรองยอดใช้จ่ายรายหมวดตาม `isInCurrentQuotaCycle` ให้ตรงกับหน้า UI):
+สร้างโดย [src/app/(app)/ai-assistant/page.tsx](file:///c:/Gitwork/Finora/src/app/(app)/ai-assistant/page.tsx) แล้วแนบเข้า `# Financial Context` ทุกครั้งที่ส่งแชท (กรองยอดใช้จ่ายรายหมวดตาม `isInCurrentQuotaCycle` ให้ตรงกับหน้า UI — หากยังไม่ตั้ง `quotaResetAt` จะนับเฉพาะเดือนปฏิทินปัจจุบัน `YYYY-MM`):
 
 ```text
 วันที่ปัจจุบัน: 2026-11-21 (21 พฤศจิกายน 2569)
@@ -132,8 +132,8 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 ---
 
 ### 2.3 Slip Vision Prompt (`buildSlipPrompt`)
-อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) ใช้สำหรับวิเคราะห์รูปสลิปโอนเงินธนาคาร / ใบเสร็จ e-Wallet โดยรับข้อมูลเสริม 3 ส่วน:
-1. **`ocrText`**: ข้อความภาษาไทยที่อ่านได้จาก OCR.space Engine 1 (`extractSlipOcrText` + `cleanOcrText` ลบข้อความเตือน `[Note: ...]`) ส่งให้ Vision LLM ใช้ยืนยันตัวสะกดและตัวเลข
+อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) ใช้สำหรับวิเคราะห์รูปสลิปโอนเงินธนาคาร / ใบเสร็จ e-Wallet โดยรับรูปที่ผ่าน `prepareSlipImage` (`<= 950KB` ส่งตรง หรือย่อไม่เกิน `1600px` เพื่อให้อยู่ใต้เพดาน `1 MB` ของ OCR.space) ร่วมกับข้อมูลเสริม 3 ส่วน:
+1. **`ocrText`**: ข้อความภาษาไทยที่อ่านได้จาก OCR.space Engine 1 (`extractSlipOcrText` timeout `4s` + `cleanOcrText` ลบข้อความเตือน `[Note: ...]`) ส่งให้ Vision LLM ใช้ยืนยันตัวสะกดและตัวเลข
 2. **`userName`**: ชื่อผู้ใช้เจ้าของบัญชีในระบบ (เช่น `"คุณธนภัทร วงศ์เจริญ"`) เพื่อใช้แยกแยะว่าผู้ใช้เป็น **ผู้โอน (`expense`)** หรือ **ผู้รับเงิน (`income`)**
 3. **`categoryList`**: รายชื่อ `id` หมวดหมู่ที่มีในระบบ
 
@@ -248,4 +248,4 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 3. **Malformed JSON / Unknown Tool Feedback & 4-Step Fallback:**
    - หาก `tc.function.arguments` เป็น JSON ที่พัง หรือ LLM เรียกชื่อ Tool ที่ไม่มีในระบบ (`else`) ระบบจะส่ง `role: "tool"` แจ้ง error กลับเข้า `history` เพื่อไม่ให้ลำดับ `tool_calls` เสียหาย และหากวนครบ 4 รอบแล้วยังไม่มีคำตอบจะแสดงข้อความแจ้งเตือนให้ผู้ใช้ทราบแทนการจบเงียบ
 4. **OpenRouter Network Resilience (`callOpenRouter`):**
-   - กำหนด Timeout `45 วินาที` (`AbortSignal.timeout`), อ่าน response ผ่าน `res.text()` ก่อน `JSON.parse` เพื่อกันหน้า HTML Error ทำแอปแครช, และทำ Auto-Retry สูงสุด 2 ครั้ง (หน่วง `1s`, `2s`) เฉพาะ HTTP `429`, `502`, `503`, `504`
+   - กำหนด Timeout `45 วินาที` (`AbortSignal.timeout`), อ่าน response ผ่าน `res.text()` ก่อน `JSON.parse` เพื่อกันหน้า HTML Error ทำแอปแครช, และทำ Auto-Retry สูงสุด 2 ครั้ง (หน่วง `1s`, `2s`) ทั้งกรณี HTTP `429`, `502`, `503`, `504` และ network error ชั่วคราว (ยกเว้น timeout ที่คืน error 504 ทันที)

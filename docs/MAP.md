@@ -129,16 +129,25 @@ sequenceDiagram
 | `src/app/(app)/recurring/page.tsx` | หน้า **ตัด/รับเงินอัตโนมัติ (Recurring)**: จัดการทั้งรายจ่ายประจำและรายรับประจำ (เช่น เงินเดือน), สั่งตัด/รับยอดทันทีรายตัวหรือทั้งหมด |
 | `src/app/(app)/virtual-bank/page.tsx` | หน้า **ธนาคารจำลอง (Virtual Bank)**: ฟอร์มจำลองฝาก/โอนเงิน และตารางรายการเดินบัญชี (Ledger) |
 | `src/app/(app)/settings/page.tsx` | หน้า **ตั้งค่าระบบ**: โปรไฟล์, สลับธีม, ตั้งค่าตัดเงินอัตโนมัติ, วันรีเซ็ตโควต้า, จำลองวันครบรอบเดือน (Rollover Simulator), และตั้งค่า OpenRouter API Key |
-| `src/components/AppShell.tsx` | โครงหน้าหลักหลังล็อกอิน: Sidebar พับย่อได้, กล่องแสดงยอด `Virtual Wallet` (ไฮไลต์สีเมื่อติดลบ), Topbar |
+| `src/components/AppShell.tsx` | โครงหน้าหลักหลังล็อกอิน: Sidebar พับย่อได้, กล่องแสดงยอด `Virtual Wallet` (ไฮไลต์สีเมื่อติดลบ), และ Topbar ร่วมกันทุกหน้าผ่าน `DashboardHeader` |
+| `src/components/IconColorPicker.tsx` | ป๊อปโอเวอร์เลือกไอคอน Material Symbol และสีหมวดหมู่ (ใช้ทั้งใน `/categories` และการ์ด/Modal `add_category` ในแชท) |
 | `src/components/TransactionModal.tsx` | ป๊อปอัป **"บันทึกธุรกรรมใหม่"** แบบ Manual พร้อมตัวเลือกหมวดหมู่ ช่องทาง และวันที่ทำรายการ (`<input type="date">`) |
-| `src/context/FinoraContext.tsx` | ศูนย์กลาง State ของแอป: จัดการ Transactions (เรียงวันที่ล่าสุดขึ้นก่อนเสมอ), Categories, Recurring, Virtual Wallet (`bankBalanceRef`), และ Chat Session |
-| `src/lib/ai-tools.ts` | นิยาม `FINORA_TOOLS` (5 Read Tools + 4 Write Tools), `CATEGORY_ALIASES`, `resolveCategory` (พร้อม title fallback), และ `validateAndNormalizeWriteTool` |
+| `src/components/dashboard/DashboardShell.tsx` | `DashboardHeader`: Top Navigation Bar ร่วมทุกหน้า (ปุ่มบันทึกด่วน, สลับ Dark/Light Mode, กระดิ่งแจ้งเตือนงบ/บิล, เมนูโปรไฟล์เหลือเฉพาะปุ่มออกจากระบบ ไม่มี search bar) |
+| `src/components/dashboard/SummaryCards.tsx` | การ์ดสรุป 4 ใบ (รายรับรวม, รายจ่ายรวม, คงเหลือสุทธิ, งบประมาณคงเหลือ พร้อมป้ายจำนวนหมวดและรอบงบปัจจุบัน) |
+| `src/components/dashboard/IncomeExpenseChart.tsx` | กราฟแท่งเปรียบเทียบรายรับ-รายจ่าย (สลับดูรายเดือน / รายสัปดาห์ / รายปี) |
+| `src/components/dashboard/RecentTransactionsCard.tsx` | การ์ดแสดงรายการธุรกรรมล่าสุดในช่วงเวลาที่เลือกบน Dashboard |
+| `src/components/dashboard/AiInsightsCard.tsx` | การ์ดวิเคราะห์คำแนะนำการเงินอัตโนมัติ (AI Insights) เชื่อมไปยัง `/ai-assistant` |
+| `src/components/dashboard/BudgetOverviewCard.tsx` | การ์ดแสดงสัดส่วนการใช้งบครบทุกหมวดหมู่ที่มีงบ พร้อมแถวสรุปรวมยอดท้ายการ์ด |
+| `src/components/dashboard/ExpenseBreakdownCard.tsx` | กราฟโดนัทแสดงสัดส่วนรายจ่ายสูงสุด 5 อันดับ (หากเกิน 5 หมวด จะรวบเป็นหมวด "อื่นๆ") |
+| `src/components/dashboard/dashboard-utils.ts` | ฟังก์ชันคำนวณ Dashboard (`resolveDateRange`, `computePeriodSummary`, `buildSparklineSeries`, `buildBarChartSeries`, `computeBudgetOverview`, `computeExpenseBreakdown`, `buildDashboardInsights`, `buildDashboardNotifications`) |
+| `src/context/FinoraContext.tsx` | ศูนย์กลาง State ของแอป: จัดการ Transactions (เรียงวันที่ล่าสุดขึ้นก่อนเสมอ), Categories, Recurring, Virtual Wallet (`bankBalanceRef`, `txSeqRef`, `catSeqRef`), และ Chat Session |
+| `src/lib/ai-tools.ts` | นิยาม `FINORA_TOOLS` (5 Read Tools + 4 Write Tools: `add_transaction`, `update_category_budget`, `add_category`, `add_recurring_payment` — ถอด `toggle_recurring` แล้ว), `CATEGORY_ALIASES`, `resolveCategory` (ตรวจชื่อหมวดตรงตัวก่อน alias), และ `validateAndNormalizeWriteTool` |
 | `src/lib/prompts.ts` | `FINORA_PROMPT_VERSION = "2.8.0"`, `buildFinoraSystemPrompt`, `buildSlipPrompt`, และ `parseSlipResult` (จับคู่ชื่อผู้โอน/ผู้รับกับชื่อผู้ใช้เพื่อแยก `income`/`expense`) |
 | `src/lib/bank-service.ts` | Pure function `executeBankTransfer` สำหรับคำนวณยอด `bankBalance` (อนุญาตให้ติดลบได้) และสร้าง `BankLedgerEntry` |
 | `src/lib/rollover.ts` | `simulateRolloverToDate` จำลองเหตุการณ์การเงินตามลำดับเวลา: รีเซ็ตโควต้า → รับรายรับประจำ → ตัดบิลรายจ่ายประจำ (ตัดยอดแม้ติดลบ) |
-| `src/lib/seed.ts` | ข้อมูลตั้งต้น (`INITIAL_*`), ตัวจัดรูปแบบ `formatTHB` (รองรับ `-฿...`), `formatThaiDate` (เฉพาะวัน/เดือน/ปี), ตัวจัดการวันที่ (`todayYmd`, `ymdToIso`, `toDateInputValue`, `normalizeTransactionDate`), และ `isInCurrentQuotaCycle` |
+| `src/lib/seed.ts` | ข้อมูลตั้งต้น (`INITIAL_*`), ตัวจัดรูปแบบ `formatTHB` (รองรับ `-฿...`), `formatThaiDate` (เฉพาะวัน/เดือน/ปี), ตัวจัดการวันที่ (`todayYmd`, `ymdToIso`, `toDateInputValue`, `normalizeTransactionDate`), และ `isInCurrentQuotaCycle` (fallback เป็นเดือนปฏิทินปัจจุบันเมื่อยังไม่ตั้ง `quotaResetAt`) |
 | `src/lib/ocr.ts` | `extractSlipOcrText` เรียก OCR.space Engine 1 (`language: "tha"`) พร้อม timeout 4 วินาที และจำกัดขนาดไฟล์ 1 MB |
-| `src/lib/openrouter.ts` | `callOpenRouter` HTTP client พร้อมตัวเก็บสถิติ `LLMMetrics` (tokens & latency) |
+| `src/lib/openrouter.ts` | `callOpenRouter` HTTP client พร้อม timeout 45 วินาที, อ่าน `res.text()` ก่อน `JSON.parse`, Auto-Retry 2 ครั้ง (`1s`/`2s`) สำหรับ `429/502/503/504` หรือ network error ชั่วคราว, และตัวเก็บสถิติ `LLMMetrics` |
 | `src/lib/slip-image.ts` | เตรียมรูปภาพสลิปสำหรับ OCR/Vision API (`prepareSlipImage`: ส่งตรง `<= 950KB`, ย่อ `1600px` ให้อยู่ใต้ลิมิต OCR 1 MB, และสร้าง thumbnail `180px`) |
 | `src/lib/self-check.ts` | ชุดทดสอบอัตโนมัติ 23 หัวข้อครอบคลุมทุกฟังก์ชันหลักใน `src/lib/` |
 
@@ -149,16 +158,18 @@ sequenceDiagram
 1. **Virtual Wallet อนุญาตให้ยอดติดลบได้ทุกกรณี (Negative Balance Policy):**
    - Finora ทำหน้าที่เป็นแอปบันทึกรายรับ-รายจ่ายที่รวมยอดเงินสุทธิไว้ใน `bankBalance` (รวมถึงช่องทาง `"เงินสด"`)
    - ไม่มีเงื่อนไขบล็อก `amount > bankBalance` ทั้งใน `executeBankTransfer`, `validateAndNormalizeWriteTool`, `VirtualBankPage`, และ `simulateRolloverToDate` (บิลรายจ่ายประจำจะถูกตัดตามกำหนดเสมอแม้ยอดเงินจะติดลบ)
-2. **การป้องกัน Stale Closure เมื่อบันทึกแบบ Batch (`bankBalanceRef` & `txSeqRef`):**
-   - ใน `FinoraContext.tsx` การเรียก `await addTransaction(...)` ติดต่อกันหลายครั้งในลูปเดียว (เช่น กดยืนยัน Batch Modal) ต้องอ่านและอัปเดตยอดผ่าน `bankBalanceRef.current` แบบ Synchronous ทันทีที่ `/api/virtual-bank` ตอบกลับ และใช้ `txSeqRef.current` ต่อท้าย `id`/`ref` เพื่อไม่ให้ยอดเงินถูกเขียนทับหรือเกิด React key ซ้ำ
+2. **การป้องกัน Stale Closure เมื่อบันทึกแบบ Batch (`bankBalanceRef`, `txSeqRef` & `catSeqRef`):**
+   - ใน `FinoraContext.tsx` การเรียก `await addTransaction(...)` หรือ `addCategory(...)` ติดต่อกันหลายครั้งในลูปเดียว (เช่น กดยืนยัน Batch/Chained Modal) ต้องอ่านและอัปเดตยอดผ่าน `bankBalanceRef.current` แบบ Synchronous ทันทีที่ `/api/virtual-bank` ตอบกลับ และใช้ `txSeqRef.current` / `catSeqRef.current` ต่อท้าย `id`/`ref` เพื่อไม่ให้ยอดเงินถูกเขียนทับหรือเกิด React key ซ้ำ
 3. **การป้องกันปัญหา Timezone เลื่อนวัน (`ymdToIso` & `normalizeTransactionDate`):**
    - วันที่ของธุรกรรมที่ผู้ใช้หรือ AI ระบุ (`YYYY-MM-DD`, `DD/MM`, `DD/MM/YYYY` ทั้ง ค.ศ. และ พ.ศ.) จะถูกแปลงเป็น `YYYY-MM-DD` แล้วบันทึกในรูปแบบ `${ymd}T12:00:00+07:00` (`ymdToIso`) เสมอ เพื่อไม่ให้การแปลง UTC/Local Time เลื่อนวันข้ามคืน
    - ทุกครั้งที่มีการเพิ่มรายการ, แก้ไขวันที่ (`updateTransactionDate`), หรือจำลอง Rollover รายการธุรกรรมจะถูกเรียงลำดับด้วย `sortTransactionsByDateDesc` (วันที่ล่าสุดอยู่บนสุด)
-4. **การป้องกัน AI วนลูปเมื่อสั่งหลายรายการ (`runToolLoop` Batching):**
-   - เมื่อ LLM ส่ง `add_transaction` มาหลาย `tool_calls` ในรอบเดียวกัน `runToolLoop` ใน `src/app/(app)/ai-assistant/page.tsx` จะรวบทุกรายการที่ผ่านการตรวจสอบเข้า `pendingTxDraft.items` เพื่อแสดงใน **Batch Confirmation Modal** หน้าต่างเดียว และตั้ง `continueAfterConfirm: false` เพื่อไม่ให้ยิงเรียก LLM ซ้ำหลังผู้ใช้กดยืนยัน
+4. **การป้องกัน AI วนลูปเมื่อสั่งหลายรายการ & การสร้างหมวดพ่วงรายการ (`runToolLoop` Batching & Chaining):**
+   - เมื่อ LLM ส่ง `add_transaction` หลายรายการ หรือส่ง `add_category` พร้อม `add_transaction` ในรอบเดียวกัน `runToolLoop` ใน `src/app/(app)/ai-assistant/page.tsx` จะจำลองหมวดใหม่ด้วย `draft-cat-*` ใน `workingCategories` แล้วรวบเข้า **Batch/Chained Confirmation Modal** เดียว (สร้างหมวดหมู่ก่อนแล้วค่อยบันทึกรายการด้วย ID จริงแบบ atomic และไม่ยิงเรียก LLM ซ้ำหลังผู้ใช้กดยืนยัน)
 5. **หมวดหมู่สงวน `"recurring"` (Reserved Category):**
-   - หมวด `id: "recurring"` ใช้สำหรับรายการตัดบิลอัตโนมัติและคำนวณงบอัตโนมัติผ่าน `syncCategoriesWithRecurring` เท่านั้น ห้ามให้ผู้ใช้หรือ AI เลือกหมวดนี้ใน `add_transaction`, `update_category_budget`, หรือ `parseSlipResult`
-6. **Environment Variables (`.env.local`):**
+   - หมวด `id: "recurring"` ใช้สำหรับรายการตัดบิลอัตโนมัติและคำนวณงบอัตโนมัติผ่าน `syncCategoriesWithRecurring` เท่านั้น ห้ามให้ผู้ใช้หรือ AI เลือกหรือสร้างหมวดนี้ใน `add_transaction`, `update_category_budget`, `add_category`, หรือ `parseSlipResult`
+6. **Quota Cycle Fallback เป็นเดือนปัจจุบัน (`isInCurrentQuotaCycle`):**
+   - หากผู้ใช้ยังไม่เคยรีเซ็ตรอบโควต้า (`quotaResetAt` ยังไม่ถูกตั้งค่า) `isInCurrentQuotaCycle` ใน `src/lib/seed.ts` จะนับเฉพาะธุรกรรมที่อยู่ในเดือนปฏิทินปัจจุบัน (`YYYY-MM`) เพื่อให้ยอดงบประมาณใน Dashboard, `/categories`, แจ้งเตือน, และ AI Context ไม่สะสมยอดย้อนหลังข้ามเดือน
+7. **Environment Variables (`.env.local`):**
    - `OPENROUTER_API_KEY` (จำเป็นสำหรับ AI Chat และ Vision; หรือใส่ Override Key ได้ในหน้า Settings ของแอป)
    - `OPENROUTER_MODEL` (ค่าเริ่มต้น `google/gemini-2.5-flash`)
    - `OCR_SPACE_API_KEY` (ไม่บังคับ — หากมีจะช่วยสกัดข้อความภาษาไทยจากสลิปส่งเสริมให้ Vision LLM แม่นยำขึ้น หากไม่มีหรือเกิน 4 วินาที ระบบจะ fallback ไปใช้ Vision LLM ล้วนโดยไม่พัง)
