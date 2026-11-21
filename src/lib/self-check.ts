@@ -292,4 +292,35 @@ const badDateTx = validateAndNormalizeWriteTool(
 );
 assert.equal(badDateTx.ok, false);
 
-console.log("Finora self-check passed (17/17 checks)");
+// 18. Currency rounding (2 decimals) and relative Thai/English date words
+assert.equal(normalizeTransactionDate("วันนี้", fixedRef), "2026-11-21");
+assert.equal(normalizeTransactionDate("เมื่อวาน", fixedRef), "2026-11-20");
+assert.equal(normalizeTransactionDate("เมื่อวานซืน", fixedRef), "2026-11-19");
+assert.equal(normalizeTransactionDate("yesterday", fixedRef), "2026-11-20");
+assert.equal(normalizeTransactionDate("พรุ่งนี้", fixedRef), "2026-11-22");
+
+const roundUpTx = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "กาแฟ", amount: 19.999, categoryId: "food" },
+  snap
+);
+assert.equal(roundUpTx.ok, true);
+if (roundUpTx.ok) assert.equal(roundUpTx.args.amount, 20);
+
+const roundFracTx = validateAndNormalizeWriteTool(
+  "add_transaction",
+  { type: "expense", title: "ขนม", amount: 10.126, categoryId: "food" },
+  snap
+);
+assert.equal(roundFracTx.ok, true);
+if (roundFracTx.ok) assert.equal(roundFracTx.args.amount, 10.13);
+
+const roundBudget = validateAndNormalizeWriteTool(
+  "update_category_budget",
+  { categoryId: "food", budget: 4999.996 },
+  snap
+);
+assert.equal(roundBudget.ok, true);
+if (roundBudget.ok) assert.equal(roundBudget.args.budget, 5000);
+
+console.log("Finora self-check passed (18/18 checks)");

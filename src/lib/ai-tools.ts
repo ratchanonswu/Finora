@@ -1,5 +1,11 @@
 import type { OpenRouterToolDef } from "./openrouter.ts";
-import { formatThaiDate, isInCurrentQuotaCycle, normalizeTransactionDate, todayYmd } from "./seed.ts";
+import {
+  formatThaiDate,
+  isInCurrentQuotaCycle,
+  normalizeTransactionDate,
+  roundCurrency,
+  todayYmd,
+} from "./seed.ts";
 import type { Category, RecurringPayment, Transaction, TransactionType } from "./types.ts";
 
 export interface FinancialSnapshot {
@@ -551,7 +557,8 @@ export function validateAndNormalizeWriteTool(
   if (name === "add_transaction") {
     const txType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
     const title = String(rawArgs.title || "").trim();
-    const amount = Number(rawArgs.amount);
+    const rawAmount = Number(rawArgs.amount);
+    const amount = Number.isFinite(rawAmount) ? roundCurrency(rawAmount) : NaN;
 
     const rawChannel = String(rawArgs.channel || "Virtual Bank Wallet").trim();
     const lowerChannel = rawChannel.toLowerCase();
@@ -569,7 +576,7 @@ export function validateAndNormalizeWriteTool(
     if (!title) {
       return { ok: false, error: "ต้องระบุชื่อรายการ (title)" };
     }
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (!Number.isFinite(rawAmount) || amount <= 0) {
       return { ok: false, error: "จำนวนเงิน (amount) ต้องเป็นตัวเลขที่มากกว่า 0 บาท" };
     }
 
@@ -612,8 +619,9 @@ export function validateAndNormalizeWriteTool(
   }
 
   if (name === "update_category_budget") {
-    const budget = Number(rawArgs.budget);
-    if (!Number.isFinite(budget) || budget < 0) {
+    const rawBudget = Number(rawArgs.budget);
+    const budget = Number.isFinite(rawBudget) ? roundCurrency(rawBudget) : NaN;
+    if (!Number.isFinite(rawBudget) || budget < 0) {
       return { ok: false, error: "งบประมาณ (budget) ต้องเป็นตัวเลขตั้งแต่ 0 บาทขึ้นไป" };
     }
     const cat = resolveCategory(rawArgs.categoryId, categories, "expense");
@@ -671,8 +679,9 @@ export function validateAndNormalizeWriteTool(
     if (recurring.some((r) => r.title.trim().toLowerCase() === title.toLowerCase())) {
       return { ok: false, error: `มีรายการตัดเงินอัตโนมัติ "${title}" อยู่ในระบบแล้ว` };
     }
-    const amount = Number(rawArgs.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const rawAmount = Number(rawArgs.amount);
+    const amount = Number.isFinite(rawAmount) ? roundCurrency(rawAmount) : NaN;
+    if (!Number.isFinite(rawAmount) || amount <= 0) {
       return { ok: false, error: "จำนวนเงิน (amount) ต้องมากกว่า 0 บาท" };
     }
     const cycle =

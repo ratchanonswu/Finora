@@ -200,9 +200,30 @@ function buildValidYmd(yearInput: number, month: number, day: number): string | 
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+export function roundCurrency(val: number): number {
+  return Math.round((val + Number.EPSILON) * 100) / 100;
+}
+
+const RELATIVE_DATE_OFFSETS: Record<string, number> = {
+  วันนี้: 0,
+  today: 0,
+  เมื่อวาน: -1,
+  เมื่อวานนี้: -1,
+  yesterday: -1,
+  เมื่อวานซืน: -2,
+  พรุ่งนี้: 1,
+  tomorrow: 1,
+};
+
 export function normalizeTransactionDate(raw: unknown, refDate = new Date()): string | null {
   const text = String(raw ?? "").trim();
   if (!text) return null;
+
+  const relOffset = RELATIVE_DATE_OFFSETS[text.toLowerCase()];
+  if (relOffset !== undefined) {
+    const target = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate() + relOffset);
+    return buildValidYmd(target.getFullYear(), target.getMonth() + 1, target.getDate());
+  }
 
   const isoMatch = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s].*)?$/);
   if (isoMatch) {
