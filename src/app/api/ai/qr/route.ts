@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { extractSlipOcrText } from "@/lib/ocr";
 import { callOpenRouter } from "@/lib/openrouter";
 import { buildQrSlipPrompt, parseQrSlipResult } from "@/lib/prompts";
+import { parsePromptPayPayload } from "@/lib/seed";
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +26,13 @@ export async function POST(request: Request) {
             .join(", ")
         : "food, shopping, housing, transport, entertainment, salary, investment";
 
-    const ocrText = await extractSlipOcrText(imageBase64, mimeType);
+    const tlv =
+      typeof qrRaw === "string" && qrRaw.trim() ? parsePromptPayPayload(qrRaw) : {};
+    const skipOcr = Boolean(tlv.merchant && typeof tlv.amount === "number" && tlv.amount > 0);
+    if (skipOcr) {
+      console.info("[OCR] skipped", { reason: "qr_tlv_complete" });
+    }
+    const ocrText = skipOcr ? undefined : await extractSlipOcrText(imageBase64, mimeType);
     const prompt = buildQrSlipPrompt(qrRaw, categoryList, userName, ocrText);
 
     const result = await callOpenRouter({

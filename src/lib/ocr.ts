@@ -2,6 +2,15 @@ const OCR_SPACE_ENDPOINT = "https://api.ocr.space/parse/image";
 const OCR_SPACE_MAX_BASE64_LEN = 1_350_000; // ~1 MB decoded limit on OCR.space free tier
 const ALLOWED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
+export function cleanOcrText(raw: string): string {
+  return String(raw || "")
+    .replace(/^\s*\[Note:[^\]]*\]\s*$/gim, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, 2500);
+}
+
 // Best-effort Thai/English slip text extraction via OCR.space; returns undefined on any limit or network failure.
 export async function extractSlipOcrText(
   imageBase64: string,
@@ -51,12 +60,11 @@ export async function extractSlipOcrText(
       return undefined;
     }
 
-    const text = (Array.isArray(data?.ParsedResults) ? data.ParsedResults : [])
+    const rawText = (Array.isArray(data?.ParsedResults) ? data.ParsedResults : [])
       .map((r) => String(r?.ParsedText || "").trim())
       .filter(Boolean)
-      .join("\n")
-      .trim()
-      .slice(0, 2500);
+      .join("\n");
+    const text = cleanOcrText(rawText);
 
     if (!text) {
       console.info("[OCR]", { ok: true, chars: 0, latencyMs: Date.now() - startMs });

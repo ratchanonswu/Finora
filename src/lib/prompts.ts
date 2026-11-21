@@ -1,3 +1,4 @@
+import { normalizeTransactionDate } from "./seed.ts";
 import type { TransactionType } from "./types.ts";
 
 export const FINORA_PROMPT_VERSION = "2.6.0";
@@ -11,6 +12,7 @@ export interface QrSlipAnalysisResult {
   promptPayId: string;
   amount: number;
   categoryId: string;
+  date?: string;
 }
 
 export function buildFinoraSystemPrompt(financialSummary?: string): string {
@@ -68,7 +70,7 @@ export function buildQrSlipPrompt(
     cleanUser ? `ชื่อผู้ใช้เจ้าของบัญชีในระบบ: "${cleanUser}"` : "",
     `หมวดหมู่ที่เลือกได้: ${categoryList}`,
     "ตอบกลับเป็น JSON เท่านั้นตามโครงสร้างนี้:",
-    '{ "isValidPaymentImage": boolean, "type": "expense" | "income", "sender": string, "receiver": string, "merchant": string, "promptPayId": string, "amount": number, "categoryId": string }',
+    '{ "isValidPaymentImage": boolean, "type": "expense" | "income", "sender": string, "receiver": string, "merchant": string, "promptPayId": string, "amount": number, "categoryId": string, "date": string }',
     "กฎสำคัญสำหรับสลิปและป้าย QR หลายฟอร์แมต:",
     "1. ถ้ารูปนี้ไม่ใช่ QR Code และไม่ใช่สลิปโอนเงิน/จ่ายบิลหรือป้ายรับเงิน ให้ตั้ง isValidPaymentImage = false",
     '2. แยกผู้โอน (sender) และผู้รับ/ร้านค้า (receiver) ตามโครงสร้างสลิปแต่ละแบบ:',
@@ -84,6 +86,7 @@ export function buildQrSlipPrompt(
     '4. promptPayId: เลขพร้อมเพย์ เบอร์โทร Biller ID หรือรหัสอ้างอิง/เลขที่รายการที่ปรากฏในภาพ (ถ้าไม่มีให้ส่ง "")',
     '5. amount: ยอดเงินที่โอนหรือชำระสุทธิเป็นตัวเลขเท่านั้น (ห้ามใช้ยอดค่าธรรมเนียม 0.00 และห้ามเอาเลขที่อ้างอิงมาเป็นยอดเงิน; ถ้าเป็นป้าย QR ที่ไม่ได้ระบุยอดเงิน ให้ส่ง 0 เสมอ)',
     '6. categoryId: เลือก id หมวดหมู่ที่ตรงกับ type และชื่อร้าน/บันทึกช่วยจำในสลิปที่สุด (รายรับใช้ "salary" หรือ "investment", รายจ่ายถ้าไม่แน่ใจใช้ "food" ห้ามเลือก "recurring")',
+    '7. date: หากในสลิปมีวันที่ทำรายการชัดเจน ให้ตอบเป็น YYYY-MM-DD (ค.ศ. เช่น พ.ศ. 2569 = ค.ศ. 2026); ถ้าเป็นป้าย QR หรือไม่พบวันที่ชัดเจนให้ส่ง ""',
   ]
     .filter(Boolean)
     .join("\n");
@@ -168,6 +171,8 @@ export function parseQrSlipResult(
         ? rawCat
         : defaultCat;
 
+    const slipDate = normalizeTransactionDate(parsed.date) || undefined;
+
     return {
       ok: true,
       data: {
@@ -179,6 +184,7 @@ export function parseQrSlipResult(
         promptPayId: typeof parsed.promptPayId === "string" ? parsed.promptPayId.trim() : "",
         amount,
         categoryId,
+        ...(slipDate ? { date: slipDate } : {}),
       },
     };
   } catch {

@@ -942,6 +942,7 @@ export default function AiAssistantPage() {
         promptPayId?: string;
         amount?: number;
         categoryId?: string;
+        date?: string;
       } | null = null;
 
       let visionError = "";
@@ -1015,7 +1016,7 @@ export default function AiAssistantPage() {
             amount: amount > 0 ? String(amount) : "",
             categoryId: validCategory,
             channel: "สแกน QR / สลิป (AI Chat)",
-            date: todayYmd(),
+            date: vision?.date || todayYmd(),
             needsAmount: !(amount > 0),
           },
         ],

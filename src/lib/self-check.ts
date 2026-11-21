@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
 import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
+import { cleanOcrText } from "./ocr.ts";
 import { buildQrSlipPrompt, parseQrSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
 import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, formatTHB, formatThaiDate, isBaseCategory, nextCategoryColor, normalizeTransactionDate, parsePromptPayPayload, relativeDateYmd } from "./seed.ts";
@@ -323,4 +324,39 @@ const roundBudget = validateAndNormalizeWriteTool(
 assert.equal(roundBudget.ok, true);
 if (roundBudget.ok) assert.equal(roundBudget.args.budget, 5000);
 
-console.log("Finora self-check passed (18/18 checks)");
+// 19. cleanOcrText strips demo notes and parseQrSlipResult extracts optional BE/CE slip dates
+const cleanedOcr = cleanOcrText(
+  "[Note: the 'helloworld' demo key is rate limited]\nร้านกาแฟ\n\n\n30.00 บาท"
+);
+assert.equal(cleanedOcr.includes("helloworld"), false);
+assert.equal(cleanedOcr, "ร้านกาแฟ\n\n30.00 บาท");
+
+const slipWithBeDate = parseQrSlipResult(
+  JSON.stringify({
+    isValidPaymentImage: true,
+    type: "expense",
+    receiver: "Cafe",
+    amount: 65,
+    categoryId: "food",
+    date: "15/08/2569",
+  }),
+  ["food"]
+);
+assert.equal(slipWithBeDate.ok, true);
+if (slipWithBeDate.ok) assert.equal(slipWithBeDate.data.date, "2026-08-15");
+
+const slipNoDate = parseQrSlipResult(
+  JSON.stringify({
+    isValidPaymentImage: true,
+    type: "expense",
+    receiver: "QR Stand",
+    amount: 0,
+    categoryId: "food",
+    date: "",
+  }),
+  ["food"]
+);
+assert.equal(slipNoDate.ok, true);
+if (slipNoDate.ok) assert.equal(slipNoDate.data.date, undefined);
+
+console.log("Finora self-check passed (19/19 checks)");
