@@ -3,7 +3,9 @@ import {
   formatThaiDate,
   isInCurrentQuotaCycle,
   normalizeTransactionDate,
+  relativeDateYmd,
   roundCurrency,
+  toDateInputValue,
   todayYmd,
 } from "./seed.ts";
 import type { Category, RecurringPayment, Transaction, TransactionType } from "./types.ts";
@@ -239,6 +241,18 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
               "รหัสหมวดหมู่ที่มีจริงในระบบ (food, shopping, housing, transport, entertainment, salary, investment หรือ cat-...)",
           },
           limit: { type: "number", description: "จำนวนรายการสูงสุด (ค่าเริ่มต้น 10)" },
+          startDate: {
+            type: "string",
+            description: "กรองตั้งแต่วันที่ (YYYY-MM-DD หรือ DD/MM เช่น 2026-08-01 หรือ 01/08)",
+          },
+          endDate: {
+            type: "string",
+            description: "กรองถึงวันที่ (YYYY-MM-DD หรือ DD/MM เช่น 2026-08-31 หรือ 31/08)",
+          },
+          currentCycleOnly: {
+            type: "boolean",
+            description: "ตั้งเป็น true เพื่อดูเฉพาะรายการในรอบโควต้าปัจจุบัน",
+          },
         },
       },
     },
@@ -438,20 +452,47 @@ export function runReadTool(
     const categoryId = args.categoryId
       ? resolveCategory(args.categoryId, categories)?.id || String(args.categoryId)
       : "";
+    const rawStart =
+      args.startDate !== undefined && args.startDate !== null ? String(args.startDate).trim() : "";
+    const rawEnd =
+      args.endDate !== undefined && args.endDate !== null ? String(args.endDate).trim() : "";
+    const startYmd = rawStart ? normalizeTransactionDate(rawStart) : null;
+    if (rawStart && !startYmd) {
+      return {
+        error: `รูปแบบ startDate "${rawStart}" ไม่ถูกต้อง กรุณาระบุเป็น YYYY-MM-DD หรือ DD/MM`,
+      };
+    }
+    const endYmd = rawEnd ? normalizeTransactionDate(rawEnd) : null;
+    if (rawEnd && !endYmd) {
+      return {
+        error: `รูปแบบ endDate "${rawEnd}" ไม่ถูกต้อง กรุณาระบุเป็น YYYY-MM-DD หรือ DD/MM`,
+      };
+    }
+    const currentCycleOnly = args.currentCycleOnly === true;
     const limit = Math.min(30, Math.max(1, Number(args.limit) || 10));
-    const list = transactions
-      .filter((t) => (type === "all" || t.type === type) && (!categoryId || t.categoryId === categoryId))
-      .slice(0, limit)
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        type: t.type,
-        amount: t.amount,
-        category: categories.find((c) => c.id === t.categoryId)?.name || t.categoryId,
-        channel: t.channel,
-        date: t.date,
-      }));
-    return { count: list.length, transactions: list };
+
+    const matched = transactions.filter((t) => {
+      if (type !== "all" && t.type !== type) return false;
+      if (categoryId && t.categoryId !== categoryId) return false;
+      if (currentCycleOnly && !isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)) return false;
+      const txYmd = toDateInputValue(t.date);
+      if (startYmd && txYmd < startYmd) return false;
+      if (endYmd && txYmd > endYmd) return false;
+      return true;
+    });
+
+    const totalMatchedCount = matched.length;
+    const totalMatchedAmount = roundCurrency(matched.reduce((s, t) => s + t.amount, 0));
+    const list = matched.slice(0, limit).map((t) => ({
+      id: t.id,
+      title: t.title,
+      type: t.type,
+      amount: t.amount,
+      category: categories.find((c) => c.id === t.categoryId)?.name || t.categoryId,
+      channel: t.channel,
+      date: t.date,
+    }));
+    return { count: list.length, totalMatchedCount, totalMatchedAmount, transactions: list };
   }
 
   if (name === "get_categories") {
@@ -510,16 +551,27 @@ export function runReadTool(
 
   if (name === "get_financial_prediction") {
     const months = Math.min(12, Math.max(1, Math.round(Number(args.monthsAhead) || 3)));
-    const income = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-    const expense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-    const activeRecurringMonthly = sumActiveRecurringMonthly(recurring, "expense");
-    const activeRecurringIncomeMonthly = sumActiveRecurringMonthly(recurring, "income");
+    const hasResetAnchor = Boolean(snapshot.quotaResetAt);
+    const baselineStartYmd = relativeDateYmd(-30);
+    const baselineTxs = transactions.filter((t) =>
+      hasResetAnchor
+        ? isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+        : toDateInputValue(t.date) >= baselineStartYmd
+    );
+    const income = roundCurrency(
+      baselineTxs.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0)
+    );
+    const expense = roundCurrency(
+      baselineTxs.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0)
+    );
+    const activeRecurringMonthly = roundCurrency(sumActiveRecurringMonthly(recurring, "expense"));
+    const activeRecurringIncomeMonthly = roundCurrency(sumActiveRecurringMonthly(recurring, "income"));
 
     // Avoid double-counting recurring items if they already appear in transactions; use whichever is higher as baseline.
-    const estimatedMonthlyInflow = Math.max(income, activeRecurringIncomeMonthly);
-    const estimatedMonthlyOutflow = Math.max(expense, activeRecurringMonthly);
-    const estimatedMonthlyNet = estimatedMonthlyInflow - estimatedMonthlyOutflow;
-    const projectedBalance = bankBalance + estimatedMonthlyNet * months;
+    const estimatedMonthlyInflow = roundCurrency(Math.max(income, activeRecurringIncomeMonthly));
+    const estimatedMonthlyOutflow = roundCurrency(Math.max(expense, activeRecurringMonthly));
+    const estimatedMonthlyNet = roundCurrency(estimatedMonthlyInflow - estimatedMonthlyOutflow);
+    const projectedBalance = roundCurrency(bankBalance + estimatedMonthlyNet * months);
 
     return {
       monthsAhead: months,
@@ -532,7 +584,9 @@ export function runReadTool(
       projectedBalance,
       lowBalanceRisk: projectedBalance < activeRecurringMonthly,
       assumptions: [
-        "คำนวณจากยอดรายรับและรายจ่ายที่บันทึกไว้ในระบบปัจจุบันเป็นฐานรายเดือน",
+        hasResetAnchor
+          ? "คำนวณฐานรายรับและรายจ่ายจากธุรกรรมในรอบโควต้าปัจจุบันเทียบกับรายการ Recurring"
+          : "คำนวณฐานรายรับและรายจ่ายจากธุรกรรมย้อนหลัง 30 วันล่าสุดเทียบกับรายการ Recurring",
         `รวมรายรับประจำ (Recurring Income) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringIncomeMonthly.toLocaleString("en-US")} บาท และภาระรายจ่ายประจำ (Recurring Expense) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringMonthly.toLocaleString("en-US")} บาท`,
         "สมมติให้พฤติกรรมการใช้จ่ายและรายรับคงที่ตลอดช่วงเวลาที่คาดการณ์",
       ],

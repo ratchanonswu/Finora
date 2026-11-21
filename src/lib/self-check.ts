@@ -427,4 +427,48 @@ const recMetrics = runReadTool("get_recurring_payments", {}, cycleSnapshot);
 assert.equal(recMetrics.currentBankBalance, 3200);
 assert.equal(recMetrics.monthlyNetRecurring, 36500); // 50000 - (500 + 12000 + 1000)
 
-console.log("Finora self-check passed (20/20 checks)");
+// 21. get_transactions date-range filtering + aggregate totals, and prediction rolling-30d baseline
+const augFilter = runReadTool(
+  "get_transactions",
+  { startDate: "2026-09-01", endDate: "2026-09-30", type: "expense" },
+  cycleSnapshot
+);
+assert.equal(augFilter.totalMatchedCount, 1);
+assert.equal(augFilter.totalMatchedAmount, 900);
+
+const badRange = runReadTool("get_transactions", { startDate: "31/02" }, cycleSnapshot);
+assert.equal(typeof badRange.error, "string");
+
+const rollingSnapshot = {
+  bankBalance: 20000,
+  categories: INITIAL_CATEGORIES,
+  recurring: [],
+  transactions: [
+    {
+      id: "old-90d",
+      ref: "OLD-90",
+      title: "Old Car Repair",
+      amount: 50000,
+      type: "expense" as const,
+      categoryId: "transport",
+      channel: "Virtual Bank Wallet",
+      date: `${relativeDateYmd(-90)}T12:00:00+07:00`,
+      status: "completed" as const,
+    },
+    {
+      id: "recent-2d",
+      ref: "REC-2",
+      title: "Recent Lunch",
+      amount: 1000,
+      type: "expense" as const,
+      categoryId: "food",
+      channel: "Virtual Bank Wallet",
+      date: `${relativeDateYmd(-2)}T12:00:00+07:00`,
+      status: "completed" as const,
+    },
+  ],
+};
+const predRolling = runReadTool("get_financial_prediction", { monthsAhead: 1 }, rollingSnapshot);
+assert.equal(predRolling.baselineMonthlyOutflow, 1000);
+
+console.log("Finora self-check passed (21/21 checks)");
