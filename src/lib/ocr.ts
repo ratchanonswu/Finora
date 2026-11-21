@@ -1,5 +1,6 @@
 const OCR_SPACE_ENDPOINT = "https://api.ocr.space/parse/image";
 const OCR_SPACE_MAX_BASE64_LEN = 1_350_000; // ~1 MB decoded limit on OCR.space free tier
+const OCR_SPACE_TIMEOUT_MS = 4000;
 const ALLOWED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 export function cleanOcrText(raw: string): string {
@@ -37,7 +38,7 @@ export async function extractSlipOcrText(
       method: "POST",
       headers: { apikey: apiKey },
       body: form,
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(OCR_SPACE_TIMEOUT_MS),
     });
 
     if (!res.ok) {

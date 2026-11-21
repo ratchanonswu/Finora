@@ -1,7 +1,9 @@
-const DIRECT_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
+const DIRECT_UPLOAD_MAX_BYTES = 950 * 1024;
+const MAX_SLIP_DIMENSION = 1600;
+const MAX_TARGET_BASE64_LEN = 1_280_000; // ~960 KB decoded, safely under OCR.space 1 MB cap
 const DIRECT_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
-// Prepare slip image for OCR/Vision upload (direct if <= 2MB, else downscaled to 2048px) plus a compact 180px thumbnail.
+// Prepare slip image for OCR/Vision upload (direct if <= 950KB & <= 1600px, else downscaled to 1600px) plus a compact 180px thumbnail.
 export async function prepareSlipImage(file: File): Promise<{
   imageBase64: string;
   mimeType: string;
@@ -22,10 +24,14 @@ export async function prepareSlipImage(file: File): Promise<{
   });
 
   const directBase64 = dataUrl.split(",")[1] || "";
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
   const canSendDirect =
     file.size <= DIRECT_UPLOAD_MAX_BYTES &&
+    Math.max(iw, ih) <= MAX_SLIP_DIMENSION &&
     DIRECT_MIME_TYPES.has(file.type) &&
-    directBase64.length > 0;
+    directBase64.length > 0 &&
+    directBase64.length <= MAX_TARGET_BASE64_LEN;
 
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
@@ -46,16 +52,16 @@ export async function prepareSlipImage(file: File): Promise<{
     ctx.drawImage(img, 0, 0, w, h);
   };
 
-  const iw = img.naturalWidth || img.width;
-  const ih = img.naturalHeight || img.height;
-
-  // Send original file when <= 2MB; otherwise downscale to 2048px at high JPEG quality so Thai text stays sharp
+  // Send original file when <= 950KB & <= 1600px; otherwise downscale to 1600px JPEG within OCR.space limit
   let imageBase64 = directBase64;
   let mimeType = file.type || "image/jpeg";
   if (!canSendDirect) {
-    const vScale = Math.min(1, 2048 / Math.max(iw, ih));
+    const vScale = Math.min(1, MAX_SLIP_DIMENSION / Math.max(iw, ih));
     drawWithWhiteBg(Math.max(1, Math.round(iw * vScale)), Math.max(1, Math.round(ih * vScale)));
-    imageBase64 = canvas.toDataURL("image/jpeg", 0.95).split(",")[1] || "";
+    for (const quality of [0.88, 0.78, 0.68]) {
+      imageBase64 = canvas.toDataURL("image/jpeg", quality).split(",")[1] || "";
+      if (imageBase64.length <= MAX_TARGET_BASE64_LEN) break;
+    }
     mimeType = "image/jpeg";
   }
 
