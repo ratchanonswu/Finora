@@ -6,6 +6,7 @@ import { useFinora } from "@/context/FinoraContext";
 import {
   formatTHB,
   formatThaiDate,
+  isInCurrentQuotaCycle,
   normalizeTransactionDate,
   parsePromptPayPayload,
   todayYmd,
@@ -554,6 +555,15 @@ export default function AiAssistantPage() {
     const expense = transactions
       .filter((t) => t.type === "expense")
       .reduce((s, t) => s + t.amount, 0);
+    const cycleTxs = transactions.filter((t) =>
+      isInCurrentQuotaCycle(t.date, settings.quotaResetAt)
+    );
+    const cycleIncome = cycleTxs
+      .filter((t) => t.type === "income")
+      .reduce((s, t) => s + t.amount, 0);
+    const cycleExpense = cycleTxs
+      .filter((t) => t.type === "expense")
+      .reduce((s, t) => s + t.amount, 0);
     const sumActiveRecurring = (targetType: TransactionType) =>
       recurring
         .filter((r) => r.active && (r.type ?? "expense") === targetType)
@@ -561,10 +571,10 @@ export default function AiAssistantPage() {
     const recExpenseSum = sumActiveRecurring("expense");
     const recIncomeSum = sumActiveRecurring("income");
     const catBreakdown = cats
-      .filter((c) => c.type === "expense")
+      .filter((c) => c.type === "expense" && c.id !== "recurring")
       .map((c) => {
-        const sum = transactions
-          .filter((t) => t.categoryId === c.id)
+        const sum = cycleTxs
+          .filter((t) => t.categoryId === c.id && t.type === "expense")
           .reduce((s, t) => s + t.amount, 0);
         return `- [${c.id}] ${c.name}: ใช้ไป ${formatTHB(sum)} (งบ ${formatTHB(c.budget)})`;
       })
@@ -584,19 +594,23 @@ export default function AiAssistantPage() {
     return [
       `วันที่ปัจจุบัน: ${todayYmd()} (${new Date().toLocaleDateString("th-TH", { dateStyle: "long" })})`,
       `ยอดเงินคงเหลือ Virtual Wallet: ${formatTHB(bankBalance)}`,
-      `รายรับรวม: ${formatTHB(income)}`,
-      `รายจ่ายรวม: ${formatTHB(expense)}`,
+      `รายรับรวมทั้งหมด: ${formatTHB(income)} | รายจ่ายรวมทั้งหมด: ${formatTHB(expense)}`,
+      ...(settings.quotaResetAt
+        ? [
+            `รอบโควต้าปัจจุบัน: รายรับ ${formatTHB(cycleIncome)} | รายจ่าย ${formatTHB(cycleExpense)}`,
+          ]
+        : []),
       `รายจ่ายประจำ (Recurring ที่เปิดอยู่): ${formatTHB(recExpenseSum)}/เดือน`,
       `รายรับประจำ (Recurring ที่เปิดอยู่): ${formatTHB(recIncomeSum)}/เดือน`,
       `รายการ Recurring: ${recList}`,
-      `หมวดรายจ่ายที่มี:\n${catBreakdown}`,
+      `หมวดรายจ่ายที่มี (ยอดใช้ในรอบปัจจุบัน):\n${catBreakdown}`,
       `หมวดรายรับที่มี: ${incomeCats}`,
     ].join("\n");
   };
 
   const financialSummary = useMemo(
     () => buildFinancialSummary(categories),
-    [bankBalance, transactions, categories, recurring]
+    [bankBalance, transactions, categories, recurring, settings.quotaResetAt]
   );
 
   const runToolLoop = async (
