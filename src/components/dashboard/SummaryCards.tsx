@@ -125,6 +125,12 @@ export function SummaryCards({
       : budgetSummary.usedPct >= 80
         ? "bg-amber-500"
         : "bg-emerald-500 dark:bg-primary";
+  const budgetBarCaption =
+    budgetSummary.totalRemaining < 0
+      ? budgetSummary.usedPct > 100
+        ? `เกิน ${budgetSummary.usedPct - 100}%`
+        : "เกินงบ"
+      : `เหลือ ${Math.max(0, 100 - budgetSummary.usedPct)}%`;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -265,9 +271,16 @@ export function SummaryCards({
             >
               <span className="material-symbols-outlined text-[20px]">track_changes</span>
             </div>
-            <span className="text-xs font-semibold text-slate-600 dark:text-on-surface-variant truncate">
-              งบประมาณคงเหลือ
-            </span>
+            <div className="min-w-0">
+              <span className="block text-xs font-semibold text-slate-600 dark:text-on-surface-variant truncate">
+                งบประมาณคงเหลือ
+              </span>
+              {budgetSummary.hasBudgets && (
+                <span className="block text-[10px] text-slate-400 dark:text-outline truncate">
+                  รวมงบ {budgetSummary.items.length} หมวด • {budgetSummary.cycleLabel}
+                </span>
+              )}
+            </div>
           </div>
           {budgetSummary.hasBudgets && (
             <span
@@ -308,8 +321,14 @@ export function SummaryCards({
                   style={{ width: `${Math.min(100, budgetSummary.usedPct)}%` }}
                 />
               </div>
-              <span className="text-xs font-mono font-bold text-slate-700 dark:text-on-surface shrink-0">
-                {budgetSummary.usedPct}%
+              <span
+                className={`text-xs font-mono font-semibold shrink-0 ${
+                  budgetSummary.totalRemaining < 0
+                    ? "text-red-500 dark:text-error"
+                    : "text-slate-600 dark:text-on-surface-variant"
+                }`}
+              >
+                {budgetBarCaption}
               </span>
             </div>
           </div>

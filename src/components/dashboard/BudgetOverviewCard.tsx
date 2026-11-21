@@ -6,8 +6,6 @@ import { formatTHB } from "@/lib/seed";
 import type { BudgetOverviewSummary } from "./dashboard-utils";
 
 export function BudgetOverviewCard({ budgetSummary }: { budgetSummary: BudgetOverviewSummary }) {
-  const visibleItems = budgetSummary.items.slice(0, 4);
-
   return (
     <div className="h-full rounded-2xl bg-white dark:bg-surface-container border border-slate-200/75 dark:border-outline-variant/30 p-5 sm:p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.06)] dark:shadow-none flex flex-col justify-between gap-4">
       <div className="flex items-center justify-between gap-3">
@@ -45,60 +43,70 @@ export function BudgetOverviewCard({ budgetSummary }: { budgetSummary: BudgetOve
           </Link>
         </div>
       ) : (
-        <div className="space-y-3.5 flex-1">
-          {visibleItems.map((cat) => {
-            const barWidth = Math.min(100, cat.pct);
-            const isNear = !cat.over && cat.pct >= 80;
+        <>
+          <div className="space-y-3 flex-1 max-h-[340px] overflow-y-auto pr-1">
+            {budgetSummary.items.map((cat) => {
+              const barWidth = Math.min(100, cat.pct);
+              const isNear = !cat.over && cat.pct >= 80;
 
-            return (
-              <div key={cat.id} className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className="inline-flex items-center gap-2 font-semibold text-slate-800 dark:text-on-surface min-w-0">
+              return (
+                <div key={cat.id} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <span className="inline-flex items-center gap-2 font-semibold text-slate-800 dark:text-on-surface min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: cat.color }}
+                      />
+                      <span className="truncate">{cat.name}</span>
+                    </span>
                     <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: cat.color }}
+                      className={`font-mono font-semibold shrink-0 ${
+                        cat.over
+                          ? "text-red-500 dark:text-error"
+                          : isNear
+                            ? "text-amber-600 dark:text-amber-300"
+                            : "text-slate-500 dark:text-on-surface-variant"
+                      }`}
+                    >
+                      {cat.pct}%
+                    </span>
+                  </div>
+
+                  <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-surface-container-highest overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        cat.over ? "bg-red-500 dark:bg-error" : ""
+                      }`}
+                      style={{
+                        width: `${barWidth}%`,
+                        backgroundColor: cat.over ? undefined : cat.color,
+                      }}
                     />
-                    <span className="truncate">{cat.name}</span>
-                  </span>
-                  <span
-                    className={`font-mono font-semibold shrink-0 ${
-                      cat.over
-                        ? "text-red-500 dark:text-error"
-                        : isNear
-                          ? "text-amber-600 dark:text-amber-300"
-                          : "text-slate-500 dark:text-on-surface-variant"
-                    }`}
-                  >
-                    {cat.pct}%
-                  </span>
-                </div>
+                  </div>
 
-                <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-surface-container-highest overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      cat.over ? "bg-red-500 dark:bg-error" : ""
-                    }`}
-                    style={{
-                      width: `${barWidth}%`,
-                      backgroundColor: cat.over ? undefined : cat.color,
-                    }}
-                  />
+                  <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-on-surface-variant">
+                    <span>
+                      {formatTHB(cat.spent)} / {formatTHB(cat.budget)}
+                    </span>
+                    <span className={cat.over ? "text-red-500 dark:text-error font-semibold" : ""}>
+                      {cat.over
+                        ? `เกิน ${formatTHB(Math.abs(cat.remaining))}`
+                        : `เหลือ ${formatTHB(cat.remaining)}`}
+                    </span>
+                  </div>
                 </div>
-
-                <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-on-surface-variant">
-                  <span>
-                    {formatTHB(cat.spent)} / {formatTHB(cat.budget)}
-                  </span>
-                  <span className={cat.over ? "text-red-500 dark:text-error font-semibold" : ""}>
-                    {cat.over
-                      ? `เกิน ${formatTHB(Math.abs(cat.remaining))}`
-                      : `เหลือ ${formatTHB(cat.remaining)}`}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+          <div className="pt-3 border-t border-slate-100 dark:border-outline-variant/20 flex items-center justify-between gap-2 text-xs">
+            <span className="text-slate-500 dark:text-on-surface-variant truncate">
+              รวม {budgetSummary.items.length} หมวด • {budgetSummary.cycleLabel}
+            </span>
+            <span className="font-mono font-semibold text-slate-700 dark:text-on-surface shrink-0">
+              {formatTHB(budgetSummary.totalSpent)} / {formatTHB(budgetSummary.totalBudget)}
+            </span>
+          </div>
+        </>
       )}
     </div>
   );
