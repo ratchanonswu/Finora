@@ -13,7 +13,7 @@
 | **Styling & Theme** | Tailwind CSS 3.4 + CSS Custom Properties (`globals.css`) | Dual Theme (`Light Fintech` / `Emerald Nocturne Dark`) และ Material Symbols Outlined |
 | **State & Persistence** | React Context (`FinoraContext`) + `localStorage` / `sessionStorage` | เก็บสถานะธุรกรรม (`finora_state_v1`) และประวัติแชทแยกตามอีเมลผู้ใช้ (`finora_chat_session_v1:<email>`) |
 | **AI / LLM Gateway** | OpenRouter API (`src/lib/openrouter.ts`) | Chat Completions, Multi-Tool Function Calling, และ Multimodal Vision สำหรับอ่านสลิป |
-| **Slip Image & OCR Pipeline** | Browser Canvas (`src/lib/slip-image.ts`) + OCR.space Engine 1 (`src/lib/ocr.ts`) | เตรียม/ย่อขนาดรูปสลิปฝั่ง Client (`<= 2MB` ส่งตรง) ควบคู่กับ OCR ภาษาไทยฝั่ง Server |
+| **Slip Image & OCR Pipeline** | Browser Canvas (`src/lib/slip-image.ts`) + OCR.space Engine 1 (`src/lib/ocr.ts`) | เตรียม/ย่อขนาดรูปสลิปฝั่ง Client (`<= 950KB` ส่งตรง / `1600px`) ควบคู่กับ OCR ภาษาไทยฝั่ง Server |
 | **Testing** | Node.js Native Type-Stripping (`src/lib/self-check.ts`) | ชุดทดสอบ Deterministic Unit & Integration (`npm run test:check`) 23 หมวดตรวจสอบ |
 
 ---
@@ -137,9 +137,9 @@ sequenceDiagram
 | `src/lib/bank-service.ts` | Pure function `executeBankTransfer` สำหรับคำนวณยอด `bankBalance` (อนุญาตให้ติดลบได้) และสร้าง `BankLedgerEntry` |
 | `src/lib/rollover.ts` | `simulateRolloverToDate` จำลองเหตุการณ์การเงินตามลำดับเวลา: รีเซ็ตโควต้า → รับรายรับประจำ → ตัดบิลรายจ่ายประจำ (ตัดยอดแม้ติดลบ) |
 | `src/lib/seed.ts` | ข้อมูลตั้งต้น (`INITIAL_*`), ตัวจัดรูปแบบ `formatTHB` (รองรับ `-฿...`), `formatThaiDate` (เฉพาะวัน/เดือน/ปี), ตัวจัดการวันที่ (`todayYmd`, `ymdToIso`, `toDateInputValue`, `normalizeTransactionDate`), และ `isInCurrentQuotaCycle` |
-| `src/lib/ocr.ts` | `extractSlipOcrText` เรียก OCR.space Engine 1 (`language: "tha"`) พร้อม timeout 8 วินาที และจำกัดขนาดไฟล์ 1 MB |
+| `src/lib/ocr.ts` | `extractSlipOcrText` เรียก OCR.space Engine 1 (`language: "tha"`) พร้อม timeout 4 วินาที และจำกัดขนาดไฟล์ 1 MB |
 | `src/lib/openrouter.ts` | `callOpenRouter` HTTP client พร้อมตัวเก็บสถิติ `LLMMetrics` (tokens & latency) |
-| `src/lib/slip-image.ts` | เตรียมรูปภาพสลิปสำหรับ OCR/Vision API (`prepareSlipImage`: ส่งตรง `<= 2MB`, ย่อ `2048px`, และสร้าง thumbnail `180px`) |
+| `src/lib/slip-image.ts` | เตรียมรูปภาพสลิปสำหรับ OCR/Vision API (`prepareSlipImage`: ส่งตรง `<= 950KB`, ย่อ `1600px` ให้อยู่ใต้ลิมิต OCR 1 MB, และสร้าง thumbnail `180px`) |
 | `src/lib/self-check.ts` | ชุดทดสอบอัตโนมัติ 23 หัวข้อครอบคลุมทุกฟังก์ชันหลักใน `src/lib/` |
 
 ---
@@ -161,4 +161,4 @@ sequenceDiagram
 6. **Environment Variables (`.env.local`):**
    - `OPENROUTER_API_KEY` (จำเป็นสำหรับ AI Chat และ Vision; หรือใส่ Override Key ได้ในหน้า Settings ของแอป)
    - `OPENROUTER_MODEL` (ค่าเริ่มต้น `google/gemini-2.5-flash`)
-   - `OCR_SPACE_API_KEY` (ไม่บังคับ — หากมีจะช่วยสกัดข้อความภาษาไทยจากสลิปส่งเสริมให้ Vision LLM แม่นยำขึ้น หากไม่มีหรือเกิน 8 วินาที ระบบจะ fallback ไปใช้ Vision LLM ล้วนโดยไม่พัง)
+   - `OCR_SPACE_API_KEY` (ไม่บังคับ — หากมีจะช่วยสกัดข้อความภาษาไทยจากสลิปส่งเสริมให้ Vision LLM แม่นยำขึ้น หากไม่มีหรือเกิน 4 วินาที ระบบจะ fallback ไปใช้ Vision LLM ล้วนโดยไม่พัง)

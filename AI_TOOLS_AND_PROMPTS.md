@@ -46,8 +46,8 @@ flowchart TD
     ORChat -->|add_transaction หรือ add_category+add_transaction| BatchModal["validateAndNormalizeWriteTool()\n-> เปิด Batch/Chained Confirmation Modal"]
     ORChat -->|add_category เดี่ยว / update_category_budget / add_recurring_payment| CardConfirm["validateAndNormalizeWriteTool()\n-> แสดงการ์ดยืนยันในแชท"]
 
-    Slip --> ClientPrep["1. Client เตรียมภาพด้วย prepareSlipImage() (<= 2MB ส่งตรง / 2048px)"]
-    ClientPrep --> ServerOCR["2. Server สกัดข้อความภาษาไทยด้วย OCR.space (Engine 1, 8s timeout)"]
+    Slip --> ClientPrep["1. Client เตรียมภาพด้วย prepareSlipImage() (<= 950KB ส่งตรง / 1600px)"]
+    ClientPrep --> ServerOCR["2. Server สกัดข้อความภาษาไทยด้วย OCR.space (Engine 1, 4s timeout)"]
     ServerOCR --> VisionPrompt["3. buildSlipPrompt(categoryList, userName, ocrText)"]
     VisionPrompt --> ORVision["4. OpenRouter Vision LLM -> parseSlipResult()"]
     ORVision --> BatchModal
