@@ -359,4 +359,72 @@ const slipNoDate = parseQrSlipResult(
 assert.equal(slipNoDate.ok, true);
 if (slipNoDate.ok) assert.equal(slipNoDate.data.date, undefined);
 
-console.log("Finora self-check passed (19/19 checks)");
+// 20. Cycle-aware overview, budget metrics in get_categories, and net recurring summary
+const cycleSnapshot = {
+  bankBalance: 3200,
+  categories: INITIAL_CATEGORIES,
+  recurring: INITIAL_RECURRING,
+  quotaResetAt: "2026-10-01T00:00:00+07:00",
+  transactions: [
+    {
+      id: "old-food",
+      ref: "OLD-1",
+      title: "Old Dinner",
+      amount: 900,
+      type: "expense" as const,
+      categoryId: "food",
+      channel: "เงินสด",
+      date: "2026-09-15T12:00:00+07:00",
+      status: "completed" as const,
+    },
+    {
+      id: "new-food",
+      ref: "NEW-1",
+      title: "New Lunch",
+      amount: 2500,
+      type: "expense" as const,
+      categoryId: "food",
+      channel: "Virtual Bank Wallet",
+      date: "2026-10-10T12:00:00+07:00",
+      status: "completed" as const,
+    },
+    {
+      id: "new-salary",
+      ref: "NEW-2",
+      title: "Oct Salary",
+      amount: 30000,
+      type: "income" as const,
+      categoryId: "salary",
+      channel: "Virtual Bank Wallet",
+      date: "2026-10-05T12:00:00+07:00",
+      status: "completed" as const,
+    },
+  ],
+};
+
+const overviewCycle = runReadTool("get_financial_overview", {}, cycleSnapshot);
+assert.equal(overviewCycle.totalExpense, 3400);
+assert.equal(overviewCycle.currentCycleExpense, 2500);
+assert.equal(overviewCycle.currentCycleIncome, 30000);
+assert.equal(overviewCycle.currentCycleNet, 27500);
+
+const catSummary = runReadTool("get_categories", {}, cycleSnapshot) as {
+  categories: Array<{
+    id: string;
+    spent: number;
+    remainingBudget: number;
+    overBudgetAmount: number;
+    usagePercent: number;
+  }>;
+};
+const foodCat = catSummary.categories.find((c) => c.id === "food");
+assert.equal(foodCat?.spent, 2500);
+assert.equal(foodCat?.remainingBudget, 7500);
+assert.equal(foodCat?.overBudgetAmount, 0);
+assert.equal(foodCat?.usagePercent, 25);
+
+const recMetrics = runReadTool("get_recurring_payments", {}, cycleSnapshot);
+assert.equal(recMetrics.currentBankBalance, 3200);
+assert.equal(recMetrics.monthlyNetRecurring, 36500); // 50000 - (500 + 12000 + 1000)
+
+console.log("Finora self-check passed (20/20 checks)");

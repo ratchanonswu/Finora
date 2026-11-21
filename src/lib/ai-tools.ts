@@ -406,13 +406,29 @@ export function runReadTool(
   const { bankBalance, transactions, categories, recurring } = snapshot;
 
   if (name === "get_financial_overview") {
-    const income = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-    const expense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+    const income = roundCurrency(
+      transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0)
+    );
+    const expense = roundCurrency(
+      transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0)
+    );
+    const cycleTxs = transactions.filter((t) =>
+      isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+    );
+    const currentCycleIncome = roundCurrency(
+      cycleTxs.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0)
+    );
+    const currentCycleExpense = roundCurrency(
+      cycleTxs.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0)
+    );
     return {
       virtualBankBalance: bankBalance,
       totalIncome: income,
       totalExpense: expense,
-      netCashFlow: income - expense,
+      netCashFlow: roundCurrency(income - expense),
+      currentCycleIncome,
+      currentCycleExpense,
+      currentCycleNet: roundCurrency(currentCycleIncome - currentCycleExpense),
       transactionCount: transactions.length,
     };
   }
@@ -443,24 +459,43 @@ export function runReadTool(
       categories: categories
         .filter((c) => c.id !== "recurring")
         .map((c) => {
-          const spent = transactions
-            .filter(
-              (t) =>
-                t.categoryId === c.id &&
-                isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
-            )
-            .reduce((s, t) => s + t.amount, 0);
-          return { id: c.id, name: c.name, type: c.type, budget: c.budget, spent };
+          const spent = roundCurrency(
+            transactions
+              .filter(
+                (t) =>
+                  t.categoryId === c.id &&
+                  t.type === c.type &&
+                  isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+              )
+              .reduce((s, t) => s + t.amount, 0)
+          );
+          const remainingBudget =
+            c.budget > 0 ? Math.max(0, roundCurrency(c.budget - spent)) : 0;
+          const overBudgetAmount =
+            c.budget > 0 ? Math.max(0, roundCurrency(spent - c.budget)) : 0;
+          const usagePercent = c.budget > 0 ? Math.round((spent / c.budget) * 100) : 0;
+          return {
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            budget: c.budget,
+            spent,
+            remainingBudget,
+            overBudgetAmount,
+            usagePercent,
+          };
         }),
     };
   }
 
   if (name === "get_recurring_payments") {
-    const activeMonthlyTotal = sumActiveRecurringMonthly(recurring, "expense");
-    const activeMonthlyIncomeTotal = sumActiveRecurringMonthly(recurring, "income");
+    const activeMonthlyTotal = roundCurrency(sumActiveRecurringMonthly(recurring, "expense"));
+    const activeMonthlyIncomeTotal = roundCurrency(sumActiveRecurringMonthly(recurring, "income"));
     return {
+      currentBankBalance: bankBalance,
       activeMonthlyTotal,
       activeMonthlyIncomeTotal,
+      monthlyNetRecurring: roundCurrency(activeMonthlyIncomeTotal - activeMonthlyTotal),
       items: recurring.map((r) => ({
         id: r.id,
         title: r.title,
