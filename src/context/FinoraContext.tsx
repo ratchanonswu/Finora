@@ -163,6 +163,7 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   const bankBalanceRef = useRef(state.bankBalance);
   bankBalanceRef.current = state.bankBalance;
   const txSeqRef = useRef(0);
+  const catSeqRef = useRef(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
   const [hydrated, setHydrated] = useState(false);
   const [isTxModalOpen, setTxModalOpen] = useState(false);
@@ -468,7 +469,8 @@ export function FinoraProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addCategory = (cat: Omit<Category, "id">): Category => {
-    const newCat: Category = { ...cat, id: `cat-${Date.now()}` };
+    const seq = ++catSeqRef.current;
+    const newCat: Category = { ...cat, id: `cat-${Date.now()}-${seq}` };
     setState((prev) => ({
       ...prev,
       categories: [...prev.categories, newCat],
