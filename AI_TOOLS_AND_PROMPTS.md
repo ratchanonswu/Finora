@@ -109,17 +109,17 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 ---
 
 ### 2.2 Dynamic Financial Context (`buildFinancialSummary`)
-สร้างโดย [src/app/(app)/ai-assistant/page.tsx](file:///c:/Gitwork/Finora/src/app/(app)/ai-assistant/page.tsx#L543-L590) แล้วแนบเข้า `# Financial Context` ทุกครั้งที่ส่งแชท:
+สร้างโดย [src/app/(app)/ai-assistant/page.tsx](file:///c:/Gitwork/Finora/src/app/(app)/ai-assistant/page.tsx) แล้วแนบเข้า `# Financial Context` ทุกครั้งที่ส่งแชท (กรองยอดใช้จ่ายรายหมวดตาม `isInCurrentQuotaCycle` ให้ตรงกับหน้า UI):
 
 ```text
 วันที่ปัจจุบัน: 2026-11-21 (21 พฤศจิกายน 2569)
 ยอดเงินคงเหลือ Virtual Wallet: ฿10,000.00
-รายรับรวม: ฿15,000.00
-รายจ่ายรวม: ฿5,000.00
+รายรับรวมทั้งหมด: ฿15,000.00 | รายจ่ายรวมทั้งหมด: ฿5,000.00
+รอบโควต้าปัจจุบัน: รายรับ ฿15,000.00 | รายจ่าย ฿5,000.00   (แสดงเมื่อตั้ง quotaResetAt)
 รายจ่ายประจำ (Recurring ที่เปิดอยู่): ฿13,500.00/เดือน
 รายรับประจำ (Recurring ที่เปิดอยู่): ฿50,000.00/เดือน
 รายการ Recurring: [rec-1] Netflix Premium Ultra HD (รายจ่ายประจำ, ฿500.00, เปิด), ...
-หมวดรายจ่ายที่มี:
+หมวดรายจ่ายที่มี (ยอดใช้ในรอบปัจจุบัน):
 - [food] อาหาร & เครื่องดื่ม: ใช้ไป ฿1,500.00 (งบ ฿10,000.00)
 ...
 หมวดรายรับที่มี: [salary] เงินเดือน & โบนัส, [investment] เงินปันผล & การลงทุน
@@ -128,9 +128,9 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 ---
 
 ### 2.3 QR / Slip Vision Prompt (`buildQrSlipPrompt`)
-อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts#L54-L90) ใช้สำหรับวิเคราะห์รูปสลิปธนาคาร / e-Wallet / ป้าย QR PromptPay โดยรับข้อมูลเสริม 4 ส่วน:
+อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) ใช้สำหรับวิเคราะห์รูปสลิปธนาคาร / e-Wallet / ป้าย QR PromptPay โดยรับข้อมูลเสริม 4 ส่วน:
 1. **`qrRaw`**: ข้อมูลดิบ EMVCo TLV ที่อ่านได้จากบาร์โค้ด QR ด้วย `jsqr`
-2. **`ocrText`**: ข้อความภาษาไทยที่อ่านได้จาก OCR.space Engine 1 (`extractSlipOcrText`) เพื่อช่วยสะกดชื่อร้านภาษาไทยให้แม่นยำ
+2. **`ocrText`**: ข้อความภาษาไทยที่อ่านได้จาก OCR.space Engine 1 (`extractSlipOcrText` + `cleanOcrText` ลบข้อความเตือน `[Note: ...]`) — **ข้าม OCR อัตโนมัติ** เมื่อป้าย QR TLV มีทั้ง `merchant` และ `amount > 0` ครบแล้วเพื่อประหยัดเวลา 1.5–3 วินาที
 3. **`userName`**: ชื่อผู้ใช้เจ้าของบัญชีในระบบ (เช่น `"คุณธนภัทร วงศ์เจริญ"`) เพื่อใช้แยกแยะว่าผู้ใช้เป็น **ผู้โอน (`expense`)** หรือ **ผู้รับเงิน (`income`)**
 4. **`categoryList`**: รายชื่อ `id` หมวดหมู่ที่มีในระบบ
 
@@ -144,16 +144,18 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
   "merchant": "Potato shake & ข้าวหมูกรอบ",
   "promptPayId": "0812345678",
   "amount": 30,
-  "categoryId": "food"
+  "categoryId": "food",
+  "date": "2026-11-21"
 }
 ```
 
 ### 2.4 การแปลงผลและตรวจจับผู้โอน/ผู้รับ (`parseQrSlipResult`)
-อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts#L122-L187) ทำหน้าที่ Post-process JSON จาก Vision LLM:
+อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) ทำหน้าที่ Post-process JSON จาก Vision LLM:
 - **ทำความสะอาดชื่อที่ถูกตัดคำ (`cleanSlipName`):** ลบ `...` หรือเศษพยัญชนะย่อท้ายบรรทัด เช่น `"นาย ชัยณรงค์ แ..."` → `"นาย ชัยณรงค์"`
 - **ตรวจสอบชื่อผู้ใช้ (`namesLikelyMatch`):** ตัดคำนำหน้า (`คุณ`, `นาย`, `นางสาว`, `Mr.`, ฯลฯ) แล้วเทียบกับ `userName`:
   - ถ้า **`receiver` ตรงกับผู้ใช้** (และ `sender` เป็นคนอื่น) → บังคับตั้ง `type = "income"` และใช้ `merchant = sender`
   - ถ้า **`sender` ตรงกับผู้ใช้** → บังคับตั้ง `type = "expense"` และใช้ `merchant = receiver`
+- **สกัดวันที่จากสลิป (`date`):** แปลงวันที่บนสลิป (ทั้ง พ.ศ. และ ค.ศ.) ด้วย `normalizeTransactionDate` และแนบ `date` เข้า Modal อัตโนมัติ (ถ้าเป็นป้าย QR หรือไม่พบวันที่จะใช้ `todayYmd()`)
 - **ป้องกันหมวดหมู่สงวน:** หาก LLM ตอบ `categoryId: "recurring"` หรือรหัสที่ไม่อยู่ในระบบ จะถูกแทนที่ด้วยค่าเริ่มต้น (`"food"` สำหรับรายจ่าย หรือ `"salary"` สำหรับรายรับ)
 
 ---
@@ -166,11 +168,11 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 
 | # | ชื่อ Tool | คำอธิบาย (Description) | พารามิเตอร์ (Parameters) | ข้อมูลที่ส่งกลับ (Return Payload) |
 |---|---|---|---|---|
-| 1 | **`get_financial_overview`** | ดูยอดเงิน Virtual Wallet คงเหลือ, รายรับรวม, รายจ่ายรวม, และยอดสุทธิปัจจุบัน | *(ไม่มี)* | `{ virtualBankBalance, totalIncome, totalExpense, netCashFlow, transactionCount }` |
-| 2 | **`get_transactions`** | ดึงรายการธุรกรรมล่าสุด สามารถกรองตามประเภทและหมวดหมู่ได้ | - `type?`: `"all" \| "income" \| "expense"` (default `"all"`)<br>- `categoryId?`: `string` (รองรับ alias)<br>- `limit?`: `number` (1–30, default `10`) | `{ count, transactions: [{ id, title, type, amount, category, channel, date }] }` |
-| 3 | **`get_categories`** | ดูรายการหมวดหมู่ทั้งหมดพร้อมยอดใช้จริงเทียบกับงบประมาณรายเดือน (ไม่รวมหมวด `"recurring"`) | *(ไม่มี)* | `{ categories: [{ id, name, type, budget, spent }] }` *(คำนวณ `spent` เฉพาะในรอบโควต้าปัจจุบัน `isInCurrentQuotaCycle`)* |
-| 4 | **`get_recurring_payments`** | ดูรายการประจำ (Recurring) ทั้งรายจ่ายประจำและรายรับประจำ สถานะ และวันครบกำหนดถัดไป | *(ไม่มี)* | `{ activeMonthlyTotal, activeMonthlyIncomeTotal, items: [{ id, title, amount, type, cycle, nextDueDate, active }] }` |
-| 5 | **`get_financial_prediction`** | คำนวณคาดการณ์ยอดเงินและกระแสเงินสดในอนาคตล่วงหน้า พร้อมสมมติฐานและคำเตือนความเสี่ยง | - `monthsAhead?`: `number` (1–12 เดือน, default `3`) | `{ monthsAhead, currentBankBalance, baselineMonthlyIncome, baselineMonthlyOutflow, activeRecurringMonthly, activeRecurringIncomeMonthly, estimatedMonthlyNet, projectedBalance, lowBalanceRisk, assumptions: string[] }` |
+| 1 | **`get_financial_overview`** | ดูยอดเงิน Virtual Wallet คงเหลือ, รายรับรวม, รายจ่ายรวม, และยอดสุทธิปัจจุบัน | *(ไม่มี)* | `{ virtualBankBalance, totalIncome, totalExpense, netCashFlow, currentCycleIncome, currentCycleExpense, currentCycleNet, transactionCount }` |
+| 2 | **`get_transactions`** | ดึงรายการธุรกรรมล่าสุด สามารถกรองตามประเภท หมวดหมู่ ช่วงวันที่ และรอบโควต้าได้ | - `type?`: `"all" \| "income" \| "expense"` (default `"all"`)<br>- `categoryId?`: `string` (รองรับ alias)<br>- `limit?`: `number` (1–30, default `10`)<br>- `startDate?` / `endDate?`: `YYYY-MM-DD` หรือ `DD/MM`<br>- `currentCycleOnly?`: `boolean` | `{ count, totalMatchedCount, totalMatchedAmount, transactions: [{ id, title, type, amount, category, channel, date }] }` |
+| 3 | **`get_categories`** | ดูรายการหมวดหมู่ทั้งหมดพร้อมยอดใช้จริงเทียบกับงบประมาณรายเดือน (ไม่รวมหมวด `"recurring"`) | *(ไม่มี)* | `{ categories: [{ id, name, type, budget, spent, remainingBudget, overBudgetAmount, usagePercent }] }` *(กรอง `t.type === c.type` ในรอบโควต้าปัจจุบัน)* |
+| 4 | **`get_recurring_payments`** | ดูรายการประจำ (Recurring) ทั้งรายจ่ายประจำและรายรับประจำ สถานะ และวันครบกำหนดถัดไป | *(ไม่มี)* | `{ currentBankBalance, activeMonthlyTotal, activeMonthlyIncomeTotal, monthlyNetRecurring, items: [{ id, title, amount, type, cycle, nextDueDate, active }] }` |
+| 5 | **`get_financial_prediction`** | คำนวณคาดการณ์ยอดเงินและกระแสเงินสดในอนาคตล่วงหน้า พร้อมสมมติฐานและคำเตือนความเสี่ยง | - `monthsAhead?`: `number` (1–12 เดือน, default `3`) | `{ monthsAhead, currentBankBalance, baselineMonthlyIncome, baselineMonthlyOutflow, activeRecurringMonthly, activeRecurringIncomeMonthly, estimatedMonthlyNet, projectedBalance, lowBalanceRisk, assumptions: string[] }` *(ใช้ฐานจากรอบโควต้าปัจจุบันหรือย้อนหลัง 30 วันล่าสุด)* |
 
 ---
 
@@ -178,10 +180,10 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 
 | # | ชื่อ Tool | รูปแบบ UI ยืนยัน | พารามิเตอร์ (Parameters) | กฎการตรวจสอบและแปลงค่า (`validateAndNormalizeWriteTool`) |
 |---|---|---|---|---|
-| 6 | **`add_transaction`** | **Blocking Modal** (รองรับทั้งใบเดียวและ **Batch หลายรายการในหน้าต่างเดียว**) | - `type` *(req)*: `"income" \| "expense"`<br>- `title` *(req)*: `string` (ชื่อรายการ/ร้านค้า)<br>- `amount` *(req)*: `number` (`> 0`)<br>- `categoryId` *(req)*: `string`<br>- `channel?`: `string` (default `"Virtual Bank Wallet"`)<br>- `date?`: `string` (`YYYY-MM-DD` หรือ `DD/MM`) | - `title` ต้องไม่ว่าง และ `amount > 0`<br>- **ไม่บล็อกยอดเงินติดลบ** (อนุญาตให้ `bankBalance < 0`)<br>- แปลง `channel` อัตโนมัติ (`"cash"` → `"เงินสด"`, `"qr"` → `"สแกน PromptPay QR"`, `"card"` → `"Virtual Card"`)<br>- แปลง `date` ด้วย `normalizeTransactionDate` (ถ้าไม่ส่งมาใช้ `todayYmd()`, ถ้าส่งวันที่ผิดเช่น `"31/02"` คืน error)<br>- หาหมวดหมู่ด้วย `resolveCategory(rawCat, categories, txType, title)` (ถ้า `categoryId` ไม่ตรง จะ fallback เดาจาก `title`) |
-| 7 | **`update_category_budget`** | **Inline Card** ในแชท | - `categoryId` *(req)*: `string`<br>- `budget` *(req)*: `number` (`>= 0`) | - `budget >= 0`<br>- ต้องเป็นหมวดรายจ่าย (`type === "expense"`) ที่มีอยู่จริง<br>- ห้ามแก้ไขงบของหมวด `"recurring"` โดยตรง |
+| 6 | **`add_transaction`** | **Blocking Modal** (รองรับทั้งใบเดียวและ **Batch หลายรายการในหน้าต่างเดียว**) | - `type` *(req)*: `"income" \| "expense"`<br>- `title` *(req)*: `string` (ชื่อรายการ/ร้านค้า)<br>- `amount` *(req)*: `number` (`> 0`)<br>- `categoryId` *(req)*: `string`<br>- `channel?`: `string` (default `"Virtual Bank Wallet"`)<br>- `date?`: `string` (`YYYY-MM-DD`, `DD/MM`, หรือคำสัมพัทธ์) | - `title` ต้องไม่ว่าง และปัด `amount` เป็นทศนิยม 2 ตำแหน่ง (`roundCurrency`, `> 0`)<br>- **ไม่บล็อกยอดเงินติดลบ** (อนุญาตให้ `bankBalance < 0`)<br>- แปลง `channel` อัตโนมัติ (`"cash"` → `"เงินสด"`, `"qr"` → `"สแกน PromptPay QR"`, `"card"` → `"Virtual Card"`)<br>- แปลง `date` ด้วย `normalizeTransactionDate` (ถ้าไม่ส่งมาใช้ `todayYmd()`, ถ้าส่งวันที่ผิดเช่น `"31/02"` คืน error)<br>- หาหมวดหมู่ด้วย `resolveCategory(rawCat, categories, txType, title)` (ถ้า `categoryId` ไม่ตรง จะ fallback เดาจาก `title`) |
+| 7 | **`update_category_budget`** | **Inline Card** ในแชท | - `categoryId` *(req)*: `string`<br>- `budget` *(req)*: `number` (`>= 0`) | - ปัด `budget` เป็นทศนิยม 2 ตำแหน่ง (`roundCurrency`, `>= 0`)<br>- ต้องเป็นหมวดรายจ่าย (`type === "expense"`) ที่มีอยู่จริง และห้ามแก้ไขหมวด `"recurring"`<br>- แนบคำเตือน `⚠️` ใน `summary` หาก `budget` ต่ำกว่ายอดที่ใช้ไปแล้วในรอบปัจจุบัน |
 | 8 | **`toggle_recurring`** | **Inline Card** ในแชท | - `recurringId` *(req)*: `string` (รหัส เช่น `"rec-1"` หรือชื่อรายการ) | - ค้นหารายการด้วย `resolveRecurring(recurringId, recurring)` รองรับทั้ง ID และค้นหาบางส่วนของชื่อรายการ (`title`) |
-| 9 | **`add_recurring_payment`** | **Inline Card** ในแชท | - `title` *(req)*: `string`<br>- `amount` *(req)*: `number` (`> 0`)<br>- `type?`: `"expense" \| "income"` (default `"expense"`)<br>- `categoryId?`: `string` (ใช้เมื่อ `type === "income"`)<br>- `cycle?`: `"monthly" \| "weekly" \| "yearly"` (default `"monthly"`)<br>- `nextDueDate?`: `string` (`YYYY-MM-DD`, default วันที่ 1 ของเดือนถัดไป) | - ป้องกันชื่อรายการซ้ำกับที่มีอยู่แล้ว (`recurring.some(...)`)<br>- ถ้ารายจ่ายประจำ (`expense`) บังคับใช้ `categoryId = "recurring"` และ `icon = "autorenew"`<br>- ถ้ารายรับประจำ (`income`) จับคู่หมวดรายรับด้วย `resolveCategory` (default `"salary"`) และ `icon = "payments"` |
+| 9 | **`add_recurring_payment`** | **Inline Card** ในแชท | - `title` *(req)*: `string`<br>- `amount` *(req)*: `number` (`> 0`)<br>- `type?`: `"expense" \| "income"` (default `"expense"`)<br>- `categoryId?`: `string` (ใช้เมื่อ `type === "income"`)<br>- `cycle?`: `"monthly" \| "weekly" \| "yearly"` (default `"monthly"`)<br>- `nextDueDate?`: `string` (`YYYY-MM-DD` หรือ `DD/MM`, default วันที่ 1 ของเดือนถัดไป) | - ป้องกันชื่อรายการซ้ำ และปัด `amount` เป็นทศนิยม 2 ตำแหน่ง (`roundCurrency`)<br>- แปลง `nextDueDate` ด้วย `normalizeTransactionDate` (คืน error หากรูปแบบผิด, แนบคำเตือน `⚠️` หากเป็นวันในอดีต)<br>- ถ้ารายจ่ายประจำ (`expense`) บังคับ `categoryId = "recurring"` / `icon = "autorenew"`<br>- ถ้ารายรับประจำ (`income`) จับคู่หมวดรายรับด้วย `resolveCategory` (default `"salary"`, `icon = "payments"`) |
 
 ---
 
@@ -211,7 +213,8 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 ---
 
 ### 4.2 การแปลงรูปแบบวันที่ (`normalizeTransactionDate`)
-อยู่ใน [src/lib/seed.ts](file:///c:/Gitwork/Finora/src/lib/seed.ts#L202-L226) รองรับวันที่ที่ AI หรือผู้ใช้ส่งมาหลากหลายรูปแบบ:
+อยู่ใน [src/lib/seed.ts](file:///c:/Gitwork/Finora/src/lib/seed.ts) รองรับวันที่ที่ AI หรือผู้ใช้ส่งมาหลากหลายรูปแบบ:
+- **คำบอกวันที่สัมพัทธ์:** `"วันนี้"`, `"today"`, `"เมื่อวาน"`, `"เมื่อวานนี้"`, `"yesterday"`, `"เมื่อวานซืน"`, `"พรุ่งนี้"`, `"tomorrow"` (คำนวณเทียบจากวันที่ปัจจุบัน)
 - **`YYYY-MM-DD` หรือ ISO Timestamp:** เช่น `"2026-08-15"`, `"2569-08-15"` (ถ้าปี `>= 2400` จะลบ `543` แปลง พ.ศ. → ค.ศ. อัตโนมัติ)
 - **`DD/MM/YYYY` หรือ `DD-MM-YYYY`:** เช่น `"15/08/2026"`, `"15/08/2569"`, `"15/08/69"` (ปี 2 หลัก `>= 40` ตีความเป็น พ.ศ. `25xx`)
 - **`DD/MM` หรือ `D/M`:** เช่น `"15/08"` → ใช้ปี ค.ศ. ปัจจุบันจาก `refDate` (`"2026-08-15"`)
@@ -220,7 +223,7 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 ---
 
 ### 4.3 ลำดับความสำคัญของการรัน Tools (`getToolExecutionPriority`)
-เมื่อ LLM ส่งหลาย `tool_calls` พร้อมกันในรอบเดียว ระบบจะเรียงลำดับด้วย `getToolExecutionPriority` ([src/lib/ai-tools.ts](file:///c:/Gitwork/Finora/src/lib/ai-tools.ts#L30-L46)):
+เมื่อ LLM ส่งหลาย `tool_calls` พร้อมกันในรอบเดียว ระบบจะเรียงลำดับด้วย `getToolExecutionPriority` ([src/lib/ai-tools.ts](file:///c:/Gitwork/Finora/src/lib/ai-tools.ts)):
 1. **Priority `0` (Read Tools ทั้ง 5 ตัว):** รันก่อนเสมอเพื่อให้ได้ข้อมูลล่าสุด
 2. **Priority `1` (Income / Credit):** `add_transaction` ที่เป็น `type: "income"`
 3. **Priority `2` (Configuration Tools):** `update_category_budget`, `add_recurring_payment`, `toggle_recurring`
@@ -228,11 +231,13 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 
 ---
 
-### 4.4 กลไกป้องกัน AI ลืมเรียก Tool และป้องกันการวนลูป (`runToolLoop`)
-อยู่ใน [src/app/(app)/ai-assistant/page.tsx](file:///c:/Gitwork/Finora/src/app/(app)/ai-assistant/page.tsx#L596-L751):
+### 4.4 กลไกป้องกัน AI ลืมเรียก Tool, การวนลูป และ Error Resilience (`runToolLoop` & `callOpenRouter`)
+อยู่ใน [src/app/(app)/ai-assistant/page.tsx](file:///c:/Gitwork/Finora/src/app/(app)/ai-assistant/page.tsx) และ [src/lib/openrouter.ts](file:///c:/Gitwork/Finora/src/lib/openrouter.ts):
 1. **Auto-Retry เมื่อ AI พิมพ์จำลองว่าเรียก Tool (`looksLikeFakeToolConfirm`):**
    - หากในรอบแรก AI ตอบข้อความทำนองว่า `"กรุณากดยืนยันในการ์ด"` หรือ `"กำลังส่งรายการให้คุณยืนยัน"` แต่ไม่ได้ส่ง `tool_calls` มาจริง ระบบจะแนบข้อความ `[ระบบ] คุณยังไม่ได้ส่ง Function Call (tool_calls) จริง...` กลับไปให้ LLM เรียก Tool อัตโนมัติ 1 ครั้ง
 2. **Batching ทุก `add_transaction` เข้า Modal เดียว:**
    - เมื่อ AI ส่ง `add_transaction` มาหลายรายการในรอบเดียวกัน (เช่น `"15/08 กระเพรา 20 บาท ชานม 20 บาท"`) ระบบจะรวบทุกรายการเข้า `pendingTxDraft.items` แล้วเปิด **Batch Confirmation Modal** ทันที และจบ `runToolLoop` โดย**ไม่ยิงเรียก LLM ซ้ำหลังกดยืนยัน** จึงไม่เกิดการวนลูปซ้ำที่รายการแรก
-3. **Self-Correction เมื่อ Validation ไม่ผ่าน:**
-   - หาก Write Tool ใดไม่ผ่าน `validateAndNormalizeWriteTool` (เช่น ส่งวันที่ `"31/02"` หรือรหัสหมวดหมู่ไม่รู้จัก) ระบบจะส่ง `{ error: check.error }` กลับเข้า `history` ในฐานะ `role: "tool"` เพื่อให้ LLM แก้ไขพารามิเตอร์หรือแจ้งผู้ใช้ตามจริงในรอบถัดไป
+3. **Malformed JSON / Unknown Tool Feedback & 4-Step Fallback:**
+   - หาก `tc.function.arguments` เป็น JSON ที่พัง หรือ LLM เรียกชื่อ Tool ที่ไม่มีในระบบ (`else`) ระบบจะส่ง `role: "tool"` แจ้ง error กลับเข้า `history` เพื่อไม่ให้ลำดับ `tool_calls` เสียหาย และหากวนครบ 4 รอบแล้วยังไม่มีคำตอบจะแสดงข้อความแจ้งเตือนให้ผู้ใช้ทราบแทนการจบเงียบ
+4. **OpenRouter Network Resilience (`callOpenRouter`):**
+   - กำหนด Timeout `45 วินาที` (`AbortSignal.timeout`), อ่าน response ผ่าน `res.text()` ก่อน `JSON.parse` เพื่อกันหน้า HTML Error ทำแอปแครช, และทำ Auto-Retry สูงสุด 2 ครั้ง (หน่วง `1s`, `2s`) เฉพาะ HTTP `429`, `502`, `503`, `504`
