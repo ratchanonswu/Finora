@@ -2,6 +2,7 @@ import type { OpenRouterToolDef } from "./openrouter.ts";
 import {
   formatThaiDate,
   isInCurrentQuotaCycle,
+  nextCategoryColor,
   normalizeTransactionDate,
   relativeDateYmd,
   roundCurrency,
@@ -27,27 +28,47 @@ export const READ_TOOL_NAMES = new Set([
   "get_financial_prediction",
 ]);
 
+export const CATEGORY_ICON_IDS = [
+  "label",
+  "restaurant",
+  "local_cafe",
+  "shopping_bag",
+  "shopping_cart",
+  "home",
+  "bolt",
+  "phone_iphone",
+  "directions_car",
+  "flight",
+  "fitness_center",
+  "medical_services",
+  "pets",
+  "school",
+  "subscriptions",
+  "sports_esports",
+  "card_giftcard",
+  "savings",
+  "work",
+  "payments",
+] as const;
+
 export const WRITE_TOOL_NAMES = new Set([
   "add_transaction",
   "update_category_budget",
+  "add_category",
   "add_recurring_payment",
-  "toggle_recurring",
 ]);
 
-// Orders parallel tool calls by dependency: reads -> income -> config -> expense.
+// Orders parallel tool calls by dependency: reads -> new category -> income -> config -> expense.
 export function getToolExecutionPriority(name: string, args: Record<string, unknown>): number {
   if (READ_TOOL_NAMES.has(name)) return 0;
+  if (name === "add_category") return 1;
   if (name === "add_transaction" && args.type === "income") {
-    return 1;
-  }
-  if (
-    name === "update_category_budget" ||
-    name === "add_recurring_payment" ||
-    name === "toggle_recurring"
-  ) {
     return 2;
   }
-  return 3;
+  if (name === "update_category_budget" || name === "add_recurring_payment") {
+    return 3;
+  }
+  return 4;
 }
 
 function defaultNextMonthFirstDay(): string {
@@ -180,6 +201,10 @@ export function resolveCategory(
     const exactId = pool.find((c) => c.id.toLowerCase() === lower);
     if (exactId) return exactId;
 
+    // Prefer exact user-visible category names (including custom categories) before base aliases.
+    const exactName = pool.find((c) => c.name.trim().toLowerCase() === lower);
+    if (exactName) return exactName;
+
     const mappedId = CATEGORY_ALIASES[lower];
     if (mappedId) {
       const mapped = pool.find((c) => c.id === mappedId);
@@ -200,21 +225,6 @@ export function resolveCategory(
   }
 
   return null;
-}
-
-export function resolveRecurring(
-  raw: unknown,
-  recurring: RecurringPayment[]
-): RecurringPayment | null {
-  const key = String(raw || "").trim().toLowerCase();
-  if (!key) return null;
-  return (
-    recurring.find((r) => r.id.toLowerCase() === key) ||
-    recurring.find(
-      (r) => r.title.toLowerCase().includes(key) || key.includes(r.title.toLowerCase())
-    ) ||
-    null
-  );
 }
 
 export const FINORA_TOOLS: OpenRouterToolDef[] = [
@@ -346,18 +356,34 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
   {
     type: "function",
     function: {
-      name: "toggle_recurring",
+      name: "add_category",
       description:
-        "เรียกใช้ทันทีเมื่อผู้ใช้ต้องการเปิดใช้งานหรือพักรายการประจำ เพื่อแสดงการ์ดยืนยันบน UI (ห้ามถามยืนยันในแชทก่อนเรียกเครื่องมือนี้)",
+        "เรียกใช้ทันทีเมื่อผู้ใช้ต้องการสร้างหมวดหมู่รายจ่ายหรือรายรับใหม่ (ห้ามถามยืนยันในแชทก่อนเรียกเครื่องมือนี้) สามารถเรียกพร้อมกับ add_transaction ในรอบเดียวกันได้หากผู้ใช้สั่งสร้างหมวดใหม่และบันทึกรายการลงหมวดนั้นพร้อมกัน",
       parameters: {
         type: "object",
         properties: {
-          recurringId: {
+          name: {
             type: "string",
-            description: "รหัสรายการ Recurring (เช่น rec-1) หรือชื่อรายการ",
+            description: "ชื่อหมวดหมู่ใหม่ เช่น สัตว์เลี้ยง, สุขภาพ & ฟิตเนส, งานฟรีแลนซ์",
+          },
+          type: {
+            type: "string",
+            enum: ["expense", "income"],
+            description: "ประเภทหมวดหมู่: expense (รายจ่าย, ค่าเริ่มต้น) หรือ income (รายรับ)",
+          },
+          budget: {
+            type: "number",
+            description:
+              "งบประมาณรายเดือน (บาท, >= 0); หากผู้ใช้ไม่ระบุให้ใช้ 0 และสำหรับรายรับระบบจะตั้งเป็น 0 อัตโนมัติ",
+          },
+          icon: {
+            type: "string",
+            enum: [...CATEGORY_ICON_IDS],
+            description:
+              "ชื่อไอคอน Material Symbol ที่เข้ากับหมวดหมู่ เช่น pets, fitness_center, local_cafe, work, savings (ค่าเริ่มต้น label/payments)",
           },
         },
-        required: ["recurringId"],
+        required: ["name"],
       },
     },
   },
@@ -636,10 +662,16 @@ export function describeWriteTool(
         : "";
     return `ปรับงบประมาณหมวด "${cat}" เป็น ฿${budget.toLocaleString("en-US")}/เดือน${warnSuffix}`;
   }
-  if (name === "toggle_recurring") {
-    const rec = snapshot.recurring.find((r) => r.id === args.recurringId);
-    const nextState = rec ? (rec.active ? "พักรายการ" : "เปิดใช้งาน") : "สลับสถานะ";
-    return `${nextState} "${rec?.title || String(args.recurringId || "")}"`;
+  if (name === "add_category") {
+    const catName = String(args.name || "").trim();
+    const catType: TransactionType = args.type === "income" ? "income" : "expense";
+    const budget = Number(args.budget || 0);
+    if (catType === "income") {
+      return `เพิ่มหมวดหมู่รายรับ "${catName}"`;
+    }
+    return budget > 0
+      ? `เพิ่มหมวดหมู่รายจ่าย "${catName}" (งบประมาณ ฿${budget.toLocaleString("en-US")}/เดือน)`
+      : `เพิ่มหมวดหมู่รายจ่าย "${catName}" (ยังไม่ตั้งงบประมาณ)`;
   }
   if (name === "add_recurring_payment") {
     const isIncome = args.type === "income";
@@ -760,19 +792,77 @@ export function validateAndNormalizeWriteTool(
     };
   }
 
-  if (name === "toggle_recurring") {
-    const rec = resolveRecurring(rawArgs.recurringId, recurring);
-    if (!rec) {
-      const validRecs =
-        recurring.map((r) => `${r.id} (${r.title})`).join(", ") ||
-        "ไม่มีรายการตัดเงินอัตโนมัติในระบบ";
+  if (name === "add_category") {
+    const rawName = String(rawArgs.name || "").trim();
+    if (!rawName) {
+      return { ok: false, error: "ต้องระบุชื่อหมวดหมู่ (name)" };
+    }
+    const lowerName = rawName.toLowerCase();
+    if (
+      lowerName === "recurring" ||
+      lowerName === "รายจ่ายประจำ" ||
+      lowerName.includes("รายจ่ายประจำ (recurring)")
+    ) {
       return {
         ok: false,
-        error: `ไม่พบรายการตัดเงินอัตโนมัติ "${String(rawArgs.recurringId || "")}" รายการที่มีในระบบคือ: ${validRecs}`,
+        error: `ไม่สามารถสร้างหมวดหมู่ชื่อ "${rawName}" ได้ เนื่องจากเป็นหมวดหมู่สงวนของระบบ`,
       };
     }
 
-    const normalized = { recurringId: rec.id };
+    const catType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
+    const duplicate = categories.find(
+      (c) =>
+        c.id !== "recurring" &&
+        c.type === catType &&
+        c.name.trim().toLowerCase() === lowerName
+    );
+    if (duplicate) {
+      return {
+        ok: false,
+        error:
+          catType === "expense"
+            ? `มีหมวดหมู่รายจ่าย "${duplicate.name}" (${duplicate.id}) อยู่ในระบบแล้ว หากต้องการปรับงบประมาณให้ใช้ update_category_budget แทน`
+            : `มีหมวดหมู่รายรับ "${duplicate.name}" (${duplicate.id}) อยู่ในระบบแล้ว`,
+      };
+    }
+
+    let budget = 0;
+    if (catType === "expense") {
+      const hasBudgetInput =
+        rawArgs.budget !== undefined &&
+        rawArgs.budget !== null &&
+        String(rawArgs.budget).trim() !== "";
+      if (hasBudgetInput) {
+        const rawBudget = Number(rawArgs.budget);
+        if (!Number.isFinite(rawBudget) || rawBudget < 0) {
+          return {
+            ok: false,
+            error: "งบประมาณ (budget) ต้องเป็นตัวเลขตั้งแต่ 0 บาทขึ้นไป",
+          };
+        }
+        budget = roundCurrency(rawBudget);
+      }
+    }
+
+    const rawIcon = String(rawArgs.icon || "").trim();
+    const icon = (CATEGORY_ICON_IDS as readonly string[]).includes(rawIcon)
+      ? rawIcon
+      : catType === "income"
+        ? "payments"
+        : "label";
+
+    const rawColor = String(rawArgs.color || "").trim();
+    const color = /^#[0-9a-fA-F]{6}$/.test(rawColor)
+      ? rawColor.toUpperCase()
+      : nextCategoryColor(categories.map((c) => c.color));
+
+    const normalized = {
+      name: rawName,
+      type: catType,
+      budget,
+      icon,
+      color,
+    };
     return {
       ok: true,
       args: normalized,

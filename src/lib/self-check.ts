@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
-import { getToolExecutionPriority, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
+import { CATEGORY_ICON_IDS, WRITE_TOOL_NAMES, getToolExecutionPriority, resolveCategory, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
 import { cleanOcrText } from "./ocr.ts";
 import { buildQrSlipPrompt, parseQrSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
@@ -118,7 +118,17 @@ if (newRec.ok) {
 const dupRec = validateAndNormalizeWriteTool("add_recurring_payment", { title: INITIAL_RECURRING[0].title, amount: 419 }, snap);
 assert.equal(dupRec.ok, false);
 
-// 11. Tool execution priority orders income and config before expense
+// 11. Tool execution priority orders new category, income, and config before expense
+assert.equal(
+  getToolExecutionPriority("add_category", {}) <
+    getToolExecutionPriority("add_transaction", { type: "income" }),
+  true
+);
+assert.equal(
+  getToolExecutionPriority("add_category", {}) <
+    getToolExecutionPriority("add_transaction", { type: "expense" }),
+  true
+);
 assert.equal(
   getToolExecutionPriority("add_recurring_payment", {}) <
     getToolExecutionPriority("add_transaction", { type: "expense" }),
@@ -564,4 +574,107 @@ const unsetFoodCat = unsetResetCatSummary.categories.find((c) => c.id === "food"
 assert.equal(unsetFoodCat?.spent, 1200);
 assert.equal(unsetFoodCat?.remainingBudget, 8800);
 
-console.log("Finora self-check passed (23/23 checks)");
+// 24. add_category validation, toggle_recurring removal, exact-name category match, and chained category+tx
+assert.equal(WRITE_TOOL_NAMES.has("add_category"), true);
+assert.equal(WRITE_TOOL_NAMES.has("toggle_recurring"), false);
+assert.equal(validateAndNormalizeWriteTool("toggle_recurring", { recurringId: "rec-1" }, snap).ok, false);
+
+const petCat = validateAndNormalizeWriteTool(
+  "add_category",
+  { name: "สัตว์เลี้ยง", icon: "pets" },
+  snap
+);
+assert.equal(petCat.ok, true);
+if (petCat.ok) {
+  assert.equal(petCat.args.type, "expense");
+  assert.equal(petCat.args.budget, 0);
+  assert.equal(petCat.args.icon, "pets");
+  assert.match(String(petCat.args.color), /^#[0-9A-F]{6}$/);
+  assert.equal(
+    INITIAL_CATEGORIES.some((c) => c.color.toUpperCase() === String(petCat.args.color).toUpperCase()),
+    false
+  );
+}
+
+const fallbackExpenseIcon = validateAndNormalizeWriteTool(
+  "add_category",
+  { name: "สุขภาพ", type: "expense", icon: "nonexistent_icon", budget: 2500 },
+  snap
+);
+assert.equal(fallbackExpenseIcon.ok, true);
+if (fallbackExpenseIcon.ok) {
+  assert.equal(fallbackExpenseIcon.args.icon, "label");
+  assert.equal(fallbackExpenseIcon.args.budget, 2500);
+}
+
+const incomeCat = validateAndNormalizeWriteTool(
+  "add_category",
+  { name: "งานฟรีแลนซ์", type: "income", budget: 9999, icon: "invalid_icon" },
+  snap
+);
+assert.equal(incomeCat.ok, true);
+if (incomeCat.ok) {
+  assert.equal(incomeCat.args.type, "income");
+  assert.equal(incomeCat.args.budget, 0);
+  assert.equal(incomeCat.args.icon, "payments");
+}
+assert.equal(CATEGORY_ICON_IDS.includes("pets"), true);
+
+const dupExpenseCat = validateAndNormalizeWriteTool(
+  "add_category",
+  { name: INITIAL_CATEGORIES[0].name, type: "expense", budget: 5000 },
+  snap
+);
+assert.equal(dupExpenseCat.ok, false);
+if (!dupExpenseCat.ok) assert.equal(dupExpenseCat.error.includes("update_category_budget"), true);
+
+const oppositeTypeSameName = validateAndNormalizeWriteTool(
+  "add_category",
+  { name: INITIAL_CATEGORIES[0].name, type: "income" },
+  snap
+);
+assert.equal(oppositeTypeSameName.ok, true);
+
+const subCat = validateAndNormalizeWriteTool(
+  "add_category",
+  { name: "อาหารแมว", type: "expense", budget: 1500 },
+  snap
+);
+assert.equal(subCat.ok, true);
+
+assert.equal(validateAndNormalizeWriteTool("add_category", { name: "recurring" }, snap).ok, false);
+assert.equal(validateAndNormalizeWriteTool("add_category", { name: "รายจ่ายประจำ" }, snap).ok, false);
+
+// Custom category named "กาแฟ" resolves ahead of CATEGORY_ALIASES["กาแฟ"] -> "food"
+const customCoffeeSnap = {
+  ...snap,
+  categories: [
+    ...INITIAL_CATEGORIES,
+    { id: "cat-coffee", name: "กาแฟ", icon: "local_cafe", color: "#0891B2", budget: 1500, type: "expense" as const },
+  ],
+};
+assert.equal(resolveCategory("กาแฟ", customCoffeeSnap.categories, "expense")?.id, "cat-coffee");
+
+// Chained add_category + add_transaction simulation resolves to drafted category ID
+if (petCat.ok) {
+  const draftedCategories = [
+    ...snap.categories,
+    {
+      id: "draft-cat-0",
+      name: String(petCat.args.name),
+      type: "expense" as const,
+      budget: Number(petCat.args.budget),
+      icon: String(petCat.args.icon),
+      color: String(petCat.args.color),
+    },
+  ];
+  const chainedTx = validateAndNormalizeWriteTool(
+    "add_transaction",
+    { type: "expense", title: "อาหารแมว", amount: 500, categoryId: "สัตว์เลี้ยง" },
+    { ...snap, categories: draftedCategories }
+  );
+  assert.equal(chainedTx.ok, true);
+  if (chainedTx.ok) assert.equal(chainedTx.args.categoryId, "draft-cat-0");
+}
+
+console.log("Finora self-check passed (24/24 checks)");
