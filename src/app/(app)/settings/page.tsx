@@ -154,7 +154,13 @@ export default function SettingsPage() {
           </div>
           <div className="text-right">
             <span className="text-[11px] text-outline block">ยอดเงินคงเหลือ</span>
-            <span className="font-mono font-bold text-primary">{formatTHB(bankBalance)}</span>
+            <span
+              className={`font-mono font-bold ${
+                bankBalance < 0 ? "text-secondary" : "text-primary"
+              }`}
+            >
+              {formatTHB(bankBalance)}
+            </span>
           </div>
         </div>
 
@@ -292,7 +298,7 @@ export default function SettingsPage() {
                 จัดหมวดหมู่ธุรกรรมอัตโนมัติด้วย AI
               </div>
               <div className="text-xs text-on-surface-variant">
-                ให้ AI ช่วยเลือกหมวดหมู่ที่เหมาะสมจากชื่อร้านค้าหรือสลิป QR
+                ให้ AI ช่วยเลือกหมวดหมู่ที่เหมาะสมจากชื่อร้านค้าหรือสลิปโอนเงิน
               </div>
             </div>
             <input

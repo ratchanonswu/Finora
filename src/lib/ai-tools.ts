@@ -1,5 +1,14 @@
 import type { OpenRouterToolDef } from "./openrouter.ts";
-import { isInCurrentQuotaCycle } from "./seed.ts";
+import {
+  formatThaiDate,
+  isInCurrentQuotaCycle,
+  nextCategoryColor,
+  normalizeTransactionDate,
+  relativeDateYmd,
+  roundCurrency,
+  toDateInputValue,
+  todayYmd,
+} from "./seed.ts";
 import type { Category, RecurringPayment, Transaction, TransactionType } from "./types.ts";
 
 export interface FinancialSnapshot {
@@ -19,27 +28,47 @@ export const READ_TOOL_NAMES = new Set([
   "get_financial_prediction",
 ]);
 
+export const CATEGORY_ICON_IDS = [
+  "label",
+  "restaurant",
+  "local_cafe",
+  "shopping_bag",
+  "shopping_cart",
+  "home",
+  "bolt",
+  "phone_iphone",
+  "directions_car",
+  "flight",
+  "fitness_center",
+  "medical_services",
+  "pets",
+  "school",
+  "subscriptions",
+  "sports_esports",
+  "card_giftcard",
+  "savings",
+  "work",
+  "payments",
+] as const;
+
 export const WRITE_TOOL_NAMES = new Set([
   "add_transaction",
   "update_category_budget",
+  "add_category",
   "add_recurring_payment",
-  "toggle_recurring",
 ]);
 
-// Orders parallel tool calls by dependency: reads -> income -> config -> expense.
+// Orders parallel tool calls by dependency: reads -> new category -> income -> config -> expense.
 export function getToolExecutionPriority(name: string, args: Record<string, unknown>): number {
   if (READ_TOOL_NAMES.has(name)) return 0;
+  if (name === "add_category") return 1;
   if (name === "add_transaction" && args.type === "income") {
-    return 1;
-  }
-  if (
-    name === "update_category_budget" ||
-    name === "add_recurring_payment" ||
-    name === "toggle_recurring"
-  ) {
     return 2;
   }
-  return 3;
+  if (name === "update_category_budget" || name === "add_recurring_payment") {
+    return 3;
+  }
+  return 4;
 }
 
 function defaultNextMonthFirstDay(): string {
@@ -172,6 +201,10 @@ export function resolveCategory(
     const exactId = pool.find((c) => c.id.toLowerCase() === lower);
     if (exactId) return exactId;
 
+    // Prefer exact user-visible category names (including custom categories) before base aliases.
+    const exactName = pool.find((c) => c.name.trim().toLowerCase() === lower);
+    if (exactName) return exactName;
+
     const mappedId = CATEGORY_ALIASES[lower];
     if (mappedId) {
       const mapped = pool.find((c) => c.id === mappedId);
@@ -192,21 +225,6 @@ export function resolveCategory(
   }
 
   return null;
-}
-
-export function resolveRecurring(
-  raw: unknown,
-  recurring: RecurringPayment[]
-): RecurringPayment | null {
-  const key = String(raw || "").trim().toLowerCase();
-  if (!key) return null;
-  return (
-    recurring.find((r) => r.id.toLowerCase() === key) ||
-    recurring.find(
-      (r) => r.title.toLowerCase().includes(key) || key.includes(r.title.toLowerCase())
-    ) ||
-    null
-  );
 }
 
 export const FINORA_TOOLS: OpenRouterToolDef[] = [
@@ -233,6 +251,18 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
               "รหัสหมวดหมู่ที่มีจริงในระบบ (food, shopping, housing, transport, entertainment, salary, investment หรือ cat-...)",
           },
           limit: { type: "number", description: "จำนวนรายการสูงสุด (ค่าเริ่มต้น 10)" },
+          startDate: {
+            type: "string",
+            description: "กรองตั้งแต่วันที่ (YYYY-MM-DD หรือ DD/MM เช่น 2026-08-01 หรือ 01/08)",
+          },
+          endDate: {
+            type: "string",
+            description: "กรองถึงวันที่ (YYYY-MM-DD หรือ DD/MM เช่น 2026-08-31 หรือ 31/08)",
+          },
+          currentCycleOnly: {
+            type: "boolean",
+            description: "ตั้งเป็น true เพื่อดูเฉพาะรายการในรอบโควต้าปัจจุบัน",
+          },
         },
       },
     },
@@ -293,6 +323,11 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
             description:
               "ช่องทาง เช่น Virtual Bank Wallet, สแกน PromptPay QR, Virtual Card, เงินสด (ถ้าผู้ใช้ไม่ระบุ ให้ใช้ค่าเริ่มต้น 'Virtual Bank Wallet' ทันทีโดยไม่ต้องถามซ้ำ)",
           },
+          date: {
+            type: "string",
+            description:
+              "วันที่ของรายการรูปแบบ YYYY-MM-DD (ค.ศ.) หรือ DD/MM หากผู้ใช้ระบุวันที่ เช่น '15/08' หรือ 'เมื่อวาน' (ถ้าไม่ระบุไม่ต้องส่ง ระบบจะใช้วันที่ปัจจุบัน)",
+          },
         },
         required: ["type", "title", "amount", "categoryId"],
       },
@@ -321,18 +356,34 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
   {
     type: "function",
     function: {
-      name: "toggle_recurring",
+      name: "add_category",
       description:
-        "เรียกใช้ทันทีเมื่อผู้ใช้ต้องการเปิดใช้งานหรือพักรายการประจำ เพื่อแสดงการ์ดยืนยันบน UI (ห้ามถามยืนยันในแชทก่อนเรียกเครื่องมือนี้)",
+        "เรียกใช้ทันทีเมื่อผู้ใช้ต้องการสร้างหมวดหมู่รายจ่ายหรือรายรับใหม่ (ห้ามถามยืนยันในแชทก่อนเรียกเครื่องมือนี้) สามารถเรียกพร้อมกับ add_transaction ในรอบเดียวกันได้หากผู้ใช้สั่งสร้างหมวดใหม่และบันทึกรายการลงหมวดนั้นพร้อมกัน",
       parameters: {
         type: "object",
         properties: {
-          recurringId: {
+          name: {
             type: "string",
-            description: "รหัสรายการ Recurring (เช่น rec-1) หรือชื่อรายการ",
+            description: "ชื่อหมวดหมู่ใหม่ เช่น สัตว์เลี้ยง, สุขภาพ & ฟิตเนส, งานฟรีแลนซ์",
+          },
+          type: {
+            type: "string",
+            enum: ["expense", "income"],
+            description: "ประเภทหมวดหมู่: expense (รายจ่าย, ค่าเริ่มต้น) หรือ income (รายรับ)",
+          },
+          budget: {
+            type: "number",
+            description:
+              "งบประมาณรายเดือน (บาท, >= 0); หากผู้ใช้ไม่ระบุให้ใช้ 0 และสำหรับรายรับระบบจะตั้งเป็น 0 อัตโนมัติ",
+          },
+          icon: {
+            type: "string",
+            enum: [...CATEGORY_ICON_IDS],
+            description:
+              "ชื่อไอคอน Material Symbol ที่เข้ากับหมวดหมู่ เช่น pets, fitness_center, local_cafe, work, savings (ค่าเริ่มต้น label/payments)",
           },
         },
-        required: ["recurringId"],
+        required: ["name"],
       },
     },
   },
@@ -395,13 +446,29 @@ export function runReadTool(
   const { bankBalance, transactions, categories, recurring } = snapshot;
 
   if (name === "get_financial_overview") {
-    const income = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-    const expense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+    const income = roundCurrency(
+      transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0)
+    );
+    const expense = roundCurrency(
+      transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0)
+    );
+    const cycleTxs = transactions.filter((t) =>
+      isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+    );
+    const currentCycleIncome = roundCurrency(
+      cycleTxs.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0)
+    );
+    const currentCycleExpense = roundCurrency(
+      cycleTxs.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0)
+    );
     return {
       virtualBankBalance: bankBalance,
       totalIncome: income,
       totalExpense: expense,
-      netCashFlow: income - expense,
+      netCashFlow: roundCurrency(income - expense),
+      currentCycleIncome,
+      currentCycleExpense,
+      currentCycleNet: roundCurrency(currentCycleIncome - currentCycleExpense),
       transactionCount: transactions.length,
     };
   }
@@ -411,20 +478,50 @@ export function runReadTool(
     const categoryId = args.categoryId
       ? resolveCategory(args.categoryId, categories)?.id || String(args.categoryId)
       : "";
+    const rawStart =
+      args.startDate !== undefined && args.startDate !== null ? String(args.startDate).trim() : "";
+    const rawEnd =
+      args.endDate !== undefined && args.endDate !== null ? String(args.endDate).trim() : "";
+    let startYmd = rawStart ? normalizeTransactionDate(rawStart) : null;
+    if (rawStart && !startYmd) {
+      return {
+        error: `รูปแบบ startDate "${rawStart}" ไม่ถูกต้อง กรุณาระบุเป็น YYYY-MM-DD หรือ DD/MM`,
+      };
+    }
+    let endYmd = rawEnd ? normalizeTransactionDate(rawEnd) : null;
+    if (rawEnd && !endYmd) {
+      return {
+        error: `รูปแบบ endDate "${rawEnd}" ไม่ถูกต้อง กรุณาระบุเป็น YYYY-MM-DD หรือ DD/MM`,
+      };
+    }
+    if (startYmd && endYmd && startYmd > endYmd) {
+      [startYmd, endYmd] = [endYmd, startYmd];
+    }
+    const currentCycleOnly = args.currentCycleOnly === true;
     const limit = Math.min(30, Math.max(1, Number(args.limit) || 10));
-    const list = transactions
-      .filter((t) => (type === "all" || t.type === type) && (!categoryId || t.categoryId === categoryId))
-      .slice(0, limit)
-      .map((t) => ({
-        id: t.id,
-        title: t.title,
-        type: t.type,
-        amount: t.amount,
-        category: categories.find((c) => c.id === t.categoryId)?.name || t.categoryId,
-        channel: t.channel,
-        date: t.date,
-      }));
-    return { count: list.length, transactions: list };
+
+    const matched = transactions.filter((t) => {
+      if (type !== "all" && t.type !== type) return false;
+      if (categoryId && t.categoryId !== categoryId) return false;
+      if (currentCycleOnly && !isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)) return false;
+      const txYmd = toDateInputValue(t.date);
+      if (startYmd && txYmd < startYmd) return false;
+      if (endYmd && txYmd > endYmd) return false;
+      return true;
+    });
+
+    const totalMatchedCount = matched.length;
+    const totalMatchedAmount = roundCurrency(matched.reduce((s, t) => s + t.amount, 0));
+    const list = matched.slice(0, limit).map((t) => ({
+      id: t.id,
+      title: t.title,
+      type: t.type,
+      amount: t.amount,
+      category: categories.find((c) => c.id === t.categoryId)?.name || t.categoryId,
+      channel: t.channel,
+      date: t.date,
+    }));
+    return { count: list.length, totalMatchedCount, totalMatchedAmount, transactions: list };
   }
 
   if (name === "get_categories") {
@@ -432,24 +529,43 @@ export function runReadTool(
       categories: categories
         .filter((c) => c.id !== "recurring")
         .map((c) => {
-          const spent = transactions
-            .filter(
-              (t) =>
-                t.categoryId === c.id &&
-                isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
-            )
-            .reduce((s, t) => s + t.amount, 0);
-          return { id: c.id, name: c.name, type: c.type, budget: c.budget, spent };
+          const spent = roundCurrency(
+            transactions
+              .filter(
+                (t) =>
+                  t.categoryId === c.id &&
+                  t.type === c.type &&
+                  isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+              )
+              .reduce((s, t) => s + t.amount, 0)
+          );
+          const remainingBudget =
+            c.budget > 0 ? Math.max(0, roundCurrency(c.budget - spent)) : 0;
+          const overBudgetAmount =
+            c.budget > 0 ? Math.max(0, roundCurrency(spent - c.budget)) : 0;
+          const usagePercent = c.budget > 0 ? Math.round((spent / c.budget) * 100) : 0;
+          return {
+            id: c.id,
+            name: c.name,
+            type: c.type,
+            budget: c.budget,
+            spent,
+            remainingBudget,
+            overBudgetAmount,
+            usagePercent,
+          };
         }),
     };
   }
 
   if (name === "get_recurring_payments") {
-    const activeMonthlyTotal = sumActiveRecurringMonthly(recurring, "expense");
-    const activeMonthlyIncomeTotal = sumActiveRecurringMonthly(recurring, "income");
+    const activeMonthlyTotal = roundCurrency(sumActiveRecurringMonthly(recurring, "expense"));
+    const activeMonthlyIncomeTotal = roundCurrency(sumActiveRecurringMonthly(recurring, "income"));
     return {
+      currentBankBalance: bankBalance,
       activeMonthlyTotal,
       activeMonthlyIncomeTotal,
+      monthlyNetRecurring: roundCurrency(activeMonthlyIncomeTotal - activeMonthlyTotal),
       items: recurring.map((r) => ({
         id: r.id,
         title: r.title,
@@ -464,16 +580,27 @@ export function runReadTool(
 
   if (name === "get_financial_prediction") {
     const months = Math.min(12, Math.max(1, Math.round(Number(args.monthsAhead) || 3)));
-    const income = transactions.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-    const expense = transactions.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-    const activeRecurringMonthly = sumActiveRecurringMonthly(recurring, "expense");
-    const activeRecurringIncomeMonthly = sumActiveRecurringMonthly(recurring, "income");
+    const hasResetAnchor = Boolean(snapshot.quotaResetAt);
+    const baselineStartYmd = relativeDateYmd(-30);
+    const baselineTxs = transactions.filter((t) =>
+      hasResetAnchor
+        ? isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+        : toDateInputValue(t.date) >= baselineStartYmd
+    );
+    const income = roundCurrency(
+      baselineTxs.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0)
+    );
+    const expense = roundCurrency(
+      baselineTxs.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0)
+    );
+    const activeRecurringMonthly = roundCurrency(sumActiveRecurringMonthly(recurring, "expense"));
+    const activeRecurringIncomeMonthly = roundCurrency(sumActiveRecurringMonthly(recurring, "income"));
 
     // Avoid double-counting recurring items if they already appear in transactions; use whichever is higher as baseline.
-    const estimatedMonthlyInflow = Math.max(income, activeRecurringIncomeMonthly);
-    const estimatedMonthlyOutflow = Math.max(expense, activeRecurringMonthly);
-    const estimatedMonthlyNet = estimatedMonthlyInflow - estimatedMonthlyOutflow;
-    const projectedBalance = bankBalance + estimatedMonthlyNet * months;
+    const estimatedMonthlyInflow = roundCurrency(Math.max(income, activeRecurringIncomeMonthly));
+    const estimatedMonthlyOutflow = roundCurrency(Math.max(expense, activeRecurringMonthly));
+    const estimatedMonthlyNet = roundCurrency(estimatedMonthlyInflow - estimatedMonthlyOutflow);
+    const projectedBalance = roundCurrency(bankBalance + estimatedMonthlyNet * months);
 
     return {
       monthsAhead: months,
@@ -486,7 +613,9 @@ export function runReadTool(
       projectedBalance,
       lowBalanceRisk: projectedBalance < activeRecurringMonthly,
       assumptions: [
-        "คำนวณจากยอดรายรับและรายจ่ายที่บันทึกไว้ในระบบปัจจุบันเป็นฐานรายเดือน",
+        hasResetAnchor
+          ? "คำนวณฐานรายรับและรายจ่ายจากธุรกรรมในรอบโควต้าปัจจุบันเทียบกับรายการ Recurring"
+          : "คำนวณฐานรายรับและรายจ่ายจากธุรกรรมย้อนหลัง 30 วันล่าสุดเทียบกับรายการ Recurring",
         `รวมรายรับประจำ (Recurring Income) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringIncomeMonthly.toLocaleString("en-US")} บาท และภาระรายจ่ายประจำ (Recurring Expense) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringMonthly.toLocaleString("en-US")} บาท`,
         "สมมติให้พฤติกรรมการใช้จ่ายและรายรับคงที่ตลอดช่วงเวลาที่คาดการณ์",
       ],
@@ -508,18 +637,41 @@ export function describeWriteTool(
       String(args.categoryId || "");
     const ch = String(args.channel || "").trim();
     const chSuffix = ch && ch !== "Virtual Bank Wallet" ? `, ช่องทาง: ${ch}` : "";
-    return `บันทึก${typeLabel} "${String(args.title || "")}" จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (หมวดหมู่: ${cat}${chSuffix})`;
+    const dateStr = String(args.date || "").trim();
+    const dateSuffix = dateStr ? `, วันที่: ${formatThaiDate(dateStr)}` : "";
+    return `บันทึก${typeLabel} "${String(args.title || "")}" จำนวน ฿${Number(args.amount || 0).toLocaleString("en-US")} (หมวดหมู่: ${cat}${chSuffix}${dateSuffix})`;
   }
   if (name === "update_category_budget") {
     const cat =
       snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
       String(args.categoryId || "");
-    return `ปรับงบประมาณหมวด "${cat}" เป็น ฿${Number(args.budget || 0).toLocaleString("en-US")}/เดือน`;
+    const budget = Number(args.budget || 0);
+    const currentSpent = roundCurrency(
+      snapshot.transactions
+        .filter(
+          (t) =>
+            t.categoryId === args.categoryId &&
+            t.type === "expense" &&
+            isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+        )
+        .reduce((s, t) => s + t.amount, 0)
+    );
+    const warnSuffix =
+      budget < currentSpent
+        ? ` (⚠️ ต่ำกว่ายอดที่ใช้ไปแล้วในรอบนี้ ฿${currentSpent.toLocaleString("en-US")})`
+        : "";
+    return `ปรับงบประมาณหมวด "${cat}" เป็น ฿${budget.toLocaleString("en-US")}/เดือน${warnSuffix}`;
   }
-  if (name === "toggle_recurring") {
-    const rec = snapshot.recurring.find((r) => r.id === args.recurringId);
-    const nextState = rec ? (rec.active ? "พักรายการ" : "เปิดใช้งาน") : "สลับสถานะ";
-    return `${nextState} "${rec?.title || String(args.recurringId || "")}"`;
+  if (name === "add_category") {
+    const catName = String(args.name || "").trim();
+    const catType: TransactionType = args.type === "income" ? "income" : "expense";
+    const budget = Number(args.budget || 0);
+    if (catType === "income") {
+      return `เพิ่มหมวดหมู่รายรับ "${catName}"`;
+    }
+    return budget > 0
+      ? `เพิ่มหมวดหมู่รายจ่าย "${catName}" (งบประมาณ ฿${budget.toLocaleString("en-US")}/เดือน)`
+      : `เพิ่มหมวดหมู่รายจ่าย "${catName}" (ยังไม่ตั้งงบประมาณ)`;
   }
   if (name === "add_recurring_payment") {
     const isIncome = args.type === "income";
@@ -529,7 +681,9 @@ export function describeWriteTool(
     const cat =
       snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
       String(args.categoryId || "");
-    return `เพิ่ม${typeLabel} "${String(args.title || "")}" ฿${Number(args.amount || 0).toLocaleString("en-US")} (${cycleLabel}, หมวด: ${cat}, ครบกำหนด: ${String(args.nextDueDate || "")})`;
+    const dueStr = String(args.nextDueDate || "");
+    const pastDueWarn = dueStr && dueStr < todayYmd() ? " (⚠️ วันครบกำหนดนี้อยู่ในอดีต)" : "";
+    return `เพิ่ม${typeLabel} "${String(args.title || "")}" ฿${Number(args.amount || 0).toLocaleString("en-US")} (${cycleLabel}, หมวด: ${cat}, ครบกำหนด: ${dueStr})${pastDueWarn}`;
   }
   return `ดำเนินการ ${name}`;
 }
@@ -539,12 +693,13 @@ export function validateAndNormalizeWriteTool(
   rawArgs: Record<string, unknown>,
   snapshot: FinancialSnapshot
 ): { ok: true; args: Record<string, unknown>; summary: string } | { ok: false; error: string } {
-  const { bankBalance, categories, recurring, autoDebitOnExpense = true } = snapshot;
+  const { categories, recurring } = snapshot;
 
   if (name === "add_transaction") {
     const txType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
     const title = String(rawArgs.title || "").trim();
-    const amount = Number(rawArgs.amount);
+    const rawAmount = Number(rawArgs.amount);
+    const amount = Number.isFinite(rawAmount) ? roundCurrency(rawAmount) : NaN;
 
     const rawChannel = String(rawArgs.channel || "Virtual Bank Wallet").trim();
     const lowerChannel = rawChannel.toLowerCase();
@@ -562,13 +717,16 @@ export function validateAndNormalizeWriteTool(
     if (!title) {
       return { ok: false, error: "ต้องระบุชื่อรายการ (title)" };
     }
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (!Number.isFinite(rawAmount) || amount <= 0) {
       return { ok: false, error: "จำนวนเงิน (amount) ต้องเป็นตัวเลขที่มากกว่า 0 บาท" };
     }
-    if (txType === "expense" && autoDebitOnExpense && amount > bankBalance) {
+
+    const rawDate = rawArgs.date === undefined || rawArgs.date === null ? "" : String(rawArgs.date).trim();
+    const normalizedDate = rawDate ? normalizeTransactionDate(rawDate) : todayYmd();
+    if (!normalizedDate) {
       return {
         ok: false,
-        error: `ยอดเงินใน Virtual Wallet คงเหลือ ฿${bankBalance.toLocaleString("en-US")} ไม่เพียงพอสำหรับรายจ่าย ฿${amount.toLocaleString("en-US")}`,
+        error: `รูปแบบวันที่ "${rawDate}" ไม่ถูกต้อง กรุณาระบุเป็น YYYY-MM-DD หรือ DD/MM (เช่น 2026-08-15 หรือ 15/08)`,
       };
     }
 
@@ -592,6 +750,7 @@ export function validateAndNormalizeWriteTool(
       amount,
       categoryId: cat.id,
       channel,
+      date: normalizedDate,
     };
     return {
       ok: true,
@@ -601,8 +760,9 @@ export function validateAndNormalizeWriteTool(
   }
 
   if (name === "update_category_budget") {
-    const budget = Number(rawArgs.budget);
-    if (!Number.isFinite(budget) || budget < 0) {
+    const rawBudget = Number(rawArgs.budget);
+    const budget = Number.isFinite(rawBudget) ? roundCurrency(rawBudget) : NaN;
+    if (!Number.isFinite(rawBudget) || budget < 0) {
       return { ok: false, error: "งบประมาณ (budget) ต้องเป็นตัวเลขตั้งแต่ 0 บาทขึ้นไป" };
     }
     const cat = resolveCategory(rawArgs.categoryId, categories, "expense");
@@ -632,19 +792,77 @@ export function validateAndNormalizeWriteTool(
     };
   }
 
-  if (name === "toggle_recurring") {
-    const rec = resolveRecurring(rawArgs.recurringId, recurring);
-    if (!rec) {
-      const validRecs =
-        recurring.map((r) => `${r.id} (${r.title})`).join(", ") ||
-        "ไม่มีรายการตัดเงินอัตโนมัติในระบบ";
+  if (name === "add_category") {
+    const rawName = String(rawArgs.name || "").trim();
+    if (!rawName) {
+      return { ok: false, error: "ต้องระบุชื่อหมวดหมู่ (name)" };
+    }
+    const lowerName = rawName.toLowerCase();
+    if (
+      lowerName === "recurring" ||
+      lowerName === "รายจ่ายประจำ" ||
+      lowerName.includes("รายจ่ายประจำ (recurring)")
+    ) {
       return {
         ok: false,
-        error: `ไม่พบรายการตัดเงินอัตโนมัติ "${String(rawArgs.recurringId || "")}" รายการที่มีในระบบคือ: ${validRecs}`,
+        error: `ไม่สามารถสร้างหมวดหมู่ชื่อ "${rawName}" ได้ เนื่องจากเป็นหมวดหมู่สงวนของระบบ`,
       };
     }
 
-    const normalized = { recurringId: rec.id };
+    const catType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
+    const duplicate = categories.find(
+      (c) =>
+        c.id !== "recurring" &&
+        c.type === catType &&
+        c.name.trim().toLowerCase() === lowerName
+    );
+    if (duplicate) {
+      return {
+        ok: false,
+        error:
+          catType === "expense"
+            ? `มีหมวดหมู่รายจ่าย "${duplicate.name}" (${duplicate.id}) อยู่ในระบบแล้ว หากต้องการปรับงบประมาณให้ใช้ update_category_budget แทน`
+            : `มีหมวดหมู่รายรับ "${duplicate.name}" (${duplicate.id}) อยู่ในระบบแล้ว`,
+      };
+    }
+
+    let budget = 0;
+    if (catType === "expense") {
+      const hasBudgetInput =
+        rawArgs.budget !== undefined &&
+        rawArgs.budget !== null &&
+        String(rawArgs.budget).trim() !== "";
+      if (hasBudgetInput) {
+        const rawBudget = Number(rawArgs.budget);
+        if (!Number.isFinite(rawBudget) || rawBudget < 0) {
+          return {
+            ok: false,
+            error: "งบประมาณ (budget) ต้องเป็นตัวเลขตั้งแต่ 0 บาทขึ้นไป",
+          };
+        }
+        budget = roundCurrency(rawBudget);
+      }
+    }
+
+    const rawIcon = String(rawArgs.icon || "").trim();
+    const icon = (CATEGORY_ICON_IDS as readonly string[]).includes(rawIcon)
+      ? rawIcon
+      : catType === "income"
+        ? "payments"
+        : "label";
+
+    const rawColor = String(rawArgs.color || "").trim();
+    const color = /^#[0-9a-fA-F]{6}$/.test(rawColor)
+      ? rawColor.toUpperCase()
+      : nextCategoryColor(categories.map((c) => c.color));
+
+    const normalized = {
+      name: rawName,
+      type: catType,
+      budget,
+      icon,
+      color,
+    };
     return {
       ok: true,
       args: normalized,
@@ -660,16 +878,28 @@ export function validateAndNormalizeWriteTool(
     if (recurring.some((r) => r.title.trim().toLowerCase() === title.toLowerCase())) {
       return { ok: false, error: `มีรายการตัดเงินอัตโนมัติ "${title}" อยู่ในระบบแล้ว` };
     }
-    const amount = Number(rawArgs.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const rawAmount = Number(rawArgs.amount);
+    const amount = Number.isFinite(rawAmount) ? roundCurrency(rawAmount) : NaN;
+    if (!Number.isFinite(rawAmount) || amount <= 0) {
       return { ok: false, error: "จำนวนเงิน (amount) ต้องมากกว่า 0 บาท" };
     }
     const cycle =
       rawArgs.cycle === "weekly" || rawArgs.cycle === "yearly" ? rawArgs.cycle : "monthly";
-    const rawDate = String(rawArgs.nextDueDate || "").trim();
-    const nextDueDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
-      ? rawDate
-      : defaultNextMonthFirstDay();
+    const rawDate =
+      rawArgs.nextDueDate === undefined || rawArgs.nextDueDate === null
+        ? ""
+        : String(rawArgs.nextDueDate).trim();
+    let nextDueDate = defaultNextMonthFirstDay();
+    if (rawDate) {
+      const parsedDue = normalizeTransactionDate(rawDate);
+      if (!parsedDue) {
+        return {
+          ok: false,
+          error: `รูปแบบวันครบกำหนด "${rawDate}" ไม่ถูกต้อง กรุณาระบุเป็น YYYY-MM-DD หรือ DD/MM`,
+        };
+      }
+      nextDueDate = parsedDue;
+    }
 
     const recType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
     let categoryId = "recurring";

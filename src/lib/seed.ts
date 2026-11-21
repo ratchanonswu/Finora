@@ -149,9 +149,21 @@ export const INITIAL_SETTINGS: AppSettings = {
   quotaResetDay: 1,
 };
 
-export function isInCurrentQuotaCycle(txDate: string, quotaResetAt?: string): boolean {
-  if (!quotaResetAt) return true;
-  return new Date(txDate).getTime() > new Date(quotaResetAt).getTime();
+export function isInCurrentQuotaCycle(
+  txDate: string,
+  quotaResetAt?: string,
+  now = new Date()
+): boolean {
+  const txTime = new Date(txDate).getTime();
+  if (Number.isNaN(txTime)) return false;
+  if (quotaResetAt) {
+    const resetTime = new Date(quotaResetAt).getTime();
+    if (!Number.isNaN(resetTime)) {
+      return txTime > resetTime;
+    }
+  }
+  const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return toDateInputValue(txDate).slice(0, 7) === currentYm;
 }
 
 export function advanceDueDate(dateStr: string, cycle: "monthly" | "weekly" | "yearly"): string {
@@ -167,59 +179,99 @@ export function advanceDueDate(dateStr: string, cycle: "monthly" | "weekly" | "y
   return `${yy}-${mm}-${dd}`;
 }
 
+export function todayYmd(): string {
+  return relativeDateYmd(0);
+}
+
+export function ymdToIso(ymd: string): string {
+  const safe = /^\d{4}-\d{2}-\d{2}$/.test(ymd) ? ymd : todayYmd();
+  return `${safe}T12:00:00+07:00`;
+}
+
+export function toDateInputValue(isoOrYmd?: string): string {
+  const trimmed = String(isoOrYmd || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  if (trimmed) {
+    const d = new Date(trimmed);
+    if (!Number.isNaN(d.getTime())) {
+      const yy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yy}-${mm}-${dd}`;
+    }
+  }
+  return todayYmd();
+}
+
+function buildValidYmd(yearInput: number, month: number, day: number): string | null {
+  const year = yearInput >= 2400 ? yearInput - 543 : yearInput;
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  if (year < 1900 || year > 2200 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const d = new Date(year, month - 1, day);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export function roundCurrency(val: number): number {
+  return Math.round((val + Number.EPSILON) * 100) / 100;
+}
+
+const RELATIVE_DATE_OFFSETS: Record<string, number> = {
+  วันนี้: 0,
+  today: 0,
+  เมื่อวาน: -1,
+  เมื่อวานนี้: -1,
+  yesterday: -1,
+  เมื่อวานซืน: -2,
+  พรุ่งนี้: 1,
+  tomorrow: 1,
+};
+
+export function normalizeTransactionDate(raw: unknown, refDate = new Date()): string | null {
+  const text = String(raw ?? "").trim();
+  if (!text) return null;
+
+  const relOffset = RELATIVE_DATE_OFFSETS[text.toLowerCase()];
+  if (relOffset !== undefined) {
+    const target = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate() + relOffset);
+    return buildValidYmd(target.getFullYear(), target.getMonth() + 1, target.getDate());
+  }
+
+  const isoMatch = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s].*)?$/);
+  if (isoMatch) {
+    return buildValidYmd(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
+  }
+
+  const dmyYearMatch = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+  if (dmyYearMatch) {
+    let year = Number(dmyYearMatch[3]);
+    if (dmyYearMatch[3].length === 2) {
+      year = year >= 40 ? 2500 + year - 543 : 2000 + year;
+    }
+    return buildValidYmd(year, Number(dmyYearMatch[2]), Number(dmyYearMatch[1]));
+  }
+
+  const dmMatch = text.match(/^(\d{1,2})[-/](\d{1,2})$/);
+  if (dmMatch) {
+    return buildValidYmd(refDate.getFullYear(), Number(dmMatch[2]), Number(dmMatch[1]));
+  }
+
+  return null;
+}
+
 export function formatTHB(amount: number): string {
-  return `฿${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const abs = Math.abs(amount).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return amount < 0 ? `-฿${abs}` : `฿${abs}`;
 }
 
 export function formatThaiDate(iso: string): string {
-  const d = new Date(iso);
+  const trimmed = String(iso || "").trim();
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(trimmed)
+    ? new Date(`${trimmed}T12:00:00+07:00`)
+    : new Date(trimmed);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-// Parses EMVCo TLV payload from Thai PromptPay QR strings (tag 29/30 ID, tag 54 amount, tag 59 merchant).
-export function parsePromptPayPayload(raw: string): {
-  merchant?: string;
-  promptPayId?: string;
-  amount?: number;
-  isPromptPayOrSlip?: boolean;
-} {
-  let i = 0;
-  const out: {
-    merchant?: string;
-    promptPayId?: string;
-    amount?: number;
-    isPromptPayOrSlip?: boolean;
-  } = {};
-  if (raw.startsWith("000201") || raw.startsWith("00410006000001")) {
-    out.isPromptPayOrSlip = true;
-  }
-  while (i + 4 <= raw.length) {
-    const tag = raw.slice(i, i + 2);
-    const len = Number(raw.slice(i + 2, i + 4));
-    if (!Number.isFinite(len) || len < 0 || i + 4 + len > raw.length) break;
-    const val = raw.slice(i + 4, i + 4 + len);
-    if (tag === "54" && Number(val) > 0) out.amount = Number(val);
-    if (tag === "59" && val.trim() && val.trim().toUpperCase() !== "TH") {
-      out.merchant = val.trim();
-    }
-    if (tag === "29" || tag === "30") {
-      out.isPromptPayOrSlip = true;
-      let j = 0;
-      while (j + 4 <= val.length) {
-        const subTag = val.slice(j, j + 2);
-        const subLen = Number(val.slice(j + 2, j + 4));
-        if (!Number.isFinite(subLen) || subLen < 0 || j + 4 + subLen > val.length) break;
-        const subVal = val.slice(j + 4, j + 4 + subLen);
-        if (tag === "29" && (subTag === "01" || subTag === "02" || subTag === "03")) {
-          out.promptPayId = subVal.replace(/^0066(\d{9})$/, "0$1");
-        } else if (tag === "30" && subTag === "01") {
-          out.promptPayId = subVal;
-        }
-        j += 4 + subLen;
-      }
-    }
-    i += 4 + len;
-  }
-  return out;
+  return d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
 }

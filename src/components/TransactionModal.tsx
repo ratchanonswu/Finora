@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useFinora } from "@/context/FinoraContext";
+import { todayYmd, ymdToIso } from "@/lib/seed";
 import type { TransactionType } from "@/lib/types";
 
 export function TransactionModal() {
@@ -11,6 +12,7 @@ export function TransactionModal() {
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState("food");
   const [channel, setChannel] = useState("Virtual Bank Wallet");
+  const [date, setDate] = useState<string>(() => todayYmd());
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -38,7 +40,7 @@ export function TransactionModal() {
         ? categoryId
         : filteredCategories[0]?.id || "food",
       channel,
-      date: new Date().toISOString(),
+      date: ymdToIso(date),
     });
     setSubmitting(false);
 
@@ -49,6 +51,7 @@ export function TransactionModal() {
 
     setTitle("");
     setAmount("");
+    setDate(todayYmd());
     setTxModalOpen(false);
   };
 
@@ -166,21 +169,37 @@ export function TransactionModal() {
             </div>
           </div>
 
-          <div>
-            <label htmlFor="tx-channel" className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
-              ช่องทาง / บัญชี
-            </label>
-            <select
-              id="tx-channel"
-              value={channel}
-              onChange={(e) => setChannel(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
-            >
-              <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
-              <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
-              <option value="Virtual Card">Virtual Card</option>
-              <option value="เงินสด">เงินสด</option>
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="tx-channel" className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                ช่องทาง / บัญชี
+              </label>
+              <select
+                id="tx-channel"
+                value={channel}
+                onChange={(e) => setChannel(e.target.value)}
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
+              >
+                <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
+                <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
+                <option value="Virtual Card">Virtual Card</option>
+                <option value="เงินสด">เงินสด</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="tx-date" className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                วันที่ทำรายการ
+              </label>
+              <input
+                id="tx-date"
+                type="date"
+                required
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
+              />
+            </div>
           </div>
 
           <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">

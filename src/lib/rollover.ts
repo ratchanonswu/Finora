@@ -92,8 +92,7 @@ export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
     }
   }
 
-  // Generate recurring occurrences up to targetDate; actual due-date advancement happens during execution
-  // so skipped bills (insufficient balance) stay at their unpaid due date.
+  // Generate recurring occurrences up to targetDate; all active bills execute and advance even if balance goes negative.
   for (const item of recurringState) {
     if (!item.active || !/^\d{4}-\d{2}-\d{2}$/.test(item.nextDueDate)) continue;
     let cursor = item.nextDueDate;
@@ -114,7 +113,6 @@ export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
   let balance = input.bankBalance;
   const newTransactions: Transaction[] = [];
   const newLedger: BankLedgerEntry[] = [];
-  const skippedItems = new Set<string>();
 
   let recurringIncomeCount = 0;
   let recurringIncomeTotal = 0;
@@ -165,14 +163,6 @@ export function simulateRolloverToDate(input: RolloverInput): RolloverOutput {
         balanceAfter: balance,
         date: txDate,
       });
-      return;
-    }
-
-    if (skippedItems.has(item.id)) return;
-    if (balance < item.amount) {
-      billsSkipped += 1;
-      skippedItems.add(item.id);
-      item.nextDueDate = advanceDueDate(ev.date, item.cycle);
       return;
     }
 

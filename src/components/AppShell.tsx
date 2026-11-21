@@ -6,10 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useFinora } from "@/context/FinoraContext";
 import { formatTHB } from "@/lib/seed";
 import { TransactionModal } from "./TransactionModal";
+import { DashboardHeader } from "./dashboard/DashboardShell";
 
 const AI_NAV_ITEM = {
   href: "/ai-assistant",
-  label: "ผู้ช่วย AI & สแกน QR",
+  label: "ผู้ช่วย AI & สแกนสลิป",
   icon: "auto_awesome",
   badge: "AI",
 };
@@ -25,7 +26,7 @@ const NAV_ITEMS = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { hydrated, theme, toggleTheme, bankBalance, user, logoutUser, setTxModalOpen } = useFinora();
+  const { hydrated, bankBalance, user } = useFinora();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -43,13 +44,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }, 1200);
     return () => window.clearTimeout(fallback);
   }, [hydrated, user.isLoggedIn, router]);
-
-  const currentNav =
-    [AI_NAV_ITEM, ...NAV_ITEMS].find((item) => item.href === pathname) || NAV_ITEMS[0];
-
-  const handleLogout = () => {
-    logoutUser();
-  };
 
   if (!hydrated || !user.isLoggedIn) {
     return (
@@ -71,7 +65,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-background text-on-surface flex">
+    <div
+      className={`min-h-screen ${
+        pathname === "/" ? "bg-[#F5F8F7] dark:bg-background" : "bg-background"
+      } text-on-surface flex`}
+    >
       {/* Mobile Overlay */}
       {mobileOpen && (
         <div
@@ -207,7 +205,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Virtual Wallet
               </span>
             </div>
-            <div className="text-xl font-bold tracking-tight text-on-surface">
+            <div
+              className={`text-xl font-bold tracking-tight ${
+                bankBalance < 0 ? "text-secondary" : "text-on-surface"
+              }`}
+            >
               {formatTHB(bankBalance)}
             </div>
           </div>
@@ -221,66 +223,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         }`}
       >
         {/* Top Navigation Bar */}
-        <header className="sticky top-0 z-30 h-16 bg-surface/90 backdrop-blur-md border-b border-outline-variant/30 px-4 sm:px-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setMobileOpen(true)}
-              className="lg:hidden p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high"
-              aria-label="เปิดเมนู"
-            >
-              <span className="material-symbols-outlined">menu</span>
-            </button>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-semibold text-on-surface">{currentNav.label}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Dual Theme Toggle */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface-container-low border border-outline-variant/30 text-xs font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
-              title={theme === "light" ? "สลับเป็น Emerald Nocturne (Dark)" : "สลับเป็น Light Fintech"}
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                {theme === "light" ? "dark_mode" : "light_mode"}
-              </span>
-              <span className="hidden sm:inline">
-                {theme === "light" ? "Dark Mode" : "Light Mode"}
-              </span>
-            </button>
-
-            {/* Quick Add Transaction */}
-            <button
-              type="button"
-              onClick={() => setTxModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm"
-            >
-              <span className="material-symbols-outlined text-[18px]">add_circle</span>
-              <span className="hidden sm:inline">บันทึกธุรกรรม</span>
-            </button>
-
-            {/* User Profile + Quick Logout */}
-            <div className="hidden md:flex items-center gap-2.5 pl-2 border-l border-outline-variant/30">
-              <div className="w-8 h-8 rounded-full bg-primary-container/20 text-primary flex items-center justify-center font-bold text-sm">
-                {user.name.charAt(0)}
-              </div>
-              <span className="text-xs font-semibold text-on-surface leading-tight">
-                {user.name}
-              </span>
-              <button
-                type="button"
-                onClick={handleLogout}
-                title="ออกจากระบบ"
-                className="p-1.5 rounded-lg text-on-surface-variant hover:text-error hover:bg-surface-container-high"
-              >
-                <span className="material-symbols-outlined text-[18px]">logout</span>
-              </button>
-            </div>
-          </div>
-        </header>
+        <DashboardHeader onOpenMobileMenu={() => setMobileOpen(true)} />
 
         {/* Page Body */}
         <main

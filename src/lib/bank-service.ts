@@ -27,10 +27,6 @@ export function executeBankTransfer(
     return { ok: false, error: "จำนวนเงินต้องมากกว่า 0 บาท", balance: baseBalance };
   }
 
-  if (req.type === "debit" && req.amount > baseBalance) {
-    return { ok: false, error: "ยอดเงินในกระเป๋าเงินจำลองไม่เพียงพอ", balance: baseBalance };
-  }
-
   const nextBalance = req.type === "credit" ? baseBalance + req.amount : baseBalance - req.amount;
   const entry: BankLedgerEntry = {
     id: `l-${Date.now()}`,

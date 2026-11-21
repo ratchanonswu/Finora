@@ -80,6 +80,7 @@ export interface ChatTxAction {
   promptPayId: string;
   amount: number;
   categoryId: string;
+  date?: string;
 }
 
 export interface PendingToolCall {

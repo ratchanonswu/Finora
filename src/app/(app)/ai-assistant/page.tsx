@@ -3,8 +3,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useFinora } from "@/context/FinoraContext";
-import { formatTHB, parsePromptPayPayload } from "@/lib/seed";
-import { decodeQrImage } from "@/lib/qr-decoder";
+import {
+  formatTHB,
+  formatThaiDate,
+  isInCurrentQuotaCycle,
+  nextCategoryColor,
+  normalizeTransactionDate,
+  todayYmd,
+  ymdToIso,
+} from "@/lib/seed";
+import { IconColorPicker } from "@/components/IconColorPicker";
+import { prepareSlipImage } from "@/lib/slip-image";
 import {
   describeWriteTool,
   getToolExecutionPriority,
@@ -220,9 +229,8 @@ function renderChatMarkdown(text: string): React.ReactNode {
   });
 }
 
-interface PendingTxDraft {
-  source: "qr" | "chat_tool";
-  thumbnailUrl?: string;
+interface PendingTxItem {
+  id: string;
   type: TransactionType;
   merchant: string;
   sender?: string;
@@ -231,8 +239,24 @@ interface PendingTxDraft {
   amount: string;
   categoryId: string;
   channel: string;
+  date: string; // YYYY-MM-DD
   needsAmount?: boolean;
-  continueAfterConfirm?: boolean;
+}
+
+interface PendingCategoryItem {
+  id: string;
+  name: string;
+  type: TransactionType;
+  budget: string;
+  icon: string;
+  color: string;
+}
+
+interface PendingTxDraft {
+  source: "slip" | "chat_tool";
+  thumbnailUrl?: string;
+  newCategories?: PendingCategoryItem[];
+  items: PendingTxItem[];
   error?: string;
 }
 
@@ -251,13 +275,13 @@ export default function AiAssistantPage() {
     undoChatTransaction,
     addTransaction,
     updateCategoryBudget,
+    addCategory,
     addRecurring,
-    toggleRecurring,
   } = useFinora();
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [loadingStage, setLoadingStage] = useState<"chat" | "qr_scan" | "saving" | null>(null);
+  const [loadingStage, setLoadingStage] = useState<"chat" | "slip_scan" | "saving" | null>(null);
   const [pendingAmounts, setPendingAmounts] = useState<Record<string, string>>({});
   const [pendingTxDraft, setPendingTxDraft] = useState<PendingTxDraft | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -272,7 +296,7 @@ export default function AiAssistantPage() {
   const prevChatMetaRef = useRef<{
     count: number;
     lastId: string | null;
-    loadingStage: "chat" | "qr_scan" | "saving" | null;
+    loadingStage: "chat" | "slip_scan" | "saving" | null;
   }>({
     count: chatMessages.length,
     lastId: chatMessages[chatMessages.length - 1]?.id ?? null,
@@ -492,8 +516,8 @@ export default function AiAssistantPage() {
 
     const hasNewMessage =
       chatMessages.length > prev.count && Boolean(lastMsg && lastMsg.id !== prev.lastId);
-    const startedQrAttach =
-      loadingStage === "qr_scan" && prev.loadingStage !== "qr_scan";
+    const startedSlipAttach =
+      loadingStage === "slip_scan" && prev.loadingStage !== "slip_scan";
 
     prevChatMetaRef.current = {
       count: chatMessages.length,
@@ -507,7 +531,7 @@ export default function AiAssistantPage() {
         activeUserMediaIdRef.current = lastMsg.id;
       }
       animateChatScrollToBottom("new_message");
-    } else if (startedQrAttach) {
+    } else if (startedSlipAttach) {
       userCancelledScrollRef.current = false;
       animateChatScrollToBottom("user_action");
     } else if (hasNewMessage && !userCancelledScrollRef.current) {
@@ -542,6 +566,15 @@ export default function AiAssistantPage() {
     const expense = transactions
       .filter((t) => t.type === "expense")
       .reduce((s, t) => s + t.amount, 0);
+    const cycleTxs = transactions.filter((t) =>
+      isInCurrentQuotaCycle(t.date, settings.quotaResetAt)
+    );
+    const cycleIncome = cycleTxs
+      .filter((t) => t.type === "income")
+      .reduce((s, t) => s + t.amount, 0);
+    const cycleExpense = cycleTxs
+      .filter((t) => t.type === "expense")
+      .reduce((s, t) => s + t.amount, 0);
     const sumActiveRecurring = (targetType: TransactionType) =>
       recurring
         .filter((r) => r.active && (r.type ?? "expense") === targetType)
@@ -549,10 +582,10 @@ export default function AiAssistantPage() {
     const recExpenseSum = sumActiveRecurring("expense");
     const recIncomeSum = sumActiveRecurring("income");
     const catBreakdown = cats
-      .filter((c) => c.type === "expense")
+      .filter((c) => c.type === "expense" && c.id !== "recurring")
       .map((c) => {
-        const sum = transactions
-          .filter((t) => t.categoryId === c.id)
+        const sum = cycleTxs
+          .filter((t) => t.categoryId === c.id && t.type === "expense")
           .reduce((s, t) => s + t.amount, 0);
         return `- [${c.id}] ${c.name}: ใช้ไป ${formatTHB(sum)} (งบ ${formatTHB(c.budget)})`;
       })
@@ -570,36 +603,34 @@ export default function AiAssistantPage() {
         .join(", ") || "ไม่มี";
 
     return [
-      `วันที่ปัจจุบัน: ${new Date().toLocaleDateString("th-TH", { dateStyle: "long" })}`,
+      `วันที่ปัจจุบัน: ${todayYmd()} (${new Date().toLocaleDateString("th-TH", { dateStyle: "long" })})`,
       `ยอดเงินคงเหลือ Virtual Wallet: ${formatTHB(bankBalance)}`,
-      `รายรับรวม: ${formatTHB(income)}`,
-      `รายจ่ายรวม: ${formatTHB(expense)}`,
+      `รายรับรวมทั้งหมด: ${formatTHB(income)} | รายจ่ายรวมทั้งหมด: ${formatTHB(expense)}`,
+      ...(settings.quotaResetAt
+        ? [
+            `รอบโควต้าปัจจุบัน: รายรับ ${formatTHB(cycleIncome)} | รายจ่าย ${formatTHB(cycleExpense)}`,
+          ]
+        : []),
       `รายจ่ายประจำ (Recurring ที่เปิดอยู่): ${formatTHB(recExpenseSum)}/เดือน`,
       `รายรับประจำ (Recurring ที่เปิดอยู่): ${formatTHB(recIncomeSum)}/เดือน`,
       `รายการ Recurring: ${recList}`,
-      `หมวดรายจ่ายที่มี:\n${catBreakdown}`,
+      `หมวดรายจ่ายที่มี (ยอดใช้ในรอบปัจจุบัน):\n${catBreakdown}`,
       `หมวดรายรับที่มี: ${incomeCats}`,
     ].join("\n");
   };
 
   const financialSummary = useMemo(
     () => buildFinancialSummary(categories),
-    [bankBalance, transactions, categories, recurring]
+    [bankBalance, transactions, categories, recurring, settings.quotaResetAt]
   );
 
-  const runToolLoop = async (
-    initialHistory: OpenRouterMessage[],
-    overrideCategories?: Category[]
-  ) => {
+  const runToolLoop = async (initialHistory: OpenRouterMessage[]) => {
     const history = [...initialHistory];
-    const activeCategories = overrideCategories ?? categories;
-    const summaryText = overrideCategories
-      ? buildFinancialSummary(overrideCategories)
-      : financialSummary;
+    const summaryText = financialSummary;
     const snapshot = {
       bankBalance,
       transactions,
-      categories: activeCategories,
+      categories,
       recurring,
       autoDebitOnExpense: settings.autoDebitOnExpense,
       quotaResetAt: settings.quotaResetAt,
@@ -642,7 +673,7 @@ export default function AiAssistantPage() {
           history.push({
             role: "user",
             content:
-              "[ระบบ] คุณยังไม่ได้ส่ง Function Call (tool_calls) จริง ทำให้หน้าต่างหรือการ์ดยืนยันไม่ปรากฏบนหน้าจอ กรุณาเรียกใช้ Tool ที่เกี่ยวข้อง (เช่น add_transaction, update_category_budget, add_recurring_payment หรือ toggle_recurring) ทันทีโดยใช้ค่าเริ่มต้นสำหรับฟิลด์ที่ผู้ใช้ไม่ได้ระบุค่ะ",
+              "[ระบบ] คุณยังไม่ได้ส่ง Function Call (tool_calls) จริง ทำให้หน้าต่างหรือการ์ดยืนยันไม่ปรากฏบนหน้าจอ กรุณาเรียกใช้ Tool ที่เกี่ยวข้อง (เช่น add_transaction, update_category_budget, add_category หรือ add_recurring_payment) ทันทีโดยใช้ค่าเริ่มต้นสำหรับฟิลด์ที่ผู้ใช้ไม่ได้ระบุค่ะ",
           });
           continue;
         }
@@ -660,12 +691,21 @@ export default function AiAssistantPage() {
       const parsedCalls = toolCalls
         .map((tc) => {
           let args: Record<string, unknown> = {};
-          try {
-            args = JSON.parse(tc.function.arguments || "{}");
-          } catch {
-            args = {};
+          let parseError = false;
+          const rawArgsText = String(tc.function.arguments || "").trim();
+          if (rawArgsText) {
+            try {
+              const parsed = JSON.parse(rawArgsText);
+              if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                parseError = true;
+              } else {
+                args = parsed as Record<string, unknown>;
+              }
+            } catch {
+              parseError = true;
+            }
           }
-          return { tc, args };
+          return { tc, args, parseError };
         })
         .sort(
           (a, b) =>
@@ -673,62 +713,161 @@ export default function AiAssistantPage() {
             getToolExecutionPriority(b.tc.function.name, b.args)
         );
 
-      let hasWrite = false;
-      for (const { tc, args } of parsedCalls) {
+      const workingCategories: Category[] = [...categories];
+      const draftCategories: PendingCategoryItem[] = [];
+      const txItems: PendingTxItem[] = [];
+      const otherWriteCards: Array<{
+        tc: OpenRouterToolCall;
+        args: Record<string, unknown>;
+        summary: string;
+      }> = [];
 
+      for (let idx = 0; idx < parsedCalls.length; idx++) {
+        const { tc, args, parseError } = parsedCalls[idx];
+        if (parseError) {
+          history.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({
+              error:
+                "รูปแบบ JSON ของ arguments ไม่ถูกต้อง กรุณาเรียกเครื่องมือใหม่อีกครั้งด้วย JSON Object ที่สมบูรณ์",
+            }),
+          });
+          continue;
+        }
+        const effectiveSnapshot = { ...snapshot, categories: workingCategories };
         if (READ_TOOL_NAMES.has(tc.function.name)) {
-          const out = runReadTool(tc.function.name, args, snapshot);
+          const out = runReadTool(tc.function.name, args, effectiveSnapshot);
           history.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(out) });
         } else if (WRITE_TOOL_NAMES.has(tc.function.name)) {
-          // Process one write confirmation at a time so chained steps (e.g. credit -> debit) see updated state.
-          if (hasWrite) continue;
-          const check = validateAndNormalizeWriteTool(tc.function.name, args, snapshot);
+          const check = validateAndNormalizeWriteTool(tc.function.name, args, effectiveSnapshot);
           if (!check.ok) {
             history.push({
               role: "tool",
               tool_call_id: tc.id,
               content: JSON.stringify({ error: check.error }),
             });
+          } else if (tc.function.name === "add_category") {
+            const draftId = `draft-cat-${draftCategories.length}`;
+            const catType: TransactionType =
+              check.args.type === "income" ? "income" : "expense";
+            const catBudget = Number(check.args.budget) || 0;
+            const catIcon = String(
+              check.args.icon || (catType === "income" ? "payments" : "label")
+            );
+            const catColor = String(
+              check.args.color || nextCategoryColor(workingCategories.map((c) => c.color))
+            );
+            const catName = String(check.args.name || "");
+            draftCategories.push({
+              id: draftId,
+              name: catName,
+              type: catType,
+              budget: String(catBudget),
+              icon: catIcon,
+              color: catColor,
+            });
+            workingCategories.push({
+              id: draftId,
+              name: catName,
+              type: catType,
+              budget: catBudget,
+              icon: catIcon,
+              color: catColor,
+            });
+          } else if (tc.function.name === "add_transaction") {
+            const txType: TransactionType =
+              check.args.type === "income" ? "income" : "expense";
+            const amt = Number(check.args.amount);
+            txItems.push({
+              id: tc.id || `tx-draft-${txItems.length}`,
+              type: txType,
+              merchant: String(check.args.title || "รายการจาก AI"),
+              amount: Number.isFinite(amt) && amt > 0 ? String(amt) : "",
+              categoryId: String(
+                check.args.categoryId || (txType === "income" ? "salary" : "food")
+              ),
+              channel: String(check.args.channel || "Virtual Bank Wallet"),
+              date: String(check.args.date || todayYmd()),
+              needsAmount: !(Number.isFinite(amt) && amt > 0),
+            });
           } else {
-            hasWrite = true;
-            const continueAfterConfirm = toolCalls.length > 1;
-            if (tc.function.name === "add_transaction") {
-              const txType: TransactionType =
-                check.args.type === "income" ? "income" : "expense";
-              const amt = Number(check.args.amount);
-              setPendingTxDraft({
-                source: "chat_tool",
-                type: txType,
-                merchant: String(check.args.title || "รายการจาก AI"),
-                amount: Number.isFinite(amt) && amt > 0 ? String(amt) : "",
-                categoryId: String(
-                  check.args.categoryId || (txType === "income" ? "salary" : "food")
-                ),
-                channel: String(check.args.channel || "Virtual Bank Wallet"),
-                needsAmount: !(Number.isFinite(amt) && amt > 0),
-                continueAfterConfirm,
-              });
-            } else {
-              appendChatMessage({
-                id: `t-${Date.now()}-${tc.id}`,
-                role: "assistant",
-                text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
-                pendingTool: {
-                  toolCallId: tc.id,
-                  name: tc.function.name,
-                  args: check.args,
-                  summary: check.summary,
-                  status: "pending",
-                  continueAfterConfirm,
-                },
-              });
-            }
+            otherWriteCards.push({
+              tc,
+              args: check.args,
+              summary: check.summary,
+            });
           }
+        } else {
+          history.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({
+              error: `ไม่พบเครื่องมือชื่อ "${tc.function.name}" ในระบบ`,
+            }),
+          });
         }
       }
 
-      if (hasWrite) return;
+      for (let i = 0; i < otherWriteCards.length; i++) {
+        const card = otherWriteCards[i];
+        appendChatMessage({
+          id: `t-${Date.now()}-${i}-${card.tc.id}`,
+          role: "assistant",
+          text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
+          pendingTool: {
+            toolCallId: card.tc.id,
+            name: card.tc.function.name,
+            args: card.args,
+            summary: card.summary,
+            status: "pending",
+          },
+        });
+      }
+
+      if (txItems.length > 0) {
+        setPendingTxDraft({
+          source: "chat_tool",
+          ...(draftCategories.length > 0 ? { newCategories: draftCategories } : {}),
+          items: txItems,
+        });
+        return;
+      }
+
+      if (draftCategories.length > 0) {
+        for (let i = 0; i < draftCategories.length; i++) {
+          const dc = draftCategories[i];
+          const cardArgs: Record<string, unknown> = {
+            name: dc.name,
+            type: dc.type,
+            budget: Number(dc.budget) || 0,
+            icon: dc.icon,
+            color: dc.color,
+          };
+          appendChatMessage({
+            id: `t-${Date.now()}-cat-${i}-${dc.id}`,
+            role: "assistant",
+            text: `ฟิโนร่าเตรียมดำเนินการนี้ให้เรียบร้อยแล้วค่ะ กรุณาตรวจสอบและกดยืนยันด้านล่างนะคะ`,
+            pendingTool: {
+              toolCallId: dc.id,
+              name: "add_category",
+              args: cardArgs,
+              summary: describeWriteTool("add_category", cardArgs, snapshot),
+              status: "pending",
+            },
+          });
+        }
+        return;
+      }
+
+      if (otherWriteCards.length > 0) return;
     }
+
+    appendChatMessage({
+      id: `a-${Date.now()}`,
+      role: "assistant",
+      text: "ฟิโนร่าประมวลผลหลายขั้นตอนแล้วยังไม่ได้ข้อสรุปสุดท้ายค่ะ กรุณาลองพิมพ์คำสั่งอีกครั้งให้ชัดเจนขึ้นนะคะ",
+    });
   };
 
   const sendPrompt = async (promptText: string) => {
@@ -782,7 +921,6 @@ export default function AiAssistantPage() {
 
     setLoading(true);
     let resultText = "";
-    let nextCategories = categories;
     try {
       const args = check.args;
       if (pt.name === "add_transaction") {
@@ -792,7 +930,7 @@ export default function AiAssistantPage() {
           amount: Number(args.amount) || 0,
           categoryId: String(args.categoryId || (args.type === "income" ? "salary" : "food")),
           channel: String(args.channel || "Virtual Bank Wallet"),
-          date: new Date().toISOString(),
+          date: ymdToIso(String(args.date || todayYmd())),
         });
         if (!res.ok) {
           appendChatMessage({
@@ -806,9 +944,15 @@ export default function AiAssistantPage() {
       } else if (pt.name === "update_category_budget") {
         updateCategoryBudget(String(args.categoryId), Number(args.budget) || 0);
         resultText = `อัปเดตสำเร็จ: ${check.summary}`;
-      } else if (pt.name === "toggle_recurring") {
-        toggleRecurring(String(args.recurringId));
-        resultText = `อัปเดตสำเร็จ: ${check.summary}`;
+      } else if (pt.name === "add_category") {
+        addCategory({
+          name: String(args.name || ""),
+          type: args.type === "income" ? "income" : "expense",
+          budget: Number(args.budget) || 0,
+          icon: String(args.icon || (args.type === "income" ? "payments" : "label")),
+          color: String(args.color || nextCategoryColor(categories.map((c) => c.color))),
+        });
+        resultText = `สร้างหมวดหมู่สำเร็จ: ${check.summary}`;
       } else if (pt.name === "add_recurring_payment") {
         const isInc = args.type === "income";
         addRecurring({
@@ -833,25 +977,6 @@ export default function AiAssistantPage() {
         role: "assistant",
         text: confirmMsg,
       });
-
-      if (pt.continueAfterConfirm) {
-        const prior: OpenRouterMessage[] = chatMessages
-          .filter((m) => m.id !== "welcome" && (m.role === "user" || m.role === "assistant"))
-          .slice(-8)
-          .map((m) => ({ role: m.role as "user" | "assistant", content: m.text }));
-        await runToolLoop(
-          [
-            ...prior,
-            { role: "assistant", content: confirmMsg },
-            {
-              role: "user",
-              content:
-                "[ระบบ] ผู้ใช้ยืนยันการดำเนินการข้างต้นเรียบร้อยแล้ว หากยังมีขั้นตอนถัดไปในคำขอก่อนหน้าของ User ให้เรียกใช้ Tool ต่อได้เลย หากครบทุกขั้นตอนแล้วให้ตอบสรุปสั้นๆ ค่ะ",
-            },
-          ],
-          nextCategories
-        );
-      }
     } catch {
       appendChatMessage({
         id: `e-${Date.now()}`,
@@ -869,21 +994,20 @@ export default function AiAssistantPage() {
     updateChatMessage(msg.id, { pendingTool: { ...pt, status: "cancelled" } });
   };
 
-  const handleQrOrSlipFile = async (file: File) => {
+  const handleSlipFile = async (file: File) => {
     if (inputLocked) return;
     setLoading(true);
-    setLoadingStage("qr_scan");
+    setLoadingStage("slip_scan");
 
     try {
-      const { qrRaw, imageBase64, mimeType, thumbnailDataUrl } = await decodeQrImage(file);
+      const { imageBase64, mimeType, thumbnailDataUrl } = await prepareSlipImage(file);
       appendChatMessage({
         id: `u-${Date.now()}`,
         role: "user",
-        text: "ส่งรูปภาพ QR / สลิป",
+        text: "ส่งรูปภาพสลิป",
         thumbnailUrl: thumbnailDataUrl,
       });
 
-      const tlv = qrRaw ? parsePromptPayPayload(qrRaw) : {};
       let vision: {
         isValidPaymentImage?: boolean;
         type?: TransactionType;
@@ -893,17 +1017,17 @@ export default function AiAssistantPage() {
         promptPayId?: string;
         amount?: number;
         categoryId?: string;
+        date?: string;
       } | null = null;
 
       let visionError = "";
       try {
-        const res = await fetch("/api/ai/qr", {
+        const res = await fetch("/api/ai/slip", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             imageBase64,
             mimeType,
-            qrRaw,
             userName: user.name,
             categories: categories.map((c) => ({ id: c.id, name: c.name, type: c.type })),
             apiKeyOverride: settings.geminiApiKeyOverride,
@@ -919,30 +1043,22 @@ export default function AiAssistantPage() {
         visionError = "ไม่สามารถเชื่อมต่อบริการ AI ได้";
       }
 
-      if (!qrRaw && !vision?.isValidPaymentImage) {
+      if (!vision?.isValidPaymentImage) {
         appendChatMessage({
           id: `e-${Date.now()}`,
           role: "error",
           text: visionError
             ? `ไม่สามารถอ่านรูปภาพด้วย AI ได้ (${visionError})`
-            : "ไม่พบ QR Code หรือข้อมูลการชำระเงินในรูปภาพนี้ กรุณาอัปโหลดรูปป้าย QR หรือสลิปธนาคารที่ชัดเจนนะคะ",
+            : "ไม่พบข้อมูลสลิปหรือใบเสร็จในรูปภาพนี้ กรุณาอัปโหลดรูปสลิปโอนเงินหรือใบเสร็จที่ชัดเจนนะคะ",
         });
         return;
       }
 
       const txType: TransactionType = vision?.type === "income" ? "income" : "expense";
-      const merchant =
-        tlv.merchant ||
-        vision?.merchant ||
-        (tlv.isPromptPayOrSlip ? "ร้านค้า PromptPay" : qrRaw?.slice(0, 40) || "รายการสแกน QR");
-      const promptPayId =
-        tlv.promptPayId || vision?.promptPayId || (qrRaw ? qrRaw.slice(0, 20) : "-");
+      const merchant = vision?.merchant || "รายการจากสลิป";
+      const promptPayId = vision?.promptPayId || "-";
       const amount =
-        typeof tlv.amount === "number" && tlv.amount > 0
-          ? tlv.amount
-          : typeof vision?.amount === "number" && vision.amount > 0
-            ? vision.amount
-            : 0;
+        typeof vision?.amount === "number" && vision.amount > 0 ? vision.amount : 0;
 
       const matchingCategories = categories.filter(
         (c) => c.type === txType && c.id !== "recurring"
@@ -953,17 +1069,23 @@ export default function AiAssistantPage() {
           : guessCategoryId(merchant, txType);
 
       setPendingTxDraft({
-        source: "qr",
+        source: "slip",
         thumbnailUrl: thumbnailDataUrl,
-        type: txType,
-        merchant,
-        ...(vision?.sender ? { sender: vision.sender } : {}),
-        ...(vision?.receiver ? { receiver: vision.receiver } : {}),
-        promptPayId,
-        amount: amount > 0 ? String(amount) : "",
-        categoryId: validCategory,
-        channel: "สแกน QR / สลิป (AI Chat)",
-        needsAmount: !(amount > 0),
+        items: [
+          {
+            id: `slip-${Date.now()}`,
+            type: txType,
+            merchant,
+            ...(vision?.sender ? { sender: vision.sender } : {}),
+            ...(vision?.receiver ? { receiver: vision.receiver } : {}),
+            promptPayId,
+            amount: amount > 0 ? String(amount) : "",
+            categoryId: validCategory,
+            channel: "สแกนสลิป (AI Chat)",
+            date: vision?.date || todayYmd(),
+            needsAmount: !(amount > 0),
+          },
+        ],
       });
     } catch {
       appendChatMessage({
@@ -978,146 +1100,286 @@ export default function AiAssistantPage() {
   };
 
   const handleConfirmTxDraft = async () => {
-    if (!pendingTxDraft || loading) return;
-    const merchant = pendingTxDraft.merchant.trim();
-    const rawAmount = Number(pendingTxDraft.amount);
-    if (!merchant || !Number.isFinite(rawAmount) || rawAmount <= 0) {
-      setPendingTxDraft((prev) =>
-        prev ? { ...prev, error: "กรุณากรอกชื่อรายการและจำนวนเงินที่มากกว่า 0" } : prev
-      );
-      return;
-    }
-
+    if (!pendingTxDraft || pendingTxDraft.items.length === 0 || loading) return;
     const draft = pendingTxDraft;
-    let resolvedCategoryId = draft.categoryId;
-    let resolvedChannel = draft.channel;
+    const baseSnapshot = {
+      bankBalance,
+      transactions,
+      categories,
+      recurring,
+      autoDebitOnExpense: settings.autoDebitOnExpense,
+      quotaResetAt: settings.quotaResetAt,
+    };
 
-    if (draft.source === "chat_tool") {
-      const check = validateAndNormalizeWriteTool(
-        "add_transaction",
+    const workingCategories: Category[] = [...categories];
+    const preparedCategories: Array<{
+      draftId: string;
+      name: string;
+      type: TransactionType;
+      budget: number;
+      icon: string;
+      color: string;
+      summary: string;
+    }> = [];
+
+    for (let i = 0; i < (draft.newCategories?.length ?? 0); i++) {
+      const dc = draft.newCategories![i];
+      const prefix =
+        (draft.newCategories?.length ?? 0) > 1
+          ? `หมวดหมู่ใหม่ที่ ${i + 1}: `
+          : "หมวดหมู่ใหม่: ";
+      const catCheck = validateAndNormalizeWriteTool(
+        "add_category",
         {
-          type: draft.type,
-          title: merchant,
-          amount: rawAmount,
-          categoryId: draft.categoryId,
-          channel: draft.channel,
+          name: dc.name,
+          type: dc.type,
+          budget: dc.type === "income" ? 0 : dc.budget,
+          icon: dc.icon,
+          color: dc.color,
         },
-        {
-          bankBalance,
-          transactions,
-          categories,
-          recurring,
-          autoDebitOnExpense: settings.autoDebitOnExpense,
-          quotaResetAt: settings.quotaResetAt,
-        }
+        { ...baseSnapshot, categories: workingCategories }
       );
-      if (!check.ok) {
-        setPendingTxDraft((prev) => (prev ? { ...prev, error: check.error } : prev));
+      if (!catCheck.ok) {
+        setPendingTxDraft((prev) => (prev ? { ...prev, error: `${prefix}${catCheck.error}` } : prev));
         return;
       }
-      resolvedCategoryId = String(check.args.categoryId || draft.categoryId);
-      resolvedChannel = String(check.args.channel || draft.channel);
+      const normType: TransactionType = catCheck.args.type === "income" ? "income" : "expense";
+      const normName = String(catCheck.args.name || "");
+      const normBudget = Number(catCheck.args.budget) || 0;
+      const normIcon = String(
+        catCheck.args.icon || (normType === "income" ? "payments" : "label")
+      );
+      const normColor = String(
+        catCheck.args.color || nextCategoryColor(workingCategories.map((c) => c.color))
+      );
+      preparedCategories.push({
+        draftId: dc.id,
+        name: normName,
+        type: normType,
+        budget: normBudget,
+        icon: normIcon,
+        color: normColor,
+        summary: catCheck.summary,
+      });
+      workingCategories.push({
+        id: dc.id,
+        name: normName,
+        type: normType,
+        budget: normBudget,
+        icon: normIcon,
+        color: normColor,
+      });
+    }
+
+    const effectiveSnapshot = { ...baseSnapshot, categories: workingCategories };
+    const prepared: Array<{
+      item: PendingTxItem;
+      merchant: string;
+      amount: number;
+      categoryId: string;
+      channel: string;
+      date: string;
+    }> = [];
+
+    for (let i = 0; i < draft.items.length; i++) {
+      const item = draft.items[i];
+      const prefix = draft.items.length > 1 ? `รายการที่ ${i + 1}: ` : "";
+      const merchant = item.merchant.trim();
+      const rawAmount = Number(item.amount);
+      if (!merchant || !Number.isFinite(rawAmount) || rawAmount <= 0) {
+        setPendingTxDraft((prev) =>
+          prev ? { ...prev, error: `${prefix}กรุณากรอกชื่อรายการและจำนวนเงินที่มากกว่า 0` } : prev
+        );
+        return;
+      }
+
+      const normalizedDate = normalizeTransactionDate(item.date);
+      if (!normalizedDate) {
+        setPendingTxDraft((prev) =>
+          prev ? { ...prev, error: `${prefix}กรุณาเลือกวันที่ที่ถูกต้อง` } : prev
+        );
+        return;
+      }
+
+      let resolvedCategoryId = item.categoryId;
+      let resolvedChannel = item.channel;
+      let resolvedDate = normalizedDate;
+
+      if (draft.source === "chat_tool") {
+        const check = validateAndNormalizeWriteTool(
+          "add_transaction",
+          {
+            type: item.type,
+            title: merchant,
+            amount: rawAmount,
+            categoryId: item.categoryId,
+            channel: item.channel,
+            date: normalizedDate,
+          },
+          effectiveSnapshot
+        );
+        if (!check.ok) {
+          setPendingTxDraft((prev) => (prev ? { ...prev, error: `${prefix}${check.error}` } : prev));
+          return;
+        }
+        resolvedCategoryId = String(check.args.categoryId || item.categoryId);
+        resolvedChannel = String(check.args.channel || item.channel);
+        resolvedDate = String(check.args.date || normalizedDate);
+      }
+
+      prepared.push({
+        item,
+        merchant,
+        amount: rawAmount,
+        categoryId: resolvedCategoryId,
+        channel: resolvedChannel,
+        date: resolvedDate,
+      });
     }
 
     setLoading(true);
     setLoadingStage("saving");
-    const saveRes = await addTransaction({
-      title: merchant,
-      amount: rawAmount,
-      type: draft.type,
-      categoryId: resolvedCategoryId,
-      channel: resolvedChannel,
-      date: new Date().toISOString(),
-    });
+    const baseTs = Date.now();
+    const savedMessages: ChatMessage[] = [];
+    const draftIdMap = new Map<string, string>();
+    const createdCategories: Category[] = [];
+
+    for (let i = 0; i < preparedCategories.length; i++) {
+      const pc = preparedCategories[i];
+      const created = addCategory({
+        name: pc.name,
+        type: pc.type,
+        budget: pc.budget,
+        icon: pc.icon,
+        color: pc.color,
+      });
+      draftIdMap.set(pc.draftId, created.id);
+      createdCategories.push(created);
+      savedMessages.push({
+        id: `a-cat-${baseTs}-${i}`,
+        role: "assistant",
+        text: `สร้างหมวดหมู่สำเร็จ: ${pc.summary} เรียบร้อยแล้วค่ะ`,
+      });
+    }
+
+    const allKnownCategories = [...categories, ...createdCategories];
+    let failedAtIndex = -1;
+    let failureError = "";
+
+    for (let i = 0; i < prepared.length; i++) {
+      const p = prepared[i];
+      const finalCategoryId = draftIdMap.get(p.categoryId) ?? p.categoryId;
+      const saveRes = await addTransaction({
+        title: p.merchant,
+        amount: p.amount,
+        type: p.item.type,
+        categoryId: finalCategoryId,
+        channel: p.channel,
+        date: ymdToIso(p.date),
+      });
+
+      if (!saveRes.ok) {
+        failedAtIndex = i;
+        failureError = saveRes.error || "ไม่สามารถบันทึกรายการได้";
+        break;
+      }
+
+      const catName =
+        allKnownCategories.find((c) => c.id === finalCategoryId)?.name || finalCategoryId;
+      const confirmText =
+        draft.source === "slip"
+          ? `บันทึกรายการจากสลิป **${p.merchant}** (${catName}) ยอด **${formatTHB(p.amount)}** วันที่ ${formatThaiDate(p.date)} เรียบร้อยแล้วค่ะ`
+          : `บันทึกรายการ **${p.merchant}** (${catName}) ยอด **${formatTHB(p.amount)}** วันที่ ${formatThaiDate(p.date)} เรียบร้อยแล้วค่ะ`;
+
+      savedMessages.push({
+        id: `a-${baseTs}-${i}`,
+        role: "assistant",
+        text: confirmText,
+        txAction: {
+          status: "saved",
+          transactionId: saveRes.transactionId,
+          type: p.item.type,
+          merchant: p.merchant,
+          ...(p.item.sender ? { sender: p.item.sender } : {}),
+          ...(p.item.receiver ? { receiver: p.item.receiver } : {}),
+          promptPayId: p.item.promptPayId || "-",
+          amount: p.amount,
+          categoryId: finalCategoryId,
+          date: p.date,
+        },
+      });
+    }
+
     setLoading(false);
     setLoadingStage(null);
 
-    if (!saveRes.ok) {
+    for (const msg of savedMessages) {
+      appendChatMessage(msg);
+    }
+
+    if (failedAtIndex >= 0) {
       setPendingTxDraft((prev) =>
-        prev ? { ...prev, error: saveRes.error || "ไม่สามารถบันทึกรายการได้" } : prev
+        prev
+          ? {
+              ...prev,
+              newCategories: undefined,
+              items: prev.items.slice(failedAtIndex).map((it) => ({
+                ...it,
+                categoryId: draftIdMap.get(it.categoryId) ?? it.categoryId,
+              })),
+              error: failureError,
+            }
+          : prev
       );
       return;
     }
 
-    const catName =
-      categories.find((c) => c.id === resolvedCategoryId)?.name || resolvedCategoryId;
-    const confirmText =
-      draft.source === "qr"
-        ? `บันทึกรายการจาก QR / สลิป **${merchant}** (${catName}) ยอด **${formatTHB(rawAmount)}** เรียบร้อยแล้วค่ะ`
-        : `บันทึกรายการ **${merchant}** (${catName}) ยอด **${formatTHB(rawAmount)}** เรียบร้อยแล้วค่ะ`;
-
     setPendingTxDraft(null);
-    appendChatMessage({
-      id: `a-${Date.now()}`,
-      role: "assistant",
-      text: confirmText,
-      txAction: {
-        status: "saved",
-        transactionId: saveRes.transactionId,
-        type: draft.type,
-        merchant,
-        ...(draft.sender ? { sender: draft.sender } : {}),
-        ...(draft.receiver ? { receiver: draft.receiver } : {}),
-        promptPayId: draft.promptPayId || "-",
-        amount: rawAmount,
-        categoryId: resolvedCategoryId,
-      },
-    });
-
-    if (draft.continueAfterConfirm) {
-      setLoading(true);
-      setLoadingStage("chat");
-      try {
-        const prior: OpenRouterMessage[] = chatMessages
-          .filter((m) => m.id !== "welcome" && (m.role === "user" || m.role === "assistant"))
-          .slice(-8)
-          .map((m) => ({ role: m.role as "user" | "assistant", content: m.text }));
-        await runToolLoop([
-          ...prior,
-          { role: "assistant", content: confirmText },
-          {
-            role: "user",
-            content:
-              "[ระบบ] ผู้ใช้ยืนยันการดำเนินการข้างต้นเรียบร้อยแล้ว หากยังมีขั้นตอนถัดไปในคำขอก่อนหน้าของ User ให้เรียกใช้ Tool ต่อได้เลย หากครบทุกขั้นตอนแล้วให้ตอบสรุปสั้นๆ ค่ะ",
-          },
-        ]);
-      } catch {
-        appendChatMessage({
-          id: `e-${Date.now()}`,
-          role: "error",
-          text: "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย",
-        });
-      } finally {
-        setLoading(false);
-        setLoadingStage(null);
-      }
-    }
   };
 
   const handleCancelTxDraft = () => {
     if (!pendingTxDraft || loading) return;
     const draft = pendingTxDraft;
+    const newCatCount = draft.newCategories?.length ?? 0;
     setPendingTxDraft(null);
-    appendChatMessage({
-      id: `a-${Date.now()}`,
-      role: "assistant",
-      text:
-        draft.source === "qr"
-          ? "ยกเลิกรายการสแกน QR / สลิปนี้แล้วค่ะ"
-          : "ยกเลิกรายการบันทึกธุรกรรมนี้แล้วค่ะ",
-      txAction: {
-        status: "cancelled",
-        type: draft.type,
-        merchant:
-          draft.merchant.trim() ||
-          (draft.source === "qr" ? "รายการสแกน QR" : "รายการจาก AI"),
-        ...(draft.sender ? { sender: draft.sender } : {}),
-        ...(draft.receiver ? { receiver: draft.receiver } : {}),
-        promptPayId: draft.promptPayId || "-",
-        amount: Number(draft.amount) || 0,
-        categoryId: draft.categoryId,
-      },
-    });
+    if (newCatCount > 0) {
+      appendChatMessage({
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        text: `ยกเลิกการสร้างหมวดหมู่ (${newCatCount} หมวด) และรายการบันทึกธุรกรรม (${draft.items.length} รายการ) แล้วค่ะ`,
+      });
+      return;
+    }
+    if (draft.items.length === 1) {
+      const item = draft.items[0];
+      appendChatMessage({
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        text:
+          draft.source === "slip"
+            ? "ยกเลิกรายการสลิปนี้แล้วค่ะ"
+            : "ยกเลิกรายการบันทึกธุรกรรมนี้แล้วค่ะ",
+        txAction: {
+          status: "cancelled",
+          type: item.type,
+          merchant:
+            item.merchant.trim() ||
+            (draft.source === "slip" ? "รายการจากสลิป" : "รายการจาก AI"),
+          ...(item.sender ? { sender: item.sender } : {}),
+          ...(item.receiver ? { receiver: item.receiver } : {}),
+          promptPayId: item.promptPayId || "-",
+          amount: Number(item.amount) || 0,
+          categoryId: item.categoryId,
+          date: item.date,
+        },
+      });
+    } else {
+      appendChatMessage({
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        text: `ยกเลิกรายการบันทึกธุรกรรมทั้งหมด (${draft.items.length} รายการ) แล้วค่ะ`,
+      });
+    }
   };
 
   const handleConfirmPendingTx = async (msg: ChatMessage) => {
@@ -1126,14 +1388,15 @@ export default function AiAssistantPage() {
     const rawAmount = Number(pendingAmounts[msg.id] ?? action.amount);
     if (!Number.isFinite(rawAmount) || rawAmount <= 0) return;
 
+    const txDate = action.date || todayYmd();
     setLoading(true);
     const saveRes = await addTransaction({
-      title: action.merchant.trim() || "รายการสแกน QR",
+      title: action.merchant.trim() || "รายการจากสลิป",
       amount: rawAmount,
       type: action.type,
       categoryId: action.categoryId,
-      channel: "สแกน QR / สลิป (AI Chat)",
-      date: new Date().toISOString(),
+      channel: "สแกนสลิป (AI Chat)",
+      date: ymdToIso(txDate),
     });
     setLoading(false);
 
@@ -1161,7 +1424,7 @@ export default function AiAssistantPage() {
     const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
     if (file) {
       e.preventDefault();
-      handleQrOrSlipFile(file);
+      handleSlipFile(file);
     }
   };
 
@@ -1172,10 +1435,10 @@ export default function AiAssistantPage() {
       <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight m-0">
-            ผู้ช่วย AI &amp; สแกน QR / สลิปอัตโนมัติ
+            ผู้ช่วย AI &amp; สแกนสลิปอัตโนมัติ
           </h1>
           <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5 line-clamp-2 sm:line-clamp-none">
-            ถามคำถามการเงิน หรือส่งรูป QR Code / สลิปธนาคารเพื่อให้บอทจัดหมวดหมู่และบันทึกรายรับ-รายจ่ายทันที
+            ถามคำถามการเงิน หรือส่งรูปสลิปธนาคารเพื่อให้บอทจัดหมวดหมู่และบันทึกรายรับ-รายจ่ายทันที
           </p>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto shrink-0">
@@ -1240,7 +1503,7 @@ export default function AiAssistantPage() {
                     {m.thumbnailUrl && (
                       <img
                         src={m.thumbnailUrl}
-                        alt="Uploaded QR or Slip"
+                        alt="Uploaded Slip"
                         onLoad={() => {
                           if (
                             !userCancelledScrollRef.current &&
@@ -1278,6 +1541,14 @@ export default function AiAssistantPage() {
                               <span className="text-right font-mono font-bold text-on-surface">
                                 {formatTHB(action.amount)}
                               </span>
+                              {action.date && (
+                                <>
+                                  <span>วันที่:</span>
+                                  <span className="text-right font-mono text-on-surface">
+                                    {formatThaiDate(action.date)}
+                                  </span>
+                                </>
+                              )}
                             </div>
                             <div className="pt-1 flex items-center justify-between">
                               <span className="inline-flex items-center gap-1 text-primary font-semibold">
@@ -1305,7 +1576,7 @@ export default function AiAssistantPage() {
 
                         {action.status === "cancelled" && (
                           <div className="text-on-surface-variant italic">
-                            ยกเลิกรายการสแกน QR / สลิป ({action.merchant}) แล้ว
+                            ยกเลิกรายการสลิป ({action.merchant}) แล้ว
                           </div>
                         )}
 
@@ -1554,6 +1825,108 @@ export default function AiAssistantPage() {
                                 </div>
                               )}
 
+                              {pt.name === "add_category" && (
+                                <div className="space-y-2.5">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <div>
+                                      <label className="block text-[11px] text-on-surface-variant mb-1">
+                                        ชื่อหมวดหมู่
+                                      </label>
+                                      <input
+                                        type="text"
+                                        aria-label="ชื่อหมวดหมู่"
+                                        value={String(pt.args.name || "")}
+                                        onChange={(e) =>
+                                          updateToolArgs({ ...pt.args, name: e.target.value })
+                                        }
+                                        className="w-full bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-[11px] text-on-surface-variant mb-1">
+                                        ประเภท
+                                      </label>
+                                      <select
+                                        aria-label="ประเภทหมวดหมู่"
+                                        value={pt.args.type === "income" ? "income" : "expense"}
+                                        onChange={(e) => {
+                                          const nextType =
+                                            e.target.value === "income" ? "income" : "expense";
+                                          const curIcon = String(pt.args.icon || "label");
+                                          const nextIcon =
+                                            nextType === "income"
+                                              ? curIcon === "label"
+                                                ? "payments"
+                                                : curIcon
+                                              : curIcon === "payments"
+                                                ? "label"
+                                                : curIcon;
+                                          updateToolArgs({
+                                            ...pt.args,
+                                            type: nextType,
+                                            budget:
+                                              nextType === "income" ? 0 : pt.args.budget ?? 0,
+                                            icon: nextIcon,
+                                          });
+                                        }}
+                                        className="w-full bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                                      >
+                                        <option value="expense">หมวดรายจ่าย</option>
+                                        <option value="income">หมวดรายรับ</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
+                                    <IconColorPicker
+                                      id={`tool-cat-picker-${m.id}`}
+                                      label="ไอคอน & สี"
+                                      colorSectionLabel="สีหมวดหมู่"
+                                      dialogLabel="เลือกสีและไอคอนหมวดหมู่"
+                                      icon={String(
+                                        pt.args.icon ||
+                                          (pt.args.type === "income" ? "payments" : "label")
+                                      )}
+                                      color={String(
+                                        pt.args.color ||
+                                          nextCategoryColor(categories.map((c) => c.color))
+                                      )}
+                                      onIconChange={(nextIcon) =>
+                                        updateToolArgs({ ...pt.args, icon: nextIcon })
+                                      }
+                                      onColorChange={(nextColor) =>
+                                        updateToolArgs({ ...pt.args, color: nextColor })
+                                      }
+                                    />
+                                    {pt.args.type !== "income" && (
+                                      <div>
+                                        <label className="block text-[11px] text-on-surface-variant mb-1">
+                                          งบประมาณต่อเดือน (บาท)
+                                        </label>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="100"
+                                          aria-label="งบประมาณต่อเดือน"
+                                          value={
+                                            pt.args.budget === "" ? "" : Number(pt.args.budget ?? 0)
+                                          }
+                                          onChange={(e) =>
+                                            updateToolArgs({
+                                              ...pt.args,
+                                              budget:
+                                                e.target.value === ""
+                                                  ? ""
+                                                  : Number(e.target.value),
+                                            })
+                                          }
+                                          className="w-full bg-surface-container border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-xs font-mono text-on-surface focus:outline-none focus:border-primary"
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
                               {pt.name === "add_recurring_payment" && (
                                 <div className="flex flex-wrap items-center gap-2">
                                   <select
@@ -1670,8 +2043,8 @@ export default function AiAssistantPage() {
               <div className="inline-flex items-center gap-2 text-xs text-on-surface-variant font-mono">
                 <span className="h-3.5 w-3.5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                 <span>
-                  {loadingStage === "qr_scan"
-                    ? "กำลังสแกน QR / OCR และวิเคราะห์ด้วย Finora AI..."
+                  {loadingStage === "slip_scan"
+                    ? "กำลังอ่านสลิป (OCR) และวิเคราะห์ด้วย Finora AI..."
                     : loadingStage === "saving"
                       ? "กำลังบันทึกรายการ..."
                       : "กำลังประมวลผลด้วย Finora AI..."}
@@ -1722,14 +2095,14 @@ export default function AiAssistantPage() {
           className="shrink-0 p-3 sm:p-4 border-t border-outline-variant/30 bg-surface-container flex items-end gap-2"
         >
           <label
-            title="อัปโหลดรูปภาพ QR Code หรือสลิปโอนเงิน"
+            title="อัปโหลดรูปภาพสลิปโอนเงินหรือใบเสร็จ"
             className={`cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2.5 min-h-[42px] rounded-lg bg-surface-container-low border border-outline-variant/40 text-xs font-semibold text-on-surface hover:border-primary/60 transition-colors shrink-0 ${inputLocked ? "opacity-50 pointer-events-none" : ""
               }`}
           >
             <span className="material-symbols-outlined text-[18px] text-primary">
-              qr_code_scanner
+              receipt_long
             </span>
-            <span className="hidden sm:inline">ส่ง QR / สลิป</span>
+            <span className="hidden sm:inline">ส่งสลิป</span>
             <input
               type="file"
               accept="image/*"
@@ -1737,7 +2110,7 @@ export default function AiAssistantPage() {
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 e.target.value = "";
-                if (f) handleQrOrSlipFile(f);
+                if (f) handleSlipFile(f);
               }}
               className="hidden"
             />
@@ -1775,17 +2148,96 @@ export default function AiAssistantPage() {
         </form>
       </div>
 
-      {/* Blocking Transaction Confirmation Modal (QR / Slip & AI Chat Tool) */}
+      {/* Blocking Transaction Confirmation Modal (Slip & AI Chat Tool Batch) */}
       {pendingTxDraft && (() => {
-        const canSwapParties = Boolean(
-          pendingTxDraft.sender &&
-          pendingTxDraft.receiver &&
-          pendingTxDraft.sender !== pendingTxDraft.receiver
+        const isSlipSource = pendingTxDraft.source === "slip";
+        const draftCats = pendingTxDraft.newCategories ?? [];
+        const hasNewCats = draftCats.length > 0;
+        const isBatch = pendingTxDraft.items.length > 1;
+        const firstItem = pendingTxDraft.items[0];
+        const fallbackCategoryIdForType = (
+          txType: TransactionType,
+          remainingDrafts: PendingCategoryItem[] = draftCats
+        ) =>
+          remainingDrafts.find((c) => c.type === txType)?.id ||
+          categories.find((c) => c.type === txType && c.id !== "recurring")?.id ||
+          (txType === "income" ? "salary" : "food");
+        const updateDraftCategory = (catId: string, patch: Partial<PendingCategoryItem>) => {
+          setPendingTxDraft((prev) => {
+            if (!prev || !prev.newCategories) return prev;
+            const nextCats = prev.newCategories.map((dc) =>
+              dc.id === catId ? { ...dc, ...patch } : dc
+            );
+            const updatedCat = nextCats.find((dc) => dc.id === catId);
+            const nextItems =
+              updatedCat && patch.type
+                ? prev.items.map((it) =>
+                    it.categoryId === catId && it.type !== updatedCat.type
+                      ? { ...it, categoryId: fallbackCategoryIdForType(it.type, nextCats) }
+                      : it
+                  )
+                : prev.items;
+            return { ...prev, error: undefined, newCategories: nextCats, items: nextItems };
+          });
+        };
+        const removeDraftCategory = (catId: string) => {
+          setPendingTxDraft((prev) => {
+            if (!prev || !prev.newCategories) return prev;
+            const nextCats = prev.newCategories.filter((dc) => dc.id !== catId);
+            const nextItems = prev.items.map((it) =>
+              it.categoryId === catId
+                ? { ...it, categoryId: fallbackCategoryIdForType(it.type, nextCats) }
+                : it
+            );
+            return {
+              ...prev,
+              error: undefined,
+              newCategories: nextCats.length > 0 ? nextCats : undefined,
+              items: nextItems,
+            };
+          });
+        };
+        const updateDraftItem = (itemId: string, patch: Partial<PendingTxItem>) => {
+          setPendingTxDraft((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  error: undefined,
+                  items: prev.items.map((it) => (it.id === itemId ? { ...it, ...patch } : it)),
+                }
+              : prev
+          );
+        };
+        const removeDraftItem = (itemId: string) => {
+          setPendingTxDraft((prev) =>
+            prev && prev.items.length > 1
+              ? {
+                  ...prev,
+                  error: undefined,
+                  items: prev.items.filter((it) => it.id !== itemId),
+                }
+              : prev
+          );
+        };
+        const allCategoriesValid = draftCats.every(
+          (dc) =>
+            dc.name.trim().length > 0 &&
+            (dc.type === "income" || dc.budget === "" || Number(dc.budget) >= 0)
         );
-        const modalCats = categories.filter(
-          (c) => c.type === pendingTxDraft.type && c.id !== "recurring"
-        );
-        const isQrSource = pendingTxDraft.source === "qr";
+        const allItemsValid =
+          allCategoriesValid &&
+          pendingTxDraft.items.length > 0 &&
+          pendingTxDraft.items.every(
+            (it) => it.merchant.trim().length > 0 && Number(it.amount) > 0 && Boolean(it.date)
+          );
+        const modalTitle = isSlipSource
+          ? "ตรวจสอบข้อมูลจากสลิป"
+          : hasNewCats
+            ? `ตรวจสอบหมวดหมู่ใหม่ (${draftCats.length}) และธุรกรรม (${pendingTxDraft.items.length})`
+            : isBatch
+              ? `ตรวจสอบรายการธุรกรรมจากแชท AI (${pendingTxDraft.items.length} รายการ)`
+              : "ตรวจสอบรายการธุรกรรมจากแชท AI";
+
         return (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-backdrop-in"
@@ -1793,18 +2245,20 @@ export default function AiAssistantPage() {
             aria-modal="true"
             aria-labelledby="tx-confirm-modal-title"
           >
-            <div className="w-full max-w-lg rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden animate-modal-in">
-              <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-outline-variant/30">
+            <div
+              className={`w-full ${isBatch || hasNewCats ? "max-w-2xl" : "max-w-lg"} max-h-[88vh] rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden flex flex-col animate-modal-in`}
+            >
+              <div className="shrink-0 flex items-start justify-between gap-3 px-6 py-4 border-b border-outline-variant/30">
                 <div className="flex items-start gap-2.5">
                   <span className="material-symbols-outlined text-primary text-[22px] mt-0.5">
-                    {isQrSource ? "qr_code_scanner" : "receipt_long"}
+                    receipt_long
                   </span>
                   <div>
                     <h2
                       id="tx-confirm-modal-title"
                       className="text-lg font-semibold text-on-surface m-0"
                     >
-                      {isQrSource ? "ตรวจสอบข้อมูลจาก QR / สลิป" : "ตรวจสอบรายการธุรกรรมจากแชท AI"}
+                      {modalTitle}
                     </h2>
                     <p className="text-xs text-on-surface-variant mt-0.5">
                       กรุณาตรวจสอบและกดยืนยันหรือยกเลิกก่อนส่งข้อความหรือสแกนรายการถัดไป
@@ -1818,229 +2272,397 @@ export default function AiAssistantPage() {
                   e.preventDefault();
                   handleConfirmTxDraft();
                 }}
-                className="p-6 space-y-4"
+                className="flex-1 min-h-0 flex flex-col"
               >
-                {pendingTxDraft.thumbnailUrl && (
-                  <div className="flex items-center gap-3.5 p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
-                    <img
-                      src={pendingTxDraft.thumbnailUrl}
-                      alt="QR or Slip Preview"
-                      className="h-16 w-16 object-contain rounded-md bg-white p-1 border border-outline-variant/30 shrink-0"
-                    />
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-on-surface truncate">
-                          {pendingTxDraft.merchant || "รายการสแกน QR"}
-                        </span>
-                        {pendingTxDraft.needsAmount && (
-                          <span className="px-2 py-0.5 rounded-full bg-secondary/15 text-secondary text-[10px] font-semibold">
-                            ต้องกรอกยอดเงิน
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+                  {pendingTxDraft.thumbnailUrl && firstItem && (
+                    <div className="flex items-center gap-3.5 p-3 rounded-lg bg-surface-container-low border border-outline-variant/30">
+                      <img
+                        src={pendingTxDraft.thumbnailUrl}
+                        alt="Slip Preview"
+                        className="h-16 w-16 object-contain rounded-md bg-white p-1 border border-outline-variant/30 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-semibold text-on-surface truncate">
+                            {firstItem.merchant || "รายการจากสลิป"}
                           </span>
+                          {firstItem.needsAmount && (
+                            <span className="px-2 py-0.5 rounded-full bg-secondary/15 text-secondary text-[10px] font-semibold">
+                              ต้องกรอกยอดเงิน
+                            </span>
+                          )}
+                        </div>
+                        {firstItem.promptPayId && firstItem.promptPayId !== "-" && (
+                          <div className="text-[11px] font-mono text-on-surface-variant truncate">
+                            PromptPay / Ref: {firstItem.promptPayId}
+                          </div>
                         )}
                       </div>
-                      {pendingTxDraft.promptPayId && pendingTxDraft.promptPayId !== "-" && (
-                        <div className="text-[11px] font-mono text-on-surface-variant truncate">
-                          PromptPay / Ref: {pendingTxDraft.promptPayId}
-                        </div>
-                      )}
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-surface-container-low">
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => {
-                      const firstCat =
-                        categories.find((c) => c.type === "expense" && c.id !== "recurring")
-                          ?.id || "food";
-                      setPendingTxDraft((prev) => {
-                        if (!prev) return prev;
-                        const nextMerchant =
-                          canSwapParties &&
-                            (prev.merchant === prev.sender || prev.merchant === prev.receiver)
-                            ? prev.receiver!
-                            : prev.merchant;
-                        return {
-                          ...prev,
-                          type: "expense",
-                          categoryId: firstCat,
-                          merchant: nextMerchant,
-                          error: undefined,
-                        };
-                      });
-                    }}
-                    className={`py-2 rounded-md text-sm font-semibold transition-colors ${pendingTxDraft.type === "expense"
-                      ? "bg-secondary text-on-secondary shadow-sm"
-                      : "text-on-surface-variant hover:text-on-surface"
-                      }`}
-                  >
-                    รายจ่าย
-                  </button>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => {
-                      const firstCat =
-                        categories.find((c) => c.type === "income" && c.id !== "recurring")
-                          ?.id || "salary";
-                      setPendingTxDraft((prev) => {
-                        if (!prev) return prev;
-                        const nextMerchant =
-                          canSwapParties &&
-                            (prev.merchant === prev.sender || prev.merchant === prev.receiver)
-                            ? prev.sender!
-                            : prev.merchant;
-                        return {
-                          ...prev,
-                          type: "income",
-                          categoryId: firstCat,
-                          merchant: nextMerchant,
-                          error: undefined,
-                        };
-                      });
-                    }}
-                    className={`py-2 rounded-md text-sm font-semibold transition-colors ${pendingTxDraft.type === "income"
-                      ? "bg-primary-container text-on-primary-container shadow-sm"
-                      : "text-on-surface-variant hover:text-on-surface"
-                      }`}
-                  >
-                    รายรับ
-                  </button>
-                </div>
+                  {hasNewCats && (
+                    <div className="space-y-3">
+                      <div className="text-xs font-bold text-primary uppercase tracking-wider">
+                        หมวดหมู่ใหม่ที่จะสร้าง ({draftCats.length} หมวด)
+                      </div>
+                      {draftCats.map((dc, cIdx) => (
+                        <div
+                          key={dc.id}
+                          className="rounded-xl border border-primary/30 bg-primary-container/5 p-4 space-y-3"
+                        >
+                          <div className="flex items-center justify-between gap-2 pb-1 border-b border-outline-variant/20">
+                            <span className="text-xs font-bold text-primary">
+                              หมวดหมู่ใหม่ #{cIdx + 1}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={loading}
+                              onClick={() => removeDraftCategory(dc.id)}
+                              title="นำหมวดหมู่นี้ออก"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-on-surface-variant hover:text-error hover:bg-error-container/20 disabled:opacity-40"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">close</span>
+                              <span>นำออก</span>
+                            </button>
+                          </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label
-                      htmlFor="tx-modal-merchant"
-                      className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider"
-                    >
-                      รายการ / ร้านค้า
-                    </label>
-                    {canSwapParties && (
-                      <button
-                        type="button"
-                        disabled={loading}
-                        title={`ผู้โอน: ${pendingTxDraft.sender} | ผู้รับ: ${pendingTxDraft.receiver}`}
-                        onClick={() =>
-                          setPendingTxDraft((prev) =>
-                            prev
-                              ? {
-                                ...prev,
-                                merchant:
-                                  prev.merchant === prev.receiver
-                                    ? prev.sender!
-                                    : prev.receiver!,
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label
+                                htmlFor={`tx-modal-newcat-name-${cIdx}`}
+                                className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1"
+                              >
+                                ชื่อหมวดหมู่
+                              </label>
+                              <input
+                                id={`tx-modal-newcat-name-${cIdx}`}
+                                type="text"
+                                disabled={loading}
+                                value={dc.name}
+                                onChange={(e) =>
+                                  updateDraftCategory(dc.id, { name: e.target.value })
+                                }
+                                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary"
+                              />
+                            </div>
+                            <div>
+                              <label
+                                htmlFor={`tx-modal-newcat-type-${cIdx}`}
+                                className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1"
+                              >
+                                ประเภทหมวดหมู่
+                              </label>
+                              <select
+                                id={`tx-modal-newcat-type-${cIdx}`}
+                                disabled={loading}
+                                value={dc.type}
+                                onChange={(e) => {
+                                  const nextType: TransactionType =
+                                    e.target.value === "income" ? "income" : "expense";
+                                  const nextIcon =
+                                    nextType === "income"
+                                      ? dc.icon === "label"
+                                        ? "payments"
+                                        : dc.icon
+                                      : dc.icon === "payments"
+                                        ? "label"
+                                        : dc.icon;
+                                  updateDraftCategory(dc.id, {
+                                    type: nextType,
+                                    budget: nextType === "income" ? "0" : dc.budget,
+                                    icon: nextIcon,
+                                  });
+                                }}
+                                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary"
+                              >
+                                <option value="expense">หมวดรายจ่าย</option>
+                                <option value="income">หมวดรายรับ</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                            <IconColorPicker
+                              id={`modal-newcat-picker-${dc.id}`}
+                              label="ไอคอน & สี"
+                              colorSectionLabel="สีหมวดหมู่"
+                              dialogLabel="เลือกสีและไอคอนหมวดหมู่"
+                              icon={dc.icon}
+                              color={dc.color}
+                              onIconChange={(nextIcon) =>
+                                updateDraftCategory(dc.id, { icon: nextIcon })
                               }
-                              : prev
-                          )
-                        }
-                        className="px-2 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low text-[11px] font-medium text-primary hover:bg-surface-container-high"
-                      >
-                        ผู้โอน ⇄ ผู้รับ
-                      </button>
-                    )}
-                  </div>
-                  <input
-                    id="tx-modal-merchant"
-                    type="text"
-                    disabled={loading}
-                    value={pendingTxDraft.merchant}
-                    onChange={(e) =>
-                      setPendingTxDraft((prev) =>
-                        prev ? { ...prev, merchant: e.target.value, error: undefined } : prev
-                      )
-                    }
-                    className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label
-                      htmlFor="tx-modal-category"
-                      className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5"
-                    >
-                      หมวดหมู่
-                    </label>
-                    <select
-                      id="tx-modal-category"
-                      disabled={loading}
-                      value={pendingTxDraft.categoryId}
-                      onChange={(e) =>
-                        setPendingTxDraft((prev) =>
-                          prev ? { ...prev, categoryId: e.target.value } : prev
-                        )
-                      }
-                      className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
-                    >
-                      {modalCats.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
+                              onColorChange={(nextColor) =>
+                                updateDraftCategory(dc.id, { color: nextColor })
+                              }
+                            />
+                            {dc.type !== "income" && (
+                              <div>
+                                <label
+                                  htmlFor={`tx-modal-newcat-budget-${cIdx}`}
+                                  className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1"
+                                >
+                                  งบประมาณต่อเดือน (THB)
+                                </label>
+                                <input
+                                  id={`tx-modal-newcat-budget-${cIdx}`}
+                                  type="number"
+                                  min="0"
+                                  step="100"
+                                  disabled={loading}
+                                  placeholder="0"
+                                  value={dc.budget}
+                                  onChange={(e) =>
+                                    updateDraftCategory(dc.id, { budget: e.target.value })
+                                  }
+                                  className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       ))}
-                    </select>
-                  </div>
+                    </div>
+                  )}
 
-                  <div>
-                    <label
-                      htmlFor="tx-modal-amount"
-                      className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5"
-                    >
-                      จำนวนเงิน (THB)
-                    </label>
-                    <input
-                      id="tx-modal-amount"
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      autoFocus={Boolean(pendingTxDraft.needsAmount)}
-                      disabled={loading}
-                      placeholder="0.00"
-                      value={pendingTxDraft.amount}
-                      onChange={(e) =>
-                        setPendingTxDraft((prev) =>
-                          prev ? { ...prev, amount: e.target.value, error: undefined } : prev
-                        )
-                      }
-                      className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
-                    />
-                  </div>
+                  {pendingTxDraft.items.map((item, idx) => {
+                    const canSwapParties = Boolean(
+                      item.sender && item.receiver && item.sender !== item.receiver
+                    );
+                    const matchingDraftCats = draftCats
+                      .filter((c) => c.type === item.type)
+                      .map((c) => ({
+                        id: c.id,
+                        name: `${c.name.trim() || "หมวดใหม่"} (หมวดใหม่)`,
+                      }));
+                    const existingModalCats = categories
+                      .filter((c) => c.type === item.type && c.id !== "recurring")
+                      .map((c) => ({ id: c.id, name: c.name }));
+                    const modalCats = [...matchingDraftCats, ...existingModalCats];
+                    const handleSwitchType = (nextType: TransactionType) => {
+                      const firstCat =
+                        categories.find((c) => c.type === nextType && c.id !== "recurring")
+                          ?.id || (nextType === "income" ? "salary" : "food");
+                      const nextMerchant =
+                        canSwapParties &&
+                        (item.merchant === item.sender || item.merchant === item.receiver)
+                          ? nextType === "income"
+                            ? item.sender!
+                            : item.receiver!
+                          : item.merchant;
+                      updateDraftItem(item.id, {
+                        type: nextType,
+                        categoryId: firstCat,
+                        merchant: nextMerchant,
+                      });
+                    };
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={
+                          isBatch || hasNewCats
+                            ? "rounded-xl border border-outline-variant/30 bg-surface-container-low/40 p-4 space-y-3"
+                            : "space-y-4"
+                        }
+                      >
+                        {(isBatch || hasNewCats) && (
+                          <div className="flex items-center justify-between gap-2 pb-1 border-b border-outline-variant/20">
+                            <span className="text-xs font-bold text-primary">
+                              {isBatch ? `รายการที่ ${idx + 1}` : "รายการธุรกรรม"}
+                            </span>
+                            {isBatch && (
+                              <button
+                                type="button"
+                                disabled={loading}
+                                onClick={() => removeDraftItem(item.id)}
+                                title="นำรายการนี้ออก"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-on-surface-variant hover:text-error hover:bg-error-container/20 disabled:opacity-40"
+                              >
+                                <span className="material-symbols-outlined text-[14px]">close</span>
+                                <span>นำออก</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-surface-container-low">
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => handleSwitchType("expense")}
+                            className={`py-2 rounded-md text-sm font-semibold transition-colors ${
+                              item.type === "expense"
+                                ? "bg-secondary text-on-secondary shadow-sm"
+                                : "text-on-surface-variant hover:text-on-surface"
+                            }`}
+                          >
+                            รายจ่าย
+                          </button>
+                          <button
+                            type="button"
+                            disabled={loading}
+                            onClick={() => handleSwitchType("income")}
+                            className={`py-2 rounded-md text-sm font-semibold transition-colors ${
+                              item.type === "income"
+                                ? "bg-primary-container text-on-primary-container shadow-sm"
+                                : "text-on-surface-variant hover:text-on-surface"
+                            }`}
+                          >
+                            รายรับ
+                          </button>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label
+                              htmlFor={`tx-modal-merchant-${idx}`}
+                              className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider"
+                            >
+                              รายการ / ร้านค้า
+                            </label>
+                            {canSwapParties && (
+                              <button
+                                type="button"
+                                disabled={loading}
+                                title={`ผู้โอน: ${item.sender} | ผู้รับ: ${item.receiver}`}
+                                onClick={() =>
+                                  updateDraftItem(item.id, {
+                                    merchant:
+                                      item.merchant === item.receiver
+                                        ? item.sender!
+                                        : item.receiver!,
+                                  })
+                                }
+                                className="px-2 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low text-[11px] font-medium text-primary hover:bg-surface-container-high"
+                              >
+                                ผู้โอน ⇄ ผู้รับ
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            id={`tx-modal-merchant-${idx}`}
+                            type="text"
+                            disabled={loading}
+                            value={item.merchant}
+                            onChange={(e) =>
+                              updateDraftItem(item.id, { merchant: e.target.value })
+                            }
+                            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label
+                              htmlFor={`tx-modal-category-${idx}`}
+                              className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5"
+                            >
+                              หมวดหมู่
+                            </label>
+                            <select
+                              id={`tx-modal-category-${idx}`}
+                              disabled={loading}
+                              value={item.categoryId}
+                              onChange={(e) =>
+                                updateDraftItem(item.id, { categoryId: e.target.value })
+                              }
+                              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
+                            >
+                              {modalCats.map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor={`tx-modal-amount-${idx}`}
+                              className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5"
+                            >
+                              จำนวนเงิน (THB)
+                            </label>
+                            <input
+                              id={`tx-modal-amount-${idx}`}
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              autoFocus={idx === 0 && Boolean(item.needsAmount)}
+                              disabled={loading}
+                              placeholder="0.00"
+                              value={item.amount}
+                              onChange={(e) =>
+                                updateDraftItem(item.id, { amount: e.target.value })
+                              }
+                              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
+                            />
+                          </div>
+                        </div>
+
+                        <div
+                          className={`grid grid-cols-1 ${
+                            !isSlipSource ? "sm:grid-cols-2" : ""
+                          } gap-3`}
+                        >
+                          {!isSlipSource && (
+                            <div>
+                              <label
+                                htmlFor={`tx-modal-channel-${idx}`}
+                                className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5"
+                              >
+                                ช่องทางการชำระเงิน
+                              </label>
+                              <select
+                                id={`tx-modal-channel-${idx}`}
+                                disabled={loading}
+                                value={item.channel}
+                                onChange={(e) =>
+                                  updateDraftItem(item.id, { channel: e.target.value })
+                                }
+                                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
+                              >
+                                <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
+                                <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
+                                <option value="Virtual Card">Virtual Card</option>
+                                <option value="เงินสด">เงินสด</option>
+                              </select>
+                            </div>
+                          )}
+
+                          <div>
+                            <label
+                              htmlFor={`tx-modal-date-${idx}`}
+                              className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5"
+                            >
+                              วันที่ทำรายการ
+                            </label>
+                            <input
+                              id={`tx-modal-date-${idx}`}
+                              type="date"
+                              required
+                              disabled={loading}
+                              value={item.date}
+                              onChange={(e) =>
+                                updateDraftItem(item.id, { date: e.target.value })
+                              }
+                              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {pendingTxDraft.error && (
+                    <p className="text-xs text-error font-medium">{pendingTxDraft.error}</p>
+                  )}
                 </div>
 
-                {!isQrSource && (
-                  <div>
-                    <label
-                      htmlFor="tx-modal-channel"
-                      className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5"
-                    >
-                      ช่องทางการชำระเงิน
-                    </label>
-                    <select
-                      id="tx-modal-channel"
-                      disabled={loading}
-                      value={pendingTxDraft.channel}
-                      onChange={(e) =>
-                        setPendingTxDraft((prev) =>
-                          prev ? { ...prev, channel: e.target.value, error: undefined } : prev
-                        )
-                      }
-                      className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
-                    >
-                      <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
-                      <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
-                      <option value="Virtual Card">Virtual Card</option>
-                      <option value="เงินสด">เงินสด</option>
-                    </select>
-                  </div>
-                )}
-
-                {pendingTxDraft.error && (
-                  <p className="text-xs text-error font-medium">{pendingTxDraft.error}</p>
-                )}
-
-                <div className="flex items-center justify-end gap-3 pt-2">
+                <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-outline-variant/30 bg-surface-container-low/40">
                   <button
                     type="button"
                     disabled={loading}
@@ -2051,10 +2673,16 @@ export default function AiAssistantPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={loading || !(Number(pendingTxDraft.amount) > 0)}
+                    disabled={loading || !allItemsValid}
                     className="px-5 py-2 rounded-lg text-sm font-semibold bg-primary-container text-on-primary-container hover:opacity-90 disabled:opacity-50 shadow-sm"
                   >
-                    {loading ? "กำลังบันทึก..." : "ยืนยันบันทึก"}
+                    {loading
+                      ? "กำลังบันทึก..."
+                      : hasNewCats
+                        ? "ยืนยันสร้างหมวดและบันทึกทั้งหมด"
+                        : isBatch
+                          ? `ยืนยันบันทึกทั้งหมด (${pendingTxDraft.items.length} รายการ)`
+                          : "ยืนยันบันทึก"}
                   </button>
                 </div>
               </form>
