@@ -616,7 +616,22 @@ export function describeWriteTool(
     const cat =
       snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
       String(args.categoryId || "");
-    return `ปรับงบประมาณหมวด "${cat}" เป็น ฿${Number(args.budget || 0).toLocaleString("en-US")}/เดือน`;
+    const budget = Number(args.budget || 0);
+    const currentSpent = roundCurrency(
+      snapshot.transactions
+        .filter(
+          (t) =>
+            t.categoryId === args.categoryId &&
+            t.type === "expense" &&
+            isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+        )
+        .reduce((s, t) => s + t.amount, 0)
+    );
+    const warnSuffix =
+      budget < currentSpent
+        ? ` (⚠️ ต่ำกว่ายอดที่ใช้ไปแล้วในรอบนี้ ฿${currentSpent.toLocaleString("en-US")})`
+        : "";
+    return `ปรับงบประมาณหมวด "${cat}" เป็น ฿${budget.toLocaleString("en-US")}/เดือน${warnSuffix}`;
   }
   if (name === "toggle_recurring") {
     const rec = snapshot.recurring.find((r) => r.id === args.recurringId);
@@ -631,7 +646,9 @@ export function describeWriteTool(
     const cat =
       snapshot.categories.find((c) => c.id === args.categoryId)?.name ||
       String(args.categoryId || "");
-    return `เพิ่ม${typeLabel} "${String(args.title || "")}" ฿${Number(args.amount || 0).toLocaleString("en-US")} (${cycleLabel}, หมวด: ${cat}, ครบกำหนด: ${String(args.nextDueDate || "")})`;
+    const dueStr = String(args.nextDueDate || "");
+    const pastDueWarn = dueStr && dueStr < todayYmd() ? " (⚠️ วันครบกำหนดนี้อยู่ในอดีต)" : "";
+    return `เพิ่ม${typeLabel} "${String(args.title || "")}" ฿${Number(args.amount || 0).toLocaleString("en-US")} (${cycleLabel}, หมวด: ${cat}, ครบกำหนด: ${dueStr})${pastDueWarn}`;
   }
   return `ดำเนินการ ${name}`;
 }
@@ -775,10 +792,21 @@ export function validateAndNormalizeWriteTool(
     }
     const cycle =
       rawArgs.cycle === "weekly" || rawArgs.cycle === "yearly" ? rawArgs.cycle : "monthly";
-    const rawDate = String(rawArgs.nextDueDate || "").trim();
-    const nextDueDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
-      ? rawDate
-      : defaultNextMonthFirstDay();
+    const rawDate =
+      rawArgs.nextDueDate === undefined || rawArgs.nextDueDate === null
+        ? ""
+        : String(rawArgs.nextDueDate).trim();
+    let nextDueDate = defaultNextMonthFirstDay();
+    if (rawDate) {
+      const parsedDue = normalizeTransactionDate(rawDate);
+      if (!parsedDue) {
+        return {
+          ok: false,
+          error: `รูปแบบวันครบกำหนด "${rawDate}" ไม่ถูกต้อง กรุณาระบุเป็น YYYY-MM-DD หรือ DD/MM`,
+        };
+      }
+      nextDueDate = parsedDue;
+    }
 
     const recType: TransactionType = rawArgs.type === "income" ? "income" : "expense";
     let categoryId = "recurring";

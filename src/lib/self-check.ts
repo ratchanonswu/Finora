@@ -471,4 +471,28 @@ const rollingSnapshot = {
 const predRolling = runReadTool("get_financial_prediction", { monthsAhead: 1 }, rollingSnapshot);
 assert.equal(predRolling.baselineMonthlyOutflow, 1000);
 
-console.log("Finora self-check passed (21/21 checks)");
+// 22. Proactive non-blocking warnings & flexible recurring due-date validation
+const lowBudgetWarn = validateAndNormalizeWriteTool(
+  "update_category_budget",
+  { categoryId: "food", budget: 500 },
+  snap
+);
+assert.equal(lowBudgetWarn.ok, true);
+if (lowBudgetWarn.ok) assert.equal(lowBudgetWarn.summary.includes("⚠️"), true);
+
+const pastDueWarn = validateAndNormalizeWriteTool(
+  "add_recurring_payment",
+  { title: "Old Gym", amount: 900, nextDueDate: "2020-01-01" },
+  snap
+);
+assert.equal(pastDueWarn.ok, true);
+if (pastDueWarn.ok) assert.equal(pastDueWarn.summary.includes("⚠️"), true);
+
+const badRecDate = validateAndNormalizeWriteTool(
+  "add_recurring_payment",
+  { title: "Bad Date Rec", amount: 900, nextDueDate: "31/02" },
+  snap
+);
+assert.equal(badRecDate.ok, false);
+
+console.log("Finora self-check passed (22/22 checks)");
