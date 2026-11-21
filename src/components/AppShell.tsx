@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useFinora } from "@/context/FinoraContext";
 import { formatTHB } from "@/lib/seed";
 import { TransactionModal } from "./TransactionModal";
+import { DashboardShell } from "./dashboard/DashboardShell";
 
 const AI_NAV_ITEM = {
   href: "/ai-assistant",
@@ -22,7 +23,7 @@ const NAV_ITEMS = [
   { href: "/settings", label: "ตั้งค่าระบบ", icon: "settings" },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function SharedAppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { hydrated, theme, toggleTheme, bankBalance, user, logoutUser, setTxModalOpen } = useFinora();
@@ -298,4 +299,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <TransactionModal />
     </div>
   );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  if (pathname === "/") {
+    return <DashboardShell>{children}</DashboardShell>;
+  }
+  return <SharedAppShell>{children}</SharedAppShell>;
 }
