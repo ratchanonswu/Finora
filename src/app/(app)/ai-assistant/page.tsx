@@ -672,12 +672,21 @@ export default function AiAssistantPage() {
       const parsedCalls = toolCalls
         .map((tc) => {
           let args: Record<string, unknown> = {};
-          try {
-            args = JSON.parse(tc.function.arguments || "{}");
-          } catch {
-            args = {};
+          let parseError = false;
+          const rawArgsText = String(tc.function.arguments || "").trim();
+          if (rawArgsText) {
+            try {
+              const parsed = JSON.parse(rawArgsText);
+              if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                parseError = true;
+              } else {
+                args = parsed as Record<string, unknown>;
+              }
+            } catch {
+              parseError = true;
+            }
           }
-          return { tc, args };
+          return { tc, args, parseError };
         })
         .sort(
           (a, b) =>
@@ -687,7 +696,18 @@ export default function AiAssistantPage() {
 
       const txItems: PendingTxItem[] = [];
       let hasOtherWrite = false;
-      for (const { tc, args } of parsedCalls) {
+      for (const { tc, args, parseError } of parsedCalls) {
+        if (parseError) {
+          history.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({
+              error:
+                "รูปแบบ JSON ของ arguments ไม่ถูกต้อง กรุณาเรียกเครื่องมือใหม่อีกครั้งด้วย JSON Object ที่สมบูรณ์",
+            }),
+          });
+          continue;
+        }
         if (READ_TOOL_NAMES.has(tc.function.name)) {
           const out = runReadTool(tc.function.name, args, snapshot);
           history.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(out) });
@@ -731,6 +751,14 @@ export default function AiAssistantPage() {
               },
             });
           }
+        } else {
+          history.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({
+              error: `ไม่พบเครื่องมือชื่อ "${tc.function.name}" ในระบบ`,
+            }),
+          });
         }
       }
 
@@ -744,6 +772,12 @@ export default function AiAssistantPage() {
 
       if (hasOtherWrite) return;
     }
+
+    appendChatMessage({
+      id: `a-${Date.now()}`,
+      role: "assistant",
+      text: "ฟิโนร่าประมวลผลหลายขั้นตอนแล้วยังไม่ได้ข้อสรุปสุดท้ายค่ะ กรุณาลองพิมพ์คำสั่งอีกครั้งให้ชัดเจนขึ้นนะคะ",
+    });
   };
 
   const sendPrompt = async (promptText: string) => {
