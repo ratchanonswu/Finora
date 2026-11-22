@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { executeBankTransfer } from "./bank-service.ts";
-import { CATEGORY_ICON_IDS, WRITE_TOOL_NAMES, getToolExecutionPriority, resolveCategory, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
+import { CATEGORY_ICON_IDS, READ_TOOL_NAMES, WRITE_TOOL_NAMES, getToolExecutionPriority, resolveCategory, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
+import { computeFinancialInsights, formatCompactInsightsForPrompt } from "./financial-insights.ts";
 import { cleanOcrText } from "./ocr.ts";
-import { buildSlipPrompt, parseSlipResult } from "./prompts.ts";
+import { FINORA_PROMPT_VERSION, buildFinoraSystemPrompt, buildSlipPrompt, parseSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
 import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, formatTHB, formatThaiDate, isBaseCategory, isInCurrentQuotaCycle, nextCategoryColor, normalizeTransactionDate, relativeDateYmd, todayYmd } from "./seed.ts";
 
@@ -670,4 +671,100 @@ if (petCat.ok) {
   if (chainedTx.ok) assert.equal(chainedTx.args.categoryId, "draft-cat-0");
 }
 
-console.log("Finora self-check passed (23/23 checks)");
+// 24. Coaching prompt v2.9.0 and get_spending_insights tool registration
+assert.equal(FINORA_PROMPT_VERSION, "2.9.0");
+assert.equal(READ_TOOL_NAMES.has("get_spending_insights"), true);
+assert.equal(buildFinoraSystemPrompt("สรุปตัวอย่าง").includes("get_spending_insights"), true);
+
+// 25. Multi-month financial insights (MoM, savings rate, burn pace, anomalies, savings simulation)
+const augRefDate = new Date(2026, 7, 15, 12, 0, 0); // Aug 15, 2026 -> 17 days remaining, 48% elapsed
+const multiMonthTxs = [
+  { id: "m-inc-prev", ref: "P1", title: "เงินเดือน ก.ค.", amount: 40000, type: "income" as const, categoryId: "salary", channel: "Virtual Bank Wallet", date: "2026-07-05T12:00:00+07:00", status: "completed" as const },
+  { id: "m-food-prev", ref: "P2", title: "อาหาร ก.ค.", amount: 3000, type: "expense" as const, categoryId: "food", channel: "Virtual Bank Wallet", date: "2026-07-10T12:00:00+07:00", status: "completed" as const },
+  { id: "m-shop-prev", ref: "P3", title: "ช้อปปิ้ง ก.ค.", amount: 2000, type: "expense" as const, categoryId: "shopping", channel: "Virtual Card", date: "2026-07-15T12:00:00+07:00", status: "completed" as const },
+  { id: "m-inc-curr", ref: "C1", title: "เงินเดือน ส.ค.", amount: 50000, type: "income" as const, categoryId: "salary", channel: "Virtual Bank Wallet", date: "2026-08-05T12:00:00+07:00", status: "completed" as const },
+  { id: "m-food-curr", ref: "C2", title: "ร้านอาหาร ส.ค.", amount: 8500, type: "expense" as const, categoryId: "food", channel: "Virtual Bank Wallet", date: "2026-08-08T12:00:00+07:00", status: "completed" as const },
+  { id: "m-shop-curr", ref: "C3", title: "ช้อปปิ้ง ส.ค.", amount: 9000, type: "expense" as const, categoryId: "shopping", channel: "Virtual Card", date: "2026-08-10T12:00:00+07:00", status: "completed" as const },
+  { id: "m-trans-curr", ref: "C4", title: "เดินทาง ส.ค.", amount: 3500, type: "expense" as const, categoryId: "transport", channel: "สแกน PromptPay QR", date: "2026-08-11T12:00:00+07:00", status: "completed" as const },
+  { id: "m-house-curr", ref: "C5", title: "ค่าไฟ ส.ค.", amount: 4000, type: "expense" as const, categoryId: "housing", channel: "Virtual Bank Wallet", date: "2026-08-12T12:00:00+07:00", status: "completed" as const },
+];
+const fullInsights = computeFinancialInsights({
+  bankBalance: 34000,
+  transactions: multiMonthTxs,
+  categories: INITIAL_CATEGORIES,
+  recurring: INITIAL_RECURRING,
+  referenceDate: augRefDate,
+  topN: 4,
+});
+assert.equal(fullInsights.monthProgress.daysRemaining, 17);
+assert.equal(fullInsights.monthProgress.elapsedPct, 48);
+assert.equal(fullInsights.periodTotals.incomeChangePct, 25);
+assert.equal(fullInsights.periodTotals.expenseChangePct, 400);
+assert.equal(fullInsights.savings.savingsRatePct, 50);
+assert.equal(fullInsights.savings.dailySafeSpendFromBudget, 941.18);
+assert.equal(fullInsights.savings.dailySafeSpendFromWallet, 2000);
+assert.equal(fullInsights.recurringLoad.recurringLoadPct, 27);
+assert.equal(fullInsights.overBudgetCategories[0]?.categoryId, "shopping");
+assert.equal(fullInsights.nearBudgetCategories[0]?.categoryId, "food");
+assert.equal(fullInsights.aheadOfPaceCategories[0]?.categoryId, "transport");
+assert.equal(fullInsights.spendingAnomalies.some((c) => c.categoryId === "shopping"), true);
+assert.equal(fullInsights.spendingAnomalies.some((c) => c.categoryId === "food"), true);
+assert.equal(fullInsights.topExpenseCategories.length, 4);
+assert.equal(fullInsights.topExpenseCategories[0]?.categoryId, "shopping");
+assert.equal(fullInsights.savingsOpportunities.length, 3);
+assert.equal(
+  fullInsights.totalPotentialMonthlySavings,
+  fullInsights.savingsOpportunities.reduce((s, item) => s + item.potentialMonthlySavings, 0)
+);
+assert.equal(fullInsights.savingsDisclaimer, "เป็นเป้าหมายจำลองจากยอดใช้จ่าย ไม่ใช่เงินออมที่เกิดขึ้นจริง");
+assert.equal(fullInsights.riskFlags.length >= 3, true);
+
+// 26. Edge cases: first month (no prior data), zero income, zero budgets, negative wallet
+const noBudgetCategories = INITIAL_CATEGORIES.map((c) => ({ ...c, budget: 0 }));
+const edgeInsights = computeFinancialInsights({
+  bankBalance: -2500,
+  transactions: [
+    { id: "e-1", ref: "E1", title: "ค่ากาแฟ", amount: 500, type: "expense", categoryId: "food", channel: "เงินสด", date: "2026-08-14T12:00:00+07:00", status: "completed" },
+  ],
+  categories: noBudgetCategories,
+  recurring: [],
+  referenceDate: augRefDate,
+});
+assert.equal(edgeInsights.periodTotals.incomeChangePct, null);
+assert.equal(edgeInsights.periodTotals.expenseChangePct, null);
+assert.equal(edgeInsights.periodTotals.netChangePct, null);
+assert.equal(edgeInsights.savings.savingsRatePct, null);
+assert.equal(edgeInsights.savings.dailySafeSpendFromBudget, null);
+assert.equal(edgeInsights.savings.dailySafeSpendFromWallet, 0);
+assert.equal(edgeInsights.recurringLoad.recurringLoadPct, null);
+assert.equal(
+  edgeInsights.categoryInsights.every((c) => c.paceStatus === "no_budget" && c.usagePct === null),
+  true
+);
+assert.equal(edgeInsights.riskFlags.some((f) => f.includes("ติดลบ")), true);
+
+// 27. runReadTool("get_spending_insights") resolves focusCategoryId and returns top transactions
+const insightToolRes = runReadTool(
+  "get_spending_insights",
+  { topN: 3, focusCategoryId: "อาหาร" },
+  {
+    bankBalance: 20000,
+    transactions: INITIAL_TRANSACTIONS,
+    categories: INITIAL_CATEGORIES,
+    recurring: INITIAL_RECURRING,
+  }
+);
+assert.equal(Array.isArray(insightToolRes.topExpenseCategories), true);
+assert.equal((insightToolRes.topExpenseCategories as unknown[]).length <= 3, true);
+const focused = insightToolRes.focusedCategory as Record<string, unknown> | undefined;
+assert.equal(focused?.resolved, true);
+assert.equal(focused?.categoryId, "food");
+
+// 28. formatCompactInsightsForPrompt formats Thai KPI summary lines
+const compactPromptText = formatCompactInsightsForPrompt(fullInsights);
+assert.equal(compactPromptText.includes("อัตราการออม"), true);
+assert.equal(compactPromptText.includes("เทียบเดือนก่อน (MoM)"), true);
+assert.equal(compactPromptText.includes("Daily Safe Spend"), true);
+assert.equal(compactPromptText.includes("Recurring Load"), true);
+
+console.log("Finora self-check passed (28/28 checks)");
