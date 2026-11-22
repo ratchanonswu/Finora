@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 import { useFinora } from "@/context/FinoraContext";
+import { INITIAL_USER } from "@/lib/seed";
 
 const HIGHLIGHTS = [
   {
@@ -32,7 +33,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   const handleQuickDemo = () => {
-    setEmail("thanapat@finora.io");
+    setEmail(INITIAL_USER.email);
     setPassword("Finora2025!Demo");
     setError("");
   };

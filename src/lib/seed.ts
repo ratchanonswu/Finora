@@ -8,8 +8,8 @@ import type {
 } from "./types.ts";
 
 export const INITIAL_USER: UserProfile = {
-  name: "คุณธนภัทร วงศ์เจริญ",
-  email: "thanapat@finora.io",
+  name: "นายรัชชานนท์ แก้วกูล",
+  email: "ratchanon@finora.io",
   role: "",
   isLoggedIn: false,
 };
@@ -23,8 +23,21 @@ export function relativeDateYmd(offsetDays: number): string {
   return `${yy}-${mm}-${dd}`;
 }
 
-function relativeDateIso(offsetDays: number, timeStr = "12:00:00"): string {
-  return `${relativeDateYmd(offsetDays)}T${timeStr}+07:00`;
+function monthDayIso(monthOffset: number, day: number, timeStr = "12:00:00"): string {
+  const now = new Date();
+  const targetMonth = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+  const lastDayOfTarget = new Date(
+    targetMonth.getFullYear(),
+    targetMonth.getMonth() + 1,
+    0
+  ).getDate();
+  const maxAllowedDay =
+    monthOffset === 0 ? Math.min(now.getDate(), lastDayOfTarget) : lastDayOfTarget;
+  const clampedDay = Math.max(1, Math.min(day, maxAllowedDay));
+  const yy = targetMonth.getFullYear();
+  const mm = String(targetMonth.getMonth() + 1).padStart(2, "0");
+  const dd = String(clampedDay).padStart(2, "0");
+  return `${yy}-${mm}-${dd}T${timeStr}+07:00`;
 }
 
 // Each category gets its own hue; red/green stay reserved for expense/income amounts.
@@ -61,63 +74,58 @@ export function nextCategoryColor(used: string[]): string {
   return CATEGORY_PALETTE.find((c) => !taken.has(c)) ?? CATEGORY_PALETTE[used.length % CATEGORY_PALETTE.length];
 }
 
-export const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: "tx-1",
-    ref: "TXN-1001",
-    title: "Gourmet Market Paragon",
-    amount: 1500,
-    type: "expense",
-    categoryId: "food",
-    channel: "สแกน PromptPay QR",
-    date: relativeDateIso(-1, "18:30:00"),
-    status: "completed",
-  },
-  {
-    id: "tx-2",
-    ref: "TXN-1002",
-    title: "เติมน้ำมัน PTT Station",
-    amount: 1000,
-    type: "expense",
-    categoryId: "transport",
-    channel: "สแกน PromptPay QR",
-    date: relativeDateIso(-2, "10:15:00"),
-    status: "completed",
-  },
-  {
-    id: "tx-3",
-    ref: "TXN-1003",
-    title: "Uniqlo Central World",
-    amount: 2500,
-    type: "expense",
-    categoryId: "shopping",
-    channel: "Virtual Card",
-    date: relativeDateIso(-3, "14:15:00"),
-    status: "completed",
-  },
-  {
-    id: "tx-4",
-    ref: "DIV-1004",
-    title: "เงินปันผลกองทุนรวม K-USXNDQ",
-    amount: 5000,
-    type: "income",
-    categoryId: "investment",
-    channel: "Virtual Bank Wallet",
-    date: relativeDateIso(-4, "11:20:00"),
-    status: "completed",
-  },
-  {
-    id: "tx-5",
-    ref: "INC-1005",
-    title: "เงินโอนตั้งต้นเข้ากระเป๋า",
-    amount: 10000,
-    type: "income",
-    categoryId: "salary",
-    channel: "Virtual Bank Wallet",
-    date: relativeDateIso(-5, "09:00:00"),
-    status: "completed",
-  },
+const RAW_INITIAL_TRANSACTIONS: Transaction[] = [
+  // --- Current Month (monthOffset = 0, 22 items: Income 50,000 | Expense 37,250) ---
+  { id: "tx-1", ref: "TXN-3022", title: "Gourmet Market Paragon", amount: 1850, type: "expense", categoryId: "food", channel: "สแกน PromptPay QR", date: monthDayIso(0, 22, "19:20:00"), status: "completed" },
+  { id: "tx-2", ref: "TXN-3021", title: "GrabCar & ทางด่วน Easy Pass", amount: 900, type: "expense", categoryId: "transport", channel: "Virtual Bank Wallet", date: monthDayIso(0, 21, "18:45:00"), status: "completed" },
+  { id: "tx-3", ref: "TXN-3020", title: "Lazada อุปกรณ์โต๊ะทำงาน", amount: 900, type: "expense", categoryId: "shopping", channel: "Virtual Card", date: monthDayIso(0, 20, "21:10:00"), status: "completed" },
+  { id: "tx-4", ref: "TXN-3019", title: "Starbucks & คาเฟ่ทำงาน", amount: 980, type: "expense", categoryId: "food", channel: "สแกน PromptPay QR", date: monthDayIso(0, 19, "10:15:00"), status: "completed" },
+  { id: "tx-5", ref: "TXN-3018", title: "เติมเกม Steam", amount: 970, type: "expense", categoryId: "entertainment", channel: "Virtual Card", date: monthDayIso(0, 18, "22:05:00"), status: "completed" },
+  { id: "tx-6", ref: "TXN-3017", title: "Mo-Mo-Paradise ชาบู", amount: 1490, type: "expense", categoryId: "food", channel: "สแกน PromptPay QR", date: monthDayIso(0, 17, "19:30:00"), status: "completed" },
+  { id: "tx-7", ref: "INC-3016", title: "ค่าที่ปรึกษาโปรเจกต์พิเศษ", amount: 1500, type: "income", categoryId: "salary", channel: "Virtual Bank Wallet", date: monthDayIso(0, 16, "16:00:00"), status: "completed" },
+  { id: "tx-8", ref: "TXN-3015", title: "Shopee แกดเจ็ต & ของใช้", amount: 2460, type: "expense", categoryId: "shopping", channel: "Virtual Card", date: monthDayIso(0, 15, "20:15:00"), status: "completed" },
+  { id: "tx-9", ref: "TXN-3014", title: "เติมน้ำมัน PTT Station", amount: 1450, type: "expense", categoryId: "transport", channel: "สแกน PromptPay QR", date: monthDayIso(0, 14, "08:50:00"), status: "completed" },
+  { id: "tx-10", ref: "TXN-3013", title: "ร้านอาหารญี่ปุ่น Maguro", amount: 1620, type: "expense", categoryId: "food", channel: "Virtual Card", date: monthDayIso(0, 13, "19:00:00"), status: "completed" },
+  { id: "tx-11", ref: "TXN-3012", title: "ตั๋วหนัง Major Cineplex IMAX", amount: 780, type: "expense", categoryId: "entertainment", channel: "สแกน PromptPay QR", date: monthDayIso(0, 12, "15:20:00"), status: "completed" },
+  { id: "tx-12", ref: "TXN-3011", title: "Uniqlo Central World", amount: 2890, type: "expense", categoryId: "shopping", channel: "Virtual Card", date: monthDayIso(0, 11, "14:40:00"), status: "completed" },
+  { id: "tx-13", ref: "DIV-3010", title: "เงินปันผลกองทุนรวม K-USXNDQ", amount: 3500, type: "income", categoryId: "investment", channel: "Virtual Bank Wallet", date: monthDayIso(0, 10, "11:20:00"), status: "completed" },
+  { id: "tx-14", ref: "TXN-3009", title: "GrabFood มื้อกลางวัน", amount: 1190, type: "expense", categoryId: "food", channel: "สแกน PromptPay QR", date: monthDayIso(0, 9, "12:25:00"), status: "completed" },
+  { id: "tx-15", ref: "TXN-3008", title: "ค่าไฟฟ้า การไฟฟ้านครหลวง", amount: 1150, type: "expense", categoryId: "housing", channel: "Virtual Bank Wallet", date: monthDayIso(0, 8, "09:40:00"), status: "completed" },
+  { id: "tx-16", ref: "TXN-3007", title: "Nike Store Siam Center", amount: 3200, type: "expense", categoryId: "shopping", channel: "Virtual Card", date: monthDayIso(0, 7, "17:10:00"), status: "completed" },
+  { id: "tx-17", ref: "TXN-3006", title: "เติมบัตรรถไฟฟ้า BTS", amount: 1100, type: "expense", categoryId: "transport", channel: "สแกน PromptPay QR", date: monthDayIso(0, 6, "08:15:00"), status: "completed" },
+  { id: "tx-18", ref: "TXN-3005", title: "ตลาดสด & ของใช้ในครัว", amount: 1320, type: "expense", categoryId: "food", channel: "เงินสด", date: monthDayIso(0, 5, "17:30:00"), status: "completed" },
+  { id: "tx-19", ref: "TXN-3004", title: "ค่าอินเทอร์เน็ต AIS Fibre", amount: 500, type: "expense", categoryId: "housing", channel: "Virtual Bank Wallet", date: monthDayIso(0, 4, "10:00:00"), status: "completed" },
+  { id: "tx-20", ref: "TXN-3003", title: "Netflix Premium Ultra HD", amount: 500, type: "expense", categoryId: "entertainment", channel: "Virtual Card", date: monthDayIso(0, 3, "09:30:00"), status: "completed" },
+  { id: "tx-21", ref: "TXN-3002", title: "ค่าเช่าคอนโด Ashton Asoke", amount: 12000, type: "expense", categoryId: "housing", channel: "Virtual Bank Wallet", date: monthDayIso(0, 2, "09:15:00"), status: "completed" },
+  { id: "tx-22", ref: "INC-3001", title: "เงินเดือนประจำ", amount: 45000, type: "income", categoryId: "salary", channel: "Virtual Bank Wallet", date: monthDayIso(0, 1, "09:00:00"), status: "completed" },
+
+  // --- Previous Month (monthOffset = -1, 11 items: Income 47,800 | Expense 28,700) ---
+  { id: "tx-23", ref: "TXN-2011", title: "ซื้อของใช้ร้าน Loft & Uniqlo", amount: 1900, type: "expense", categoryId: "shopping", channel: "Virtual Card", date: monthDayIso(-1, 27, "16:40:00"), status: "completed" },
+  { id: "tx-24", ref: "TXN-2010", title: "ค่าทางด่วน & แท็กซี่เดือนก่อน", amount: 1200, type: "expense", categoryId: "transport", channel: "สแกน PromptPay QR", date: monthDayIso(-1, 24, "18:20:00"), status: "completed" },
+  { id: "tx-25", ref: "TXN-2009", title: "สังสรรค์ & มื้อเย็นนอกบ้าน", amount: 2800, type: "expense", categoryId: "food", channel: "สแกน PromptPay QR", date: monthDayIso(-1, 21, "20:00:00"), status: "completed" },
+  { id: "tx-26", ref: "TXN-2008", title: "คอนเสิร์ต & Netflix เดือนก่อน", amount: 1450, type: "expense", categoryId: "entertainment", channel: "Virtual Card", date: monthDayIso(-1, 18, "14:15:00"), status: "completed" },
+  { id: "tx-27", ref: "TXN-2007", title: "ช้อปปิ้งออนไลน์ 11.11", amount: 2900, type: "expense", categoryId: "shopping", channel: "Virtual Card", date: monthDayIso(-1, 15, "21:30:00"), status: "completed" },
+  { id: "tx-28", ref: "DIV-2006", title: "เงินปันผลกองทุนรวม K-USXNDQ", amount: 2800, type: "income", categoryId: "investment", channel: "Virtual Bank Wallet", date: monthDayIso(-1, 12, "11:10:00"), status: "completed" },
+  { id: "tx-29", ref: "TXN-2005", title: "เติมน้ำมัน & รถไฟฟ้าเดือนก่อน", amount: 1650, type: "expense", categoryId: "transport", channel: "สแกน PromptPay QR", date: monthDayIso(-1, 10, "08:30:00"), status: "completed" },
+  { id: "tx-30", ref: "TXN-2004", title: "อาหาร & ซูเปอร์มาร์เก็ตเดือนก่อน", amount: 3400, type: "expense", categoryId: "food", channel: "สแกน PromptPay QR", date: monthDayIso(-1, 8, "18:10:00"), status: "completed" },
+  { id: "tx-31", ref: "TXN-2003", title: "ค่าไฟ & ค่าเน็ตเดือนก่อน", amount: 1400, type: "expense", categoryId: "housing", channel: "Virtual Bank Wallet", date: monthDayIso(-1, 5, "10:00:00"), status: "completed" },
+  { id: "tx-32", ref: "TXN-2002", title: "ค่าเช่าคอนโด Ashton Asoke", amount: 12000, type: "expense", categoryId: "housing", channel: "Virtual Bank Wallet", date: monthDayIso(-1, 2, "09:15:00"), status: "completed" },
+  { id: "tx-33", ref: "INC-2001", title: "เงินเดือนประจำ", amount: 45000, type: "income", categoryId: "salary", channel: "Virtual Bank Wallet", date: monthDayIso(-1, 1, "09:00:00"), status: "completed" },
+
+  // --- 2 Months Ago (monthOffset = -2, 8 items: Income 51,000 | Expense 30,300) ---
+  { id: "tx-34", ref: "TXN-1008", title: "ค่าเดินทาง & น้ำมัน 2 เดือนก่อน", amount: 3100, type: "expense", categoryId: "transport", channel: "สแกน PromptPay QR", date: monthDayIso(-2, 25, "17:45:00"), status: "completed" },
+  { id: "tx-35", ref: "TXN-1007", title: "เสื้อผ้า & ไลฟ์สไตล์ 2 เดือนก่อน", amount: 5400, type: "expense", categoryId: "shopping", channel: "Virtual Card", date: monthDayIso(-2, 20, "15:30:00"), status: "completed" },
+  { id: "tx-36", ref: "TXN-1006", title: "ดูหนัง & สมาชิกสตรีมมิง", amount: 1800, type: "expense", categoryId: "entertainment", channel: "Virtual Card", date: monthDayIso(-2, 16, "19:10:00"), status: "completed" },
+  { id: "tx-37", ref: "INC-1005", title: "โบนัสงานโปรเจกต์", amount: 6000, type: "income", categoryId: "salary", channel: "Virtual Bank Wallet", date: monthDayIso(-2, 14, "16:20:00"), status: "completed" },
+  { id: "tx-38", ref: "TXN-1004", title: "ค่าอาหาร & เครื่องดื่มทั้งเดือน", amount: 6800, type: "expense", categoryId: "food", channel: "สแกน PromptPay QR", date: monthDayIso(-2, 10, "18:00:00"), status: "completed" },
+  { id: "tx-39", ref: "TXN-1003", title: "ค่าน้ำไฟ & อินเทอร์เน็ตคอนโด", amount: 1200, type: "expense", categoryId: "housing", channel: "Virtual Bank Wallet", date: monthDayIso(-2, 5, "10:00:00"), status: "completed" },
+  { id: "tx-40", ref: "TXN-1002", title: "ค่าเช่าคอนโด Ashton Asoke", amount: 12000, type: "expense", categoryId: "housing", channel: "Virtual Bank Wallet", date: monthDayIso(-2, 2, "09:15:00"), status: "completed" },
+  { id: "tx-41", ref: "INC-1001", title: "เงินเดือนประจำ", amount: 45000, type: "income", categoryId: "salary", channel: "Virtual Bank Wallet", date: monthDayIso(-2, 1, "09:00:00"), status: "completed" },
 ];
+
+export const INITIAL_TRANSACTIONS: Transaction[] = [...RAW_INITIAL_TRANSACTIONS].sort(
+  (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+);
 
 export const INITIAL_RECURRING: RecurringPayment[] = [
   { id: "rec-1", title: "Netflix Premium Ultra HD", amount: 500, categoryId: "recurring", cycle: "monthly", nextDueDate: relativeDateYmd(1), active: true, icon: "movie" },
@@ -127,15 +135,45 @@ export const INITIAL_RECURRING: RecurringPayment[] = [
   { id: "rec-4", title: "Spotify Duo", amount: 200, categoryId: "recurring", cycle: "monthly", nextDueDate: relativeDateYmd(15), active: false, icon: "music_note" },
 ];
 
-export const INITIAL_BANK_BALANCE = 10000;
+function buildInitialLedgerAndBalance(txs: Transaction[]): {
+  ledger: BankLedgerEntry[];
+  balance: number;
+} {
+  const chronological = [...txs].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  let runningBalance = 0;
+  const entries: BankLedgerEntry[] = chronological.map((tx, idx) => {
+    runningBalance =
+      tx.type === "income"
+        ? runningBalance + tx.amount
+        : runningBalance - tx.amount;
+    return {
+      id: `l-${chronological.length - idx}`,
+      ref: `VB-${String(1001 + idx)}`,
+      type: tx.type === "income" ? "credit" : "debit",
+      title:
+        tx.type === "income"
+          ? "รับเงินโอนเข้าบัญชี"
+          : `ชำระเงิน ${tx.channel}`,
+      counterparty: tx.title,
+      amount: tx.amount,
+      balanceAfter: runningBalance,
+      date: tx.date,
+    };
+  });
+  return {
+    ledger: entries.reverse(),
+    balance: runningBalance,
+  };
+}
 
-export const INITIAL_LEDGER: BankLedgerEntry[] = [
-  { id: "l-1", ref: "VB-1001", type: "debit", title: "ชำระเงิน PromptPay QR", counterparty: "Gourmet Market Paragon", amount: 1500, balanceAfter: 10000, date: relativeDateIso(-1, "18:30:00") },
-  { id: "l-2", ref: "VB-1002", type: "debit", title: "ชำระเงิน PromptPay QR", counterparty: "PTT Station", amount: 1000, balanceAfter: 11500, date: relativeDateIso(-2, "10:15:00") },
-  { id: "l-3", ref: "VB-1003", type: "debit", title: "ชำระเงิน Virtual Card", counterparty: "Uniqlo Central World", amount: 2500, balanceAfter: 12500, date: relativeDateIso(-3, "14:15:00") },
-  { id: "l-4", ref: "VB-1004", type: "credit", title: "เงินปันผลโอนเข้าบัญชี", counterparty: "K-USXNDQ Dividend", amount: 5000, balanceAfter: 15000, date: relativeDateIso(-4, "11:20:00") },
-  { id: "l-5", ref: "VB-1005", type: "credit", title: "เงินโอนตั้งต้นเข้ากระเป๋า", counterparty: "Finora Initial Deposit", amount: 10000, balanceAfter: 10000, date: relativeDateIso(-5, "09:00:00") },
-];
+const { ledger: COMPUTED_INITIAL_LEDGER, balance: COMPUTED_INITIAL_BALANCE } =
+  buildInitialLedgerAndBalance(INITIAL_TRANSACTIONS);
+
+export const INITIAL_BANK_BALANCE = COMPUTED_INITIAL_BALANCE;
+
+export const INITIAL_LEDGER: BankLedgerEntry[] = COMPUTED_INITIAL_LEDGER;
 
 export const INITIAL_SETTINGS: AppSettings = {
   currency: "THB",
