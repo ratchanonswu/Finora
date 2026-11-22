@@ -30,7 +30,7 @@ export function RecentTransactionsCard({
 
         <Link
           href="/transactions"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-primary hover:underline shrink-0"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-primary hover:underline shrink-0"
         >
           <span>ดูทั้งหมด</span>
           <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
@@ -39,16 +39,16 @@ export function RecentTransactionsCard({
 
       {recent.length === 0 ? (
         <div className="flex-1 min-h-[210px] rounded-xl border border-dashed border-slate-200 dark:border-outline-variant/30 flex flex-col items-center justify-center gap-2.5 text-center p-4">
-          <span className="material-symbols-outlined text-[28px] text-slate-300 dark:text-outline">
+          <span className="material-symbols-outlined text-[28px] text-slate-400 dark:text-outline">
             receipt_long
           </span>
-          <p className="text-xs font-medium text-slate-500 dark:text-on-surface-variant">
+          <p className="text-xs font-medium text-slate-600 dark:text-on-surface-variant">
             ไม่พบธุรกรรมในช่วงเวลาที่เลือก
           </p>
           <button
             type="button"
             onClick={onAddTransaction}
-            className="text-xs font-semibold text-emerald-600 dark:text-primary hover:underline"
+            className="text-xs font-semibold text-emerald-700 dark:text-primary hover:underline"
           >
             + บันทึกธุรกรรมใหม่
           </button>
@@ -57,7 +57,7 @@ export function RecentTransactionsCard({
         <div className="divide-y divide-slate-100 dark:divide-outline-variant/20 flex-1">
           {recent.map((tx) => {
             const cat = categories.find((c) => c.id === tx.categoryId);
-            const accent = cat?.color || (tx.type === "income" ? "#10B981" : "#64748B");
+            const accent = cat?.color || (tx.type === "income" ? "#059669" : "#64748B");
             return (
               <div
                 key={tx.id}
@@ -76,7 +76,7 @@ export function RecentTransactionsCard({
                     <div className="text-sm font-semibold text-slate-900 dark:text-on-surface truncate">
                       {tx.title}
                     </div>
-                    <div className="text-[11px] text-slate-500 dark:text-on-surface-variant truncate mt-0.5">
+                    <div className="text-[11px] text-slate-600 dark:text-on-surface-variant truncate mt-0.5">
                       {formatThaiDate(tx.date)} • {cat?.name || tx.categoryId}
                       {tx.channel ? ` • ${tx.channel}` : ""}
                     </div>
@@ -86,8 +86,8 @@ export function RecentTransactionsCard({
                 <div
                   className={`text-sm font-mono font-bold whitespace-nowrap shrink-0 ${
                     tx.type === "income"
-                      ? "text-emerald-600 dark:text-primary"
-                      : "text-red-500 dark:text-secondary"
+                      ? "text-emerald-700 dark:text-primary"
+                      : "text-red-600 dark:text-secondary"
                   }`}
                 >
                   {tx.type === "income" ? "+" : "-"}

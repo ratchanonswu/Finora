@@ -5,7 +5,7 @@ import { computeFinancialInsights, formatCompactInsightsForPrompt } from "./fina
 import { cleanOcrText } from "./ocr.ts";
 import { FINORA_PROMPT_VERSION, buildFinoraSystemPrompt, buildSlipPrompt, parseSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
-import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, formatTHB, formatThaiDate, isBaseCategory, isInCurrentQuotaCycle, nextCategoryColor, normalizeTransactionDate, relativeDateYmd, todayYmd } from "./seed.ts";
+import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, formatTHB, formatThaiDate, isBaseCategory, isInCurrentQuotaCycle, matchesTransactionDateQuery, nextCategoryColor, normalizeTransactionDate, relativeDateYmd, todayYmd } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -671,12 +671,44 @@ if (petCat.ok) {
   if (chainedTx.ok) assert.equal(chainedTx.args.categoryId, "draft-cat-0");
 }
 
-// 24. Coaching prompt v2.9.0 and get_spending_insights tool registration
+// 24. matchesTransactionDateQuery supports day-of-month, DD/MM, full dates, Thai months, and avoids false positives
+const sampleNov16 = "2026-11-16T18:30:00+07:00";
+const sampleNov06 = "2026-11-06T10:00:00+07:00";
+const sampleRefDate = new Date(2026, 10, 17); // 2026-11-17
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "วันที่ 16", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov06, "16", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "6", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov06, "6", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov06, "06", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16/11", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16-11", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16/10", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16/11/2569", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "2026-11-16", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "เมื่อวาน", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16 พ.ย.", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "6 พ.ย.", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov06, "6 พ.ย.", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov06, "06 พ.ย.", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "06 พ.ย.", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "พ.ย.", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "พ.ย. 2569", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "พฤศจิกายน", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "2026-11", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "2569", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "500", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "กา", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery("2026-10-16T12:00:00+07:00", "ลา", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "-", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "พ", sampleRefDate), false);
+
+// 25. Coaching prompt v2.9.0 and get_spending_insights tool registration
 assert.equal(FINORA_PROMPT_VERSION, "2.9.0");
 assert.equal(READ_TOOL_NAMES.has("get_spending_insights"), true);
 assert.equal(buildFinoraSystemPrompt("สรุปตัวอย่าง").includes("get_spending_insights"), true);
 
-// 25. Multi-month financial insights (MoM, savings rate, burn pace, anomalies, savings simulation)
+// 26. Multi-month financial insights (MoM, savings rate, burn pace, anomalies, savings simulation)
 const augRefDate = new Date(2026, 7, 15, 12, 0, 0); // Aug 15, 2026 -> 17 days remaining, 48% elapsed
 const multiMonthTxs = [
   { id: "m-inc-prev", ref: "P1", title: "เงินเดือน ก.ค.", amount: 40000, type: "income" as const, categoryId: "salary", channel: "Virtual Bank Wallet", date: "2026-07-05T12:00:00+07:00", status: "completed" as const },
@@ -719,7 +751,7 @@ assert.equal(
 assert.equal(fullInsights.savingsDisclaimer, "เป็นเป้าหมายจำลองจากยอดใช้จ่าย ไม่ใช่เงินออมที่เกิดขึ้นจริง");
 assert.equal(fullInsights.riskFlags.length >= 3, true);
 
-// 26. Edge cases: first month (no prior data), zero income, zero budgets, negative wallet
+// 27. Edge cases: first month (no prior data), zero income, zero budgets, negative wallet
 const noBudgetCategories = INITIAL_CATEGORIES.map((c) => ({ ...c, budget: 0 }));
 const edgeInsights = computeFinancialInsights({
   bankBalance: -2500,
@@ -743,7 +775,7 @@ assert.equal(
 );
 assert.equal(edgeInsights.riskFlags.some((f) => f.includes("ติดลบ")), true);
 
-// 27. runReadTool("get_spending_insights") resolves focusCategoryId and returns top transactions
+// 28. runReadTool("get_spending_insights") resolves focusCategoryId and returns top transactions
 const insightToolRes = runReadTool(
   "get_spending_insights",
   { topN: 3, focusCategoryId: "อาหาร" },
@@ -760,11 +792,11 @@ const focused = insightToolRes.focusedCategory as Record<string, unknown> | unde
 assert.equal(focused?.resolved, true);
 assert.equal(focused?.categoryId, "food");
 
-// 28. formatCompactInsightsForPrompt formats Thai KPI summary lines
+// 29. formatCompactInsightsForPrompt formats Thai KPI summary lines
 const compactPromptText = formatCompactInsightsForPrompt(fullInsights);
 assert.equal(compactPromptText.includes("อัตราการออม"), true);
 assert.equal(compactPromptText.includes("เทียบเดือนก่อน (MoM)"), true);
 assert.equal(compactPromptText.includes("Daily Safe Spend"), true);
 assert.equal(compactPromptText.includes("Recurring Load"), true);
 
-console.log("Finora self-check passed (28/28 checks)");
+console.log("Finora self-check passed (29/29 checks)");

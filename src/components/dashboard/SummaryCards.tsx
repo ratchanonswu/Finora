@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { formatTHB } from "@/lib/seed";
 import type {
+  BudgetLiquidityGap,
   BudgetOverviewSummary,
   PeriodSummary,
   SparklineSeries,
@@ -77,7 +78,7 @@ function DeltaCaption({
 }) {
   if (!hasPrevPeriod || pct === null) {
     return (
-      <span className="text-xs font-medium text-slate-500 dark:text-on-surface-variant">
+      <span className="text-xs font-medium text-slate-600 dark:text-on-surface-variant">
         {fallbackText}
       </span>
     );
@@ -91,10 +92,10 @@ function DeltaCaption({
     <span
       className={`inline-flex items-center gap-1 text-xs font-semibold ${
         isZero
-          ? "text-slate-500 dark:text-on-surface-variant"
+          ? "text-slate-600 dark:text-on-surface-variant"
           : isPositiveTone
-            ? "text-emerald-600 dark:text-primary"
-            : "text-red-500 dark:text-secondary"
+            ? "text-emerald-700 dark:text-primary"
+            : "text-red-600 dark:text-secondary"
       }`}
     >
       {!isZero && (
@@ -113,10 +114,12 @@ export function SummaryCards({
   summary,
   sparklines,
   budgetSummary,
+  liquidityGap,
 }: {
   summary: PeriodSummary;
   sparklines: SparklineSeries;
   budgetSummary: BudgetOverviewSummary;
+  liquidityGap?: BudgetLiquidityGap;
 }) {
   const netPositive = summary.net >= 0;
   const budgetBarColor =
@@ -138,14 +141,14 @@ export function SummaryCards({
       <div className="rounded-2xl bg-white dark:bg-surface-container border border-slate-200/75 dark:border-outline-variant/30 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.06)] dark:shadow-none hover:border-emerald-300/80 dark:hover:border-primary/40 transition-all flex flex-col justify-between gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-primary-container/20 text-emerald-600 dark:text-primary flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-primary-container/20 text-emerald-700 dark:text-primary flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
             </div>
             <span className="text-xs font-semibold text-slate-600 dark:text-on-surface-variant truncate">
               รายรับรวม
             </span>
           </div>
-          <span className="text-[11px] font-medium text-slate-400 dark:text-outline shrink-0">
+          <span className="text-[11px] font-medium text-slate-600 dark:text-outline shrink-0">
             {summary.incomeCount} รายการ
           </span>
         </div>
@@ -165,7 +168,7 @@ export function SummaryCards({
           </div>
           <SparklineSvg
             values={sparklines.incomeSeries}
-            color="#10B981"
+            color="#059669"
             gradientId="finora-spark-income"
           />
         </div>
@@ -175,14 +178,14 @@ export function SummaryCards({
       <div className="rounded-2xl bg-white dark:bg-surface-container border border-slate-200/75 dark:border-outline-variant/30 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.06)] dark:shadow-none hover:border-red-200 dark:hover:border-secondary/40 transition-all flex flex-col justify-between gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-secondary-container/25 text-red-500 dark:text-secondary flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-secondary-container/25 text-red-600 dark:text-secondary flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-[20px]">credit_card</span>
             </div>
             <span className="text-xs font-semibold text-slate-600 dark:text-on-surface-variant truncate">
               รายจ่ายรวม
             </span>
           </div>
-          <span className="text-[11px] font-medium text-slate-400 dark:text-outline shrink-0">
+          <span className="text-[11px] font-medium text-slate-600 dark:text-outline shrink-0">
             {summary.expenseCount} รายการ
           </span>
         </div>
@@ -203,7 +206,7 @@ export function SummaryCards({
           </div>
           <SparklineSvg
             values={sparklines.expenseSeries}
-            color="#EF4444"
+            color="#DC2626"
             gradientId="finora-spark-expense"
           />
         </div>
@@ -216,8 +219,8 @@ export function SummaryCards({
             <div
               className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                 netPositive
-                  ? "bg-emerald-50 dark:bg-primary-container/20 text-emerald-600 dark:text-primary"
-                  : "bg-red-50 dark:bg-secondary-container/25 text-red-500 dark:text-secondary"
+                  ? "bg-emerald-50 dark:bg-primary-container/20 text-emerald-700 dark:text-primary"
+                  : "bg-red-50 dark:bg-secondary-container/25 text-red-600 dark:text-secondary"
               }`}
             >
               <span className="material-symbols-outlined text-[20px]">balance</span>
@@ -226,7 +229,7 @@ export function SummaryCards({
               คงเหลือสุทธิ
             </span>
           </div>
-          <span className="text-[11px] font-mono font-semibold text-slate-500 dark:text-on-surface-variant shrink-0">
+          <span className="text-[11px] font-mono font-semibold text-slate-600 dark:text-on-surface-variant shrink-0">
             ออม {summary.savingsRate}%
           </span>
         </div>
@@ -236,8 +239,8 @@ export function SummaryCards({
             <div
               className={`text-2xl font-bold font-mono tracking-tight truncate ${
                 netPositive
-                  ? "text-emerald-600 dark:text-primary"
-                  : "text-red-500 dark:text-secondary"
+                  ? "text-emerald-700 dark:text-primary"
+                  : "text-red-600 dark:text-secondary"
               }`}
             >
               {formatTHB(summary.net)}
@@ -252,7 +255,7 @@ export function SummaryCards({
           </div>
           <SparklineSvg
             values={sparklines.netSeries}
-            color={netPositive ? "#10B981" : "#EF4444"}
+            color={netPositive ? "#059669" : "#DC2626"}
             gradientId="finora-spark-net"
           />
         </div>
@@ -265,8 +268,8 @@ export function SummaryCards({
             <div
               className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                 budgetSummary.totalRemaining < 0
-                  ? "bg-red-50 dark:bg-secondary-container/25 text-red-500 dark:text-secondary"
-                  : "bg-teal-50 dark:bg-primary-container/20 text-teal-600 dark:text-primary"
+                  ? "bg-red-50 dark:bg-secondary-container/25 text-red-600 dark:text-secondary"
+                  : "bg-teal-50 dark:bg-primary-container/20 text-teal-700 dark:text-primary"
               }`}
             >
               <span className="material-symbols-outlined text-[20px]">track_changes</span>
@@ -276,7 +279,7 @@ export function SummaryCards({
                 งบประมาณคงเหลือ
               </span>
               {budgetSummary.hasBudgets && (
-                <span className="block text-[10px] text-slate-400 dark:text-outline truncate">
+                <span className="block text-[10px] text-slate-600 dark:text-outline truncate">
                   รวมงบ {budgetSummary.items.length} หมวด • {budgetSummary.cycleLabel}
                 </span>
               )}
@@ -287,12 +290,14 @@ export function SummaryCards({
               className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
                 budgetSummary.usedPct >= 100
                   ? "bg-red-50 dark:bg-error-container/25 text-red-600 dark:text-error"
-                  : budgetSummary.usedPct >= 80
-                    ? "bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300"
+                  : budgetSummary.usedPct >= 80 || liquidityGap?.isOverLiquidity
+                    ? "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
                     : "bg-emerald-50 dark:bg-primary-container/20 text-emerald-700 dark:text-primary"
               }`}
             >
-              ใช้ {budgetSummary.usedPct}%
+              {liquidityGap?.isOverLiquidity && budgetSummary.usedPct < 80
+                ? "งบเกินเงินจริง"
+                : `ใช้ ${budgetSummary.usedPct}%`}
             </span>
           )}
         </div>
@@ -303,13 +308,13 @@ export function SummaryCards({
               <div
                 className={`text-2xl font-bold font-mono tracking-tight truncate ${
                   budgetSummary.totalRemaining < 0
-                    ? "text-red-500 dark:text-secondary"
+                    ? "text-red-600 dark:text-secondary"
                     : "text-slate-900 dark:text-on-surface"
                 }`}
               >
                 {formatTHB(budgetSummary.totalRemaining)}
               </div>
-              <div className="text-[11px] font-mono text-slate-500 dark:text-on-surface-variant mt-0.5 truncate">
+              <div className="text-[11px] font-mono text-slate-600 dark:text-on-surface-variant mt-0.5 truncate">
                 ใช้ไป {formatTHB(budgetSummary.totalSpent)} / {formatTHB(budgetSummary.totalBudget)}
               </div>
             </div>
@@ -324,22 +329,36 @@ export function SummaryCards({
               <span
                 className={`text-xs font-mono font-semibold shrink-0 ${
                   budgetSummary.totalRemaining < 0
-                    ? "text-red-500 dark:text-error"
+                    ? "text-red-600 dark:text-error"
                     : "text-slate-600 dark:text-on-surface-variant"
                 }`}
               >
                 {budgetBarCaption}
               </span>
             </div>
+
+            {liquidityGap?.isOverLiquidity && (
+              <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-amber-200/70 dark:border-amber-500/25 text-[11px]">
+                <span className="text-amber-800 dark:text-amber-300 font-medium truncate">
+                  พอใช้จริง ~{formatTHB(liquidityGap.availableCash)}
+                </span>
+                <Link
+                  href="/categories"
+                  className="font-semibold text-amber-800 dark:text-amber-300 hover:underline shrink-0"
+                >
+                  ปรับลดงบ →
+                </Link>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col justify-between gap-2">
-            <div className="text-sm font-medium text-slate-500 dark:text-on-surface-variant">
+            <div className="text-sm font-medium text-slate-600 dark:text-on-surface-variant">
               ยังไม่ได้ตั้งงบประมาณหมวดหมู่
             </div>
             <Link
               href="/categories"
-              className="text-xs font-semibold text-emerald-600 dark:text-primary hover:underline inline-flex items-center gap-1"
+              className="text-xs font-semibold text-emerald-700 dark:text-primary hover:underline inline-flex items-center gap-1"
             >
               <span>ตั้งงบประมาณ →</span>
             </Link>

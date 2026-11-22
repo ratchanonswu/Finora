@@ -13,16 +13,16 @@
   --surface-container-highest: 226 232 240;
   --surface-bright: 226 232 240;
   --on-surface: 17 24 39;
-  --on-surface-variant: 100 116 139;
-  --outline: 148 163 184;
+  --on-surface-variant: 71 85 105;
+  --outline: 94 109 128;
   --outline-variant: 203 213 225;
-  --primary: 16 185 129;
+  --primary: 4 120 87;
   --on-primary: 255 255 255;
-  --primary-container: 16 185 129;
+  --primary-container: 4 120 87;
   --on-primary-container: 255 255 255;
-  --primary-fixed: 5 150 105;
-  --primary-fixed-dim: 16 185 129;
-  --secondary: 239 68 68;
+  --primary-fixed: 6 95 70;
+  --primary-fixed-dim: 5 150 105;
+  --secondary: 220 38 38;
   --on-secondary: 255 255 255;
   --secondary-container: 254 226 226;
   --on-secondary-container: 185 28 28;
@@ -109,6 +109,16 @@ html.dark {
   }
   button:active:not(:disabled) {
     transform: scale(0.98);
+  }
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid rgb(var(--primary) / 0.75);
+    outline-offset: 2px;
   }
 }
 

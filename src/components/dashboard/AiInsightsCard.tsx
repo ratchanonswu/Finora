@@ -10,7 +10,7 @@ export function AiInsightsCard({ insight }: { insight: DashboardInsight }) {
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500 dark:bg-primary-container text-white dark:text-on-primary-container flex items-center justify-center shadow-sm shadow-emerald-500/20 shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-emerald-700 dark:bg-primary-container text-white dark:text-on-primary-container flex items-center justify-center shadow-sm shadow-emerald-700/20 shrink-0">
               <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
             </div>
             <h2 className="text-base font-bold text-slate-900 dark:text-on-surface m-0">
@@ -26,10 +26,10 @@ export function AiInsightsCard({ insight }: { insight: DashboardInsight }) {
           <span
             className={`material-symbols-outlined text-[20px] shrink-0 mt-0.5 ${
               insight.tone === "warning"
-                ? "text-amber-500"
+                ? "text-amber-600"
                 : insight.tone === "positive"
-                  ? "text-emerald-600 dark:text-primary"
-                  : "text-slate-500 dark:text-on-surface-variant"
+                  ? "text-emerald-700 dark:text-primary"
+                  : "text-slate-600 dark:text-on-surface-variant"
             }`}
           >
             {insight.tone === "warning" ? "lightbulb" : "insights"}
@@ -52,7 +52,7 @@ export function AiInsightsCard({ insight }: { insight: DashboardInsight }) {
 
         <Link
           href="/ai-assistant"
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-surface-container-high border border-emerald-200/80 dark:border-outline-variant/40 text-xs font-semibold text-emerald-700 dark:text-primary hover:bg-emerald-500 hover:text-white dark:hover:bg-primary-container dark:hover:text-on-primary-container transition-colors shadow-sm"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-surface-container-high border border-emerald-200/80 dark:border-outline-variant/40 text-xs font-semibold text-emerald-700 dark:text-primary hover:bg-emerald-700 hover:text-white dark:hover:bg-primary-container dark:hover:text-on-primary-container transition-colors shadow-sm"
         >
           <span>ดูคำแนะนำเพิ่มเติมกับ Finora AI</span>
           <span className="material-symbols-outlined text-[15px]">arrow_forward</span>

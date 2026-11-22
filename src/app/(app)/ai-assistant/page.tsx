@@ -12,12 +12,14 @@ import {
   todayYmd,
   ymdToIso,
 } from "@/lib/seed";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { IconColorPicker } from "@/components/IconColorPicker";
 import {
   computeFinancialInsights,
   formatCompactInsightsForPrompt,
 } from "@/lib/financial-insights";
 import { prepareSlipImage } from "@/lib/slip-image";
+import { useDialogAccessibility } from "@/lib/useDialogAccessibility";
 import {
   describeWriteTool,
   getToolExecutionPriority,
@@ -293,6 +295,7 @@ export default function AiAssistantPage() {
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingDraftDialogRef = useRef<HTMLDivElement | null>(null);
   const scrollAnimRef = useRef<ScrollAnimationState | null>(null);
   const userCancelledScrollRef = useRef(false);
   const hasMountedScrollRef = useRef(false);
@@ -322,13 +325,23 @@ export default function AiAssistantPage() {
     }
   }, []);
 
-  // Use rAF with Hermite interpolation so scroll always takes 2s and smoothly re-anchors if slip media or replies change height mid-scroll.
+  // Use rAF with Hermite interpolation so scroll smoothly re-anchors if slip media or replies change height mid-scroll.
   const animateChatScrollToBottom = useCallback(
     (reason: "user_action" | "new_message" | "media_load") => {
       const el = chatScrollRef.current;
       if (!el) return;
 
       const targetTop = Math.max(0, el.scrollHeight - el.clientHeight);
+      if (
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        stopChatScrollAnimation();
+        el.scrollTop = targetTop;
+        syncScrollToBottomButton();
+        return;
+      }
+
       const now = performance.now();
       const active = scrollAnimRef.current;
 
@@ -468,17 +481,6 @@ export default function AiAssistantPage() {
     el.style.height = `${nextHeight}px`;
     el.style.overflowY = el.scrollHeight > MAX_TEXTAREA_HEIGHT_PX ? "auto" : "hidden";
   }, [input]);
-
-  useEffect(() => {
-    if (!confirmClearOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setConfirmClearOpen(false);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [confirmClearOpen]);
 
   useEffect(() => {
     const el = chatScrollRef.current;
@@ -1046,6 +1048,7 @@ export default function AiAssistantPage() {
             userName: user.name,
             categories: categories.map((c) => ({ id: c.id, name: c.name, type: c.type })),
             apiKeyOverride: settings.geminiApiKeyOverride,
+            autoCategorize: settings.aiAutoCategorize,
           }),
         });
         if (res.ok) {
@@ -1078,10 +1081,11 @@ export default function AiAssistantPage() {
       const matchingCategories = categories.filter(
         (c) => c.type === txType && c.id !== "recurring"
       );
-      const validCategory =
-        vision?.categoryId && matchingCategories.some((c) => c.id === vision?.categoryId)
+      const validCategory = settings.aiAutoCategorize
+        ? vision?.categoryId && matchingCategories.some((c) => c.id === vision?.categoryId)
           ? vision.categoryId
-          : guessCategoryId(merchant, txType);
+          : guessCategoryId(merchant, txType)
+        : matchingCategories[0]?.id || (txType === "income" ? "salary" : "food");
 
       setPendingTxDraft({
         source: "slip",
@@ -1397,6 +1401,13 @@ export default function AiAssistantPage() {
     }
   };
 
+  useDialogAccessibility(
+    pendingTxDraft !== null,
+    pendingDraftDialogRef,
+    handleCancelTxDraft,
+    !loading
+  );
+
   const handleConfirmPendingTx = async (msg: ChatMessage) => {
     const action = msg.txAction;
     if (!action) return;
@@ -1603,7 +1614,7 @@ export default function AiAssistantPage() {
                           );
                           return (
                             <div className="space-y-2">
-                              <div className="flex items-center justify-between gap-2 text-on-surface-variant">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-on-surface-variant">
                                 <div className="flex items-center gap-1.5">
                                   <span>รายการ / ร้านค้า:</span>
                                   {canSwapParties && (
@@ -1619,7 +1630,7 @@ export default function AiAssistantPage() {
                                           txAction: { ...action, merchant: nextMerchant },
                                         });
                                       }}
-                                      className="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low text-[11px] font-medium text-primary hover:bg-surface-container-high"
+                                      className="px-2.5 py-1 rounded border border-outline-variant/50 bg-surface-container-low text-[11px] font-medium text-primary hover:bg-surface-container-high"
                                     >
                                       ผู้โอน ⇄ ผู้รับ
                                     </button>
@@ -1627,13 +1638,14 @@ export default function AiAssistantPage() {
                                 </div>
                                 <input
                                   type="text"
+                                  aria-label="ชื่อรายการหรือร้านค้า"
                                   value={action.merchant}
                                   onChange={(e) =>
                                     updateChatMessage(m.id, {
                                       txAction: { ...action, merchant: e.target.value },
                                     })
                                   }
-                                  className="bg-surface-container border border-outline-variant/40 rounded px-2 py-1 text-xs font-semibold text-on-surface text-right w-48 focus:outline-none focus:border-primary"
+                                  className="bg-surface-container border border-outline-variant/40 rounded px-2.5 py-1.5 text-xs font-semibold text-on-surface sm:text-right w-full sm:w-48 focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
                                 />
                               </div>
                               <div className="flex items-center justify-between gap-2">
@@ -2261,7 +2273,9 @@ export default function AiAssistantPage() {
             aria-labelledby="tx-confirm-modal-title"
           >
             <div
-              className={`w-full ${isBatch || hasNewCats ? "max-w-2xl" : "max-w-lg"} max-h-[88vh] rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden flex flex-col animate-modal-in`}
+              ref={pendingDraftDialogRef}
+              tabIndex={-1}
+              className={`w-full ${isBatch || hasNewCats ? "max-w-2xl" : "max-w-lg"} max-h-[88vh] rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden flex flex-col animate-modal-in focus:outline-none`}
             >
               <div className="shrink-0 flex items-start justify-between gap-3 px-6 py-4 border-b border-outline-variant/30">
                 <div className="flex items-start gap-2.5">
@@ -2673,7 +2687,9 @@ export default function AiAssistantPage() {
                   })}
 
                   {pendingTxDraft.error && (
-                    <p className="text-xs text-error font-medium">{pendingTxDraft.error}</p>
+                    <p role="alert" className="text-xs text-error font-medium">
+                      {pendingTxDraft.error}
+                    </p>
                   )}
                 </div>
 
@@ -2707,59 +2723,19 @@ export default function AiAssistantPage() {
       })()}
 
       {/* Clear Chat Confirmation Modal */}
-      {confirmClearOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-backdrop-in"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="clear-chat-modal-title"
-          onClick={() => setConfirmClearOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden animate-modal-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start gap-3 px-6 py-4 border-b border-outline-variant/30">
-              <div className="w-9 h-9 rounded-lg bg-error-container/60 text-error flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
-              </div>
-              <div>
-                <h2
-                  id="clear-chat-modal-title"
-                  className="text-base font-semibold text-on-surface m-0"
-                >
-                  ต้องการล้างประวัติการสนทนาใช่ไหม?
-                </h2>
-                <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                  ข้อความและประวัติแชทในเซสชันนี้จะถูกลบออกทั้งหมด (รายการธุรกรรมที่บันทึกในระบบแล้วจะไม่ถูกลบ)
-                </p>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 flex items-center justify-end gap-2.5 bg-surface-container-low/40">
-              <button
-                type="button"
-                autoFocus
-                onClick={() => setConfirmClearOpen(false)}
-                className="px-4 py-2 rounded-lg text-sm font-medium border border-outline-variant/40 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmClearOpen(false);
-                  setPendingTxDraft(null);
-                  clearChatMessages();
-                }}
-                className="px-4 py-2 rounded-lg text-sm font-semibold bg-error text-on-error hover:opacity-90 transition-opacity shadow-sm"
-              >
-                ยืนยันล้างแชท
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirmClearOpen}
+        title="ต้องการล้างประวัติการสนทนาใช่ไหม?"
+        description="ข้อความและประวัติแชทในเซสชันนี้จะถูกลบออกทั้งหมด (รายการธุรกรรมที่บันทึกในระบบแล้วจะไม่ถูกลบ)"
+        confirmLabel="ยืนยันล้างแชท"
+        icon="delete_sweep"
+        onConfirm={() => {
+          setConfirmClearOpen(false);
+          setPendingTxDraft(null);
+          clearChatMessages();
+        }}
+        onCancel={() => setConfirmClearOpen(false)}
+      />
     </div>
   );
 }

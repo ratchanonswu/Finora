@@ -31,6 +31,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileOpen]);
+
+  useEffect(() => {
     router.prefetch("/login");
   }, [router]);
 
@@ -110,6 +119,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
             <button
               type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="ปิดเมนู"
+              className="lg:hidden flex items-center justify-center p-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors shrink-0"
+            >
+              <span className="material-symbols-outlined text-[20px] leading-none">close</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setCollapsed((c) => !c)}
               aria-label={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
               title={collapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
@@ -124,6 +141,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="px-3 pt-4">
             <Link
               href={AI_NAV_ITEM.href}
+              aria-current={pathname === AI_NAV_ITEM.href ? "page" : undefined}
               title={collapsed ? AI_NAV_ITEM.label : undefined}
               onClick={() => setMobileOpen(false)}
               className={`flex items-center rounded-xl text-sm font-semibold transition-colors py-2.5 ${
@@ -164,13 +182,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
 
-          <nav className={`flex flex-col gap-1 px-3 ${collapsed ? "lg:pt-3" : ""}`}>
+          <nav aria-label="เมนูหลัก" className={`flex flex-col gap-1 px-3 ${collapsed ? "lg:pt-3" : ""}`}>
             {NAV_ITEMS.map((item) => {
               const active = pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
                   title={collapsed ? item.label : undefined}
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center rounded-lg text-sm transition-colors py-2.5 ${

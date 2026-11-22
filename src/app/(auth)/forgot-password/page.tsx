@@ -67,7 +67,10 @@ export default function ForgotPasswordPage() {
           </div>
 
           {error && (
-            <div className="mb-5 p-3 rounded-lg border border-error/40 bg-error-container/20 text-on-error-container text-xs flex items-center gap-2">
+            <div
+              role="alert"
+              className="mb-5 p-3 rounded-lg border border-error/40 bg-error-container/20 text-on-error-container text-xs flex items-center gap-2"
+            >
               <span className="material-symbols-outlined text-[16px] text-error shrink-0">
                 error
               </span>
@@ -93,7 +96,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="example@finora.io"
-                  className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg pl-10 pr-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary"
+                  className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg pl-10 pr-4 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
                 />
               </div>
             </div>
