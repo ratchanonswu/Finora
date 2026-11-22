@@ -4,7 +4,7 @@ import { CATEGORY_ICON_IDS, WRITE_TOOL_NAMES, getToolExecutionPriority, resolveC
 import { cleanOcrText } from "./ocr.ts";
 import { buildSlipPrompt, parseSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
-import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, formatTHB, formatThaiDate, isBaseCategory, isInCurrentQuotaCycle, nextCategoryColor, normalizeTransactionDate, relativeDateYmd, todayYmd } from "./seed.ts";
+import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, formatTHB, formatThaiDate, isBaseCategory, isInCurrentQuotaCycle, matchesTransactionDateQuery, nextCategoryColor, normalizeTransactionDate, relativeDateYmd, todayYmd } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -670,4 +670,36 @@ if (petCat.ok) {
   if (chainedTx.ok) assert.equal(chainedTx.args.categoryId, "draft-cat-0");
 }
 
-console.log("Finora self-check passed (23/23 checks)");
+// 24. matchesTransactionDateQuery supports day-of-month, DD/MM, full dates, Thai months, and avoids false positives
+const sampleNov16 = "2026-11-16T18:30:00+07:00";
+const sampleNov06 = "2026-11-06T10:00:00+07:00";
+const sampleRefDate = new Date(2026, 10, 17); // 2026-11-17
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "วันที่ 16", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov06, "16", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "6", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov06, "6", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov06, "06", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16/11", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16-11", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16/10", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16/11/2569", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "2026-11-16", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "เมื่อวาน", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "16 พ.ย.", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "6 พ.ย.", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov06, "6 พ.ย.", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov06, "06 พ.ย.", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "06 พ.ย.", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "พ.ย.", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "พ.ย. 2569", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "พฤศจิกายน", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "2026-11", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "2569", sampleRefDate), true);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "500", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "กา", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery("2026-10-16T12:00:00+07:00", "ลา", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "-", sampleRefDate), false);
+assert.equal(matchesTransactionDateQuery(sampleNov16, "พ", sampleRefDate), false);
+
+console.log("Finora self-check passed (24/24 checks)");

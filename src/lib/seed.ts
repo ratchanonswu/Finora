@@ -275,3 +275,82 @@ export function formatThaiDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
 }
+
+export function matchesTransactionDateQuery(
+  txDate: string,
+  rawQuery: string,
+  refDate = new Date()
+): boolean {
+  const q = String(rawQuery ?? "").trim().toLowerCase();
+  if (!q) return false;
+
+  const ymd = toDateInputValue(txDate);
+  const [yStr, mStr, dStr] = ymd.split("-");
+  const txYear = Number(yStr);
+  const txMonth = Number(mStr);
+  const txDay = Number(dStr);
+  if (!txYear || !txMonth || !txDay) return false;
+
+  // 1. Day-of-month exact match ("16", "06", "วันที่ 16") so "6" won't match "16" or year "2569"
+  const dayOnlyMatch = q.match(/^(?:วันที่\s*)?(\d{1,2})$/);
+  if (dayOnlyMatch) {
+    const targetDay = Number(dayOnlyMatch[1]);
+    return targetDay >= 1 && targetDay <= 31 && txDay === targetDay;
+  }
+
+  // 2. Day/Month without year ("16/11", "16-11") across any year
+  const dmMatch = q.match(/^(\d{1,2})[-/](\d{1,2})$/);
+  if (dmMatch) {
+    const targetDay = Number(dmMatch[1]);
+    const targetMonth = Number(dmMatch[2]);
+    return (
+      targetDay >= 1 &&
+      targetDay <= 31 &&
+      targetMonth >= 1 &&
+      targetMonth <= 12 &&
+      txDay === targetDay &&
+      txMonth === targetMonth
+    );
+  }
+
+  // 3. Pure 3+ digit numbers only match exact 4-digit CE or BE year ("2026", "2569")
+  if (/^\d+$/.test(q)) {
+    return q.length === 4 && (Number(q) === txYear || Number(q) === txYear + 543);
+  }
+
+  // 4. Full dates & relative words ("16/11/2569", "2026-11-16", "วันนี้", "เมื่อวาน")
+  const normalized = normalizeTransactionDate(q, refDate);
+  if (normalized) {
+    return ymd === normalized;
+  }
+
+  // 5. Thai textual dates / months ("16 พ.ย.", "06 พ.ย.", "พ.ย.", "พฤศจิกายน", "พ.ย. 2569", "2026-11")
+  const dateObj = new Date(`${ymd}T12:00:00+07:00`);
+  if (Number.isNaN(dateObj.getTime())) return false;
+
+  const thaiShort = formatThaiDate(ymd).toLowerCase();
+  const thaiLong = dateObj
+    .toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })
+    .toLowerCase();
+  const monthShortYear = dateObj
+    .toLocaleDateString("th-TH", { month: "short", year: "numeric" })
+    .toLowerCase();
+  const monthLongYear = dateObj
+    .toLocaleDateString("th-TH", { month: "long", year: "numeric" })
+    .toLowerCase();
+
+  const cleanText = q.replace(/^วันที่\s*/, "").replace(/\s+/g, " ").trim();
+  if (!cleanText) return false;
+
+  if (/^\d/.test(cleanText)) {
+    const noLeadingZeroDay = cleanText.replace(/^0(\d)(?=\s|$)/, "$1");
+    return (
+      thaiShort.startsWith(noLeadingZeroDay) ||
+      thaiLong.startsWith(noLeadingZeroDay) ||
+      ymd.startsWith(cleanText)
+    );
+  }
+
+  if (cleanText.length < 2) return false;
+  return monthShortYear.startsWith(cleanText) || monthLongYear.startsWith(cleanText);
+}
