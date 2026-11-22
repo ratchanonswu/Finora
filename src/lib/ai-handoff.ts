@@ -1,13 +1,13 @@
 export const AI_INSIGHT_HANDOFF_KEY = "finora_pending_ai_insight_prompt_v1";
 
 const DEFAULT_DASHBOARD_INSIGHT_PROMPT =
-  "ช่วยสรุปรายจ่าย 5 อันดับแรก วิเคราะห์พฤติกรรมการใช้จ่าย และแนะนำเป้าหมายการประหยัดให้หน่อย";
+  "ช่วยวิเคราะห์รายจ่ายหลักในรอบนี้และแนะนำแนวทางปรับที่ตรงจุดจากรายการจริงให้หน่อย";
 
 /** Builds the initial user prompt when navigating from the Dashboard AI Insights card. */
 export function buildDashboardInsightPrompt(headline?: string): string {
   const cleanHeadline = headline?.trim();
   if (!cleanHeadline) return DEFAULT_DASHBOARD_INSIGHT_PROMPT;
-  return `ช่วยวิเคราะห์การใช้จ่ายและแนะนำเป้าหมายการประหยัดให้หน่อย (ประเด็นจาก Dashboard: ${cleanHeadline})`;
+  return `ช่วยวิเคราะห์ประเด็น "${cleanHeadline}" และแนะนำแนวทางปรับที่ตรงจุดจากรายการจริงให้หน่อย`;
 }
 
 /** Stores a one-shot AI prompt in sessionStorage before navigating to /ai-assistant. */

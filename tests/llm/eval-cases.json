@@ -168,10 +168,17 @@
     "expectedBehavior": "Following user confirmation of a coached recommendation, immediately calls update_category_budget for shopping=6500 so the inline confirmation card renders."
   },
   {
-    "id": "eval-19-summary-with-followup-advice",
-    "category": "coaching_summary",
+    "id": "eval-19-summary-concise-lookup",
+    "category": "concise_lookup",
     "input": "top 5 รายจ่ายเป็นรายการเดือนนี้",
     "expectedTool": "get_transactions",
-    "expectedBehavior": "Answers with the top 5 current-cycle expense items in a Markdown table first, then follows up with a concise ข้อสังเกตและคำแนะนำจากฟิโนร่า section pointing out risky/over-budget drivers, citing current-cycle simulated savings figures with disclaimer, and offering 1 concrete next step without duplicate polite endings like นะคะค่ะ."
+    "expectedBehavior": "Classifies as QUICK mode, calls get_transactions (not get_spending_insights), answers concisely with the top 5 current-cycle expense items in a Markdown table without appending unsolicited coaching essays or simulated savings boilerplate."
+  },
+  {
+    "id": "eval-20-concrete-coaching-references-real-items",
+    "category": "coaching_advice",
+    "input": "เดือนนี้ฉันใช้จ่ายเกินตรงไหน ควรลดยังไงดีแบบเห็นภาพ",
+    "expectedTool": "get_spending_insights",
+    "expectedBehavior": "Classifies as COACHING mode, invokes get_spending_insights, avoids vague filler advice, and references specific sampleTransactions and exact THB/budget figures (or states clearly that budgets are on track if no category is over/near/ahead of pace)."
   }
 ]

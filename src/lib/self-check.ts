@@ -3,7 +3,7 @@ import { executeBankTransfer } from "./bank-service.ts";
 import { CATEGORY_ICON_IDS, READ_TOOL_NAMES, WRITE_TOOL_NAMES, getToolExecutionPriority, resolveCategory, runReadTool, validateAndNormalizeWriteTool } from "./ai-tools.ts";
 import { computeFinancialInsights, formatCompactInsightsForPrompt } from "./financial-insights.ts";
 import { cleanOcrText } from "./ocr.ts";
-import { FINORA_PROMPT_VERSION, buildFinoraSystemPrompt, buildSlipPrompt, parseSlipResult } from "./prompts.ts";
+import { FINORA_PROMPT_VERSION, buildFinoraSystemPrompt, buildSlipPrompt, classifyUserPromptMode, parseSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
 import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_LEDGER, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, INITIAL_USER, formatTHB, formatThaiDate, isBaseCategory, isInCurrentQuotaCycle, matchesTransactionDateQuery, nextCategoryColor, normalizeTransactionDate, relativeDateYmd, todayYmd } from "./seed.ts";
 
@@ -703,12 +703,20 @@ assert.equal(matchesTransactionDateQuery("2026-10-16T12:00:00+07:00", "ลา", 
 assert.equal(matchesTransactionDateQuery(sampleNov16, "-", sampleRefDate), false);
 assert.equal(matchesTransactionDateQuery(sampleNov16, "พ", sampleRefDate), false);
 
-// 25. Coaching prompt v2.9.1 and get_spending_insights tool registration
-assert.equal(FINORA_PROMPT_VERSION, "2.9.1");
+// 25. Prompt v2.10.0 response-mode classification, concise quick directive, and anti-vague coaching rules
+assert.equal(FINORA_PROMPT_VERSION, "2.10.0");
 assert.equal(READ_TOOL_NAMES.has("get_spending_insights"), true);
-const builtPromptSample = buildFinoraSystemPrompt("สรุปตัวอย่าง");
-assert.equal(builtPromptSample.includes("get_spending_insights"), true);
-assert.equal(builtPromptSample.includes("ข้อสังเกตและคำแนะนำจากฟิโนร่า"), true);
+assert.equal(classifyUserPromptMode("top 5 รายจ่ายเป็นรายการเดือนนี้"), "quick");
+assert.equal(classifyUserPromptMode("ตอนนี้มียอดเงินเหลือเท่าไหร่คะ"), "quick");
+assert.equal(classifyUserPromptMode("โอเค งั้นช่วยปรับลดงบหมวดช้อปปิ้งเป็น 6,500 บาทตามที่แนะนำเลย"), "quick");
+assert.equal(classifyUserPromptMode("ตอนนี้ฉันใช้เงินเร็วเกินไปไหม เหลืองบใช้วันละกี่บาทถึงสิ้นเดือน?"), "focused_advice");
+assert.equal(classifyUserPromptMode("ช่วยคาดการณ์เงินออมอีก 6 เดือนข้างหน้าให้หน่อย"), "focused_advice");
+assert.equal(classifyUserPromptMode("วิเคราะห์รายจ่ายเดือนนี้ของฉันให้หน่อย ควรลดหมวดไหนดี?"), "full_coaching");
+const quickPromptSample = buildFinoraSystemPrompt("สรุปตัวอย่าง", { responseMode: "quick" });
+assert.equal(quickPromptSample.includes("Turn Directive (โหมดตอบรอบนี้: QUICK)"), true);
+const coachPromptSample = buildFinoraSystemPrompt("สรุปตัวอย่าง", { responseMode: "full_coaching" });
+assert.equal(coachPromptSample.includes("get_spending_insights"), true);
+assert.equal(coachPromptSample.includes("sampleTransactions"), true);
 
 // 26. Multi-month financial insights (MoM, savings rate, burn pace, anomalies, savings simulation)
 const augRefDate = new Date(2026, 7, 15, 12, 0, 0); // Aug 15, 2026 -> 17 days remaining, 48% elapsed
@@ -746,6 +754,7 @@ assert.equal(fullInsights.spendingAnomalies.some((c) => c.categoryId === "food")
 assert.equal(fullInsights.topExpenseCategories.length, 4);
 assert.equal(fullInsights.topExpenseCategories[0]?.categoryId, "shopping");
 assert.equal(fullInsights.savingsOpportunities.length, 3);
+assert.equal((fullInsights.savingsOpportunities[0]?.sampleTransactions.length ?? 0) > 0, true);
 assert.equal(
   fullInsights.totalPotentialMonthlySavings,
   fullInsights.savingsOpportunities.reduce((s, item) => s + item.potentialMonthlySavings, 0)
@@ -776,8 +785,9 @@ assert.equal(
   true
 );
 assert.equal(edgeInsights.riskFlags.some((f) => f.includes("ติดลบ")), true);
+assert.equal(edgeInsights.savingsOpportunities.length, 0);
 
-// 28. runReadTool("get_spending_insights") resolves focusCategoryId and returns top transactions
+// 28. runReadTool("get_spending_insights") resolves focusCategoryId, returns top transactions, and supports section filtering
 const insightToolRes = runReadTool(
   "get_spending_insights",
   { topN: 3, focusCategoryId: "อาหาร" },
@@ -794,13 +804,26 @@ const focused = insightToolRes.focusedCategory as Record<string, unknown> | unde
 assert.equal(focused?.resolved, true);
 assert.equal(focused?.categoryId, "food");
 
-// 29. formatCompactInsightsForPrompt formats Thai KPI summary lines including scoped savings targets
+const scopedPaceRes = runReadTool(
+  "get_spending_insights",
+  { sections: ["burn_pace"] },
+  {
+    bankBalance: 20000,
+    transactions: INITIAL_TRANSACTIONS,
+    categories: INITIAL_CATEGORIES,
+    recurring: INITIAL_RECURRING,
+  }
+);
+assert.equal(Array.isArray(scopedPaceRes.overBudgetCategories), true);
+assert.equal("savingsOpportunities" in scopedPaceRes, false);
+
+// 29. formatCompactInsightsForPrompt keeps system prompt factual without injecting unsolicited savings pitches
 const compactPromptText = formatCompactInsightsForPrompt(fullInsights);
 assert.equal(compactPromptText.includes("อัตราการออม"), true);
 assert.equal(compactPromptText.includes("เทียบเดือนก่อน (MoM)"), true);
 assert.equal(compactPromptText.includes("Daily Safe Spend"), true);
 assert.equal(compactPromptText.includes("Recurring Load"), true);
-assert.equal(compactPromptText.includes("เป้าหมายประหยัดจำลอง (จากยอดรอบปัจจุบัน, ไม่ใช่เงินออมจริง)"), true);
+assert.equal(compactPromptText.includes("เป้าหมายประหยัดจำลอง"), false);
 
 // 30. Enriched 3-month seed dataset integrity & coach insights readiness
 assert.equal(INITIAL_USER.name, "นายรัชชานนท์ แก้วกูล");

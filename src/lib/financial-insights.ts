@@ -53,6 +53,7 @@ export interface SavingsOpportunityItem {
   targetReductionPct: number;
   potentialMonthlySavings: number;
   reason: string;
+  sampleTransactions: Array<{ title: string; amount: number }>;
 }
 
 export interface FinancialInsightsResult {
@@ -142,19 +143,28 @@ function resolvePaceStatus(
 }
 
 function selectSavingsOpportunities(
-  categoryInsights: CategoryInsight[]
+  categoryInsights: CategoryInsight[],
+  topTxsByCat: Map<string, Array<{ title: string; amount: number }>>
 ): SavingsOpportunityItem[] {
-  const withSpend = categoryInsights.filter((c) => c.spent > 0);
-  if (withSpend.length === 0) return [];
+  const actionable = categoryInsights.filter(
+    (c) =>
+      c.spent > 0 &&
+      (c.paceStatus === "over" ||
+        c.paceStatus === "near" ||
+        c.paceStatus === "ahead_of_pace" ||
+        (c.momChangePct !== null && c.momChangePct >= 20) ||
+        (DISCRETIONARY_CATEGORY_IDS.has(c.categoryId) && c.shareOfExpensePct >= 15))
+  );
+  if (actionable.length === 0) return [];
 
-  const nonHousing = withSpend.filter((c) => c.categoryId !== "housing");
-  const housing = withSpend.filter((c) => c.categoryId === "housing");
+  const nonHousing = actionable.filter((c) => c.categoryId !== "housing");
+  const housing = actionable.filter((c) => c.categoryId === "housing");
 
   const priorityRank = (c: CategoryInsight): number => {
     if (c.paceStatus === "over") return 0;
     if (c.paceStatus === "near") return 1;
-    if (DISCRETIONARY_CATEGORY_IDS.has(c.categoryId)) return 2;
-    if (c.paceStatus === "ahead_of_pace") return 3;
+    if (c.paceStatus === "ahead_of_pace") return 2;
+    if (c.momChangePct !== null && c.momChangePct >= 20) return 3;
     return 4;
   };
 
@@ -168,29 +178,47 @@ function selectSavingsOpportunities(
 
   return ordered
     .map((c) => {
-      const highCut =
-        DISCRETIONARY_CATEGORY_IDS.has(c.categoryId) ||
-        c.paceStatus === "over" ||
-        c.paceStatus === "near";
-      const targetReductionPct = highCut ? 15 : 10;
+      let targetReductionPct = 10;
+      if (c.paceStatus === "over" && c.budget > 0) {
+        targetReductionPct = Math.min(
+          30,
+          Math.max(5, Math.round((c.overBudgetAmount / c.spent) * 100))
+        );
+      } else if (
+        c.paceStatus === "near" ||
+        c.paceStatus === "ahead_of_pace" ||
+        DISCRETIONARY_CATEGORY_IDS.has(c.categoryId)
+      ) {
+        targetReductionPct = 15;
+      }
+
       const potentialMonthlySavings = roundCurrency(
         c.spent * (targetReductionPct / 100)
       );
-      const reason =
+      const samples = topTxsByCat.get(c.categoryId) ?? [];
+      const baseReason =
         c.paceStatus === "over"
-          ? "ใช้จ่ายเกินงบที่ตั้งไว้แล้ว"
+          ? `ใช้เกินงบไป ${formatTHB(c.overBudgetAmount)} (${c.usagePct}% ของงบ ${formatTHB(c.budget)})`
           : c.paceStatus === "near"
-            ? "ใช้จ่ายใกล้เต็มงบประมาณแล้ว"
-            : DISCRETIONARY_CATEGORY_IDS.has(c.categoryId)
-              ? "เป็นรายจ่ายยืดหยุ่นที่ปรับลดได้ง่ายโดยกระทบชีวิตประจำวันน้อย"
-              : "เป็นหมวดรายจ่ายหลักที่มีโอกาสประหยัดได้";
+            ? `ใช้ไปแล้ว ${c.usagePct}% ของงบ ${formatTHB(c.budget)} (เหลือ ${formatTHB(c.remainingBudget)})`
+            : c.paceStatus === "ahead_of_pace"
+              ? `ใช้ไปแล้ว ${c.usagePct}% เร็วกว่าสัดส่วนเวลาของเดือน`
+              : c.momChangePct !== null && c.momChangePct >= 20
+                ? `เพิ่มขึ้น +${c.momChangePct}% เทียบเดือนก่อน (${formatTHB(c.previousSpent)} → ${formatTHB(c.spent)})`
+                : `เป็นรายจ่ายยืดหยุ่นสัดส่วน ${c.shareOfExpensePct}% ของรายจ่ายรอบนี้`;
+      const sampleText =
+        samples.length > 0
+          ? ` (รายการหลัก: ${samples.map((s) => `"${s.title}" ${formatTHB(s.amount)}`).join(", ")})`
+          : "";
+
       return {
         categoryId: c.categoryId,
         categoryName: c.name,
         currentSpent: c.spent,
         targetReductionPct,
         potentialMonthlySavings,
-        reason,
+        reason: `${baseReason}${sampleText}`,
+        sampleTransactions: samples,
       };
     })
     .filter((item) => item.potentialMonthlySavings > 0);
@@ -365,7 +393,18 @@ export function computeFinancialInsights(
       date: t.date,
     }));
 
-  const savingsOpportunities = selectSavingsOpportunities(categoryInsights);
+  const topTxsByCat = new Map<string, Array<{ title: string; amount: number }>>();
+  for (const t of [...currentTxs]
+    .filter((t) => t.type === "expense")
+    .sort((a, b) => b.amount - a.amount)) {
+    const bucket = topTxsByCat.get(t.categoryId) ?? [];
+    if (bucket.length < 2) {
+      bucket.push({ title: t.title, amount: t.amount });
+      topTxsByCat.set(t.categoryId, bucket);
+    }
+  }
+
+  const savingsOpportunities = selectSavingsOpportunities(categoryInsights, topTxsByCat);
   const totalPotentialMonthlySavings = roundCurrency(
     savingsOpportunities.reduce((sum, item) => sum + item.potentialMonthlySavings, 0)
   );
@@ -445,19 +484,12 @@ function formatMomDelta(pct: number | null, label: string): string {
   return `${label}: ${sign}${pct}%`;
 }
 
-/** Formats a compact 5-8 line analytics block for system prompt context injection. */
+/** Formats a compact factual analytics block for system prompt context injection. */
 export function formatCompactInsightsForPrompt(
   insights: FinancialInsightsResult
 ): string {
-  const {
-    monthProgress,
-    periodTotals,
-    savings,
-    recurringLoad,
-    riskFlags,
-    savingsOpportunities,
-    totalPotentialMonthlySavings,
-  } = insights;
+  const { monthProgress, periodTotals, savings, recurringLoad, riskFlags } =
+    insights;
   const savingsRateText =
     savings.savingsRatePct !== null ? `${savings.savingsRatePct}%` : "ไม่มีรายรับในรอบนี้";
   const dailySafeText =
@@ -470,24 +502,13 @@ export function formatCompactInsightsForPrompt(
       : `ยังไม่มีรายรับฐานสำหรับเทียบ (รายจ่ายประจำ ${formatTHB(recurringLoad.activeRecurringExpenseMonthly)}/เดือน)`;
   const flagsText = riskFlags.length > 0 ? riskFlags.join(" ; ") : "ไม่มีสัญญาณเสี่ยง";
 
-  const savingsLine =
-    savingsOpportunities.length > 0
-      ? `- เป้าหมายประหยัดจำลอง (จากยอดรอบปัจจุบัน, ไม่ใช่เงินออมจริง): ${savingsOpportunities
-          .map(
-            (item) =>
-              `ลด "${item.categoryName}" ${item.targetReductionPct}% (${formatTHB(item.potentialMonthlySavings)}/เดือน)`
-          )
-          .join(", ")} | รวมอาจประหยัดได้ ${formatTHB(totalPotentialMonthlySavings)}/เดือน`
-      : null;
-
   return [
-    "สรุปวิเคราะห์เชิงลึก (คำนวณล่วงหน้า):",
+    "สรุปสถานะการเงินรอบปัจจุบัน:",
     `- ความคืบหน้าของเดือน: วันที่ ${monthProgress.dayOfMonth}/${monthProgress.daysInMonth} (ผ่านไปแล้ว ${monthProgress.elapsedPct}%, เหลือ ${monthProgress.daysRemaining} วัน)`,
     `- กระแสเงินสดรอบนี้: รายรับ ${formatTHB(periodTotals.currentIncome)} | รายจ่าย ${formatTHB(periodTotals.currentExpense)} | สุทธิ ${formatTHB(periodTotals.currentNet)} | อัตราการออม ${savingsRateText}`,
     `- เทียบเดือนก่อน (MoM): ${formatMomDelta(periodTotals.expenseChangePct, "รายจ่าย")} | ${formatMomDelta(periodTotals.incomeChangePct, "รายรับ")}`,
     `- งบใช้ได้ปลอดภัยต่อวัน (Daily Safe Spend): ${dailySafeText}`,
     `- ภาระรายจ่ายประจำ (Recurring Load): ${recurringLoadText}`,
     `- สัญญาณเตือนความเสี่ยง: ${flagsText}`,
-    ...(savingsLine ? [savingsLine] : []),
   ].join("\n");
 }

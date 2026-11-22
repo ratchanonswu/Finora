@@ -242,7 +242,8 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     type: "function",
     function: {
       name: "get_transactions",
-      description: "ดึงรายการธุรกรรมล่าสุด สามารถกรองตามประเภทและหมวดหมู่ได้",
+      description:
+        "ดึงรายการธุรกรรมล่าสุดหรือเรียงรายการตามยอด/ช่วงวันที่ เพื่อตอบคำถามรายการหรือยอดรวมตรง ๆ โดยไม่ต้องเรียกเครื่องมือวิเคราะห์พฤติกรรม",
       parameters: {
         type: "object",
         properties: {
@@ -308,7 +309,7 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
     function: {
       name: "get_spending_insights",
       description:
-        "วิเคราะห์พฤติกรรมการใช้จ่ายเชิงลึก: อันดับหมวดรายจ่ายสูงสุด, เทียบเดือนก่อน (MoM), อัตราการออม, งบใช้ได้ต่อวัน (Daily Safe Spend), อัตราเผางบเทียบวันของเดือน, ภาระรายจ่ายประจำ (Recurring Load), หมวดที่ใช้พุ่งผิดปกติ, รายการใหญ่สุด, และเป้าหมายจำลองการประหยัด",
+        "วิเคราะห์พฤติกรรมการใช้จ่ายเชิงลึก: ใช้เฉพาะเมื่อผู้ใช้ขอวิเคราะห์การใช้จ่าย ขอคำแนะนำวิธีลดรายจ่าย ตรวจอัตราเผางบ (Daily Safe Spend / Pace) หรือวางแผนการออม (ไม่ต้องเรียกหากผู้ใช้ถามเพียงยอดเงินคงเหลือหรือขอดูรายการ)",
       parameters: {
         type: "object",
         properties: {
@@ -319,6 +320,22 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
           focusCategoryId: {
             type: "string",
             description: "รหัสหรือชื่อหมวดหมู่รายจ่ายที่ต้องการเจาะลึกเพิ่มเติม (ไม่บังคับ)",
+          },
+          sections: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: [
+                "overview",
+                "categories",
+                "burn_pace",
+                "anomalies",
+                "savings",
+                "top_transactions",
+              ],
+            },
+            description:
+              "ระบุเฉพาะส่วนข้อมูลที่ต้องใช้ตอบคำถามเพื่อลดข้อมูลเกินจำเป็น (ถ้าไม่ระบุจะคืนข้อมูลครบทุกส่วน)",
           },
         },
       },
@@ -700,8 +717,67 @@ export function runReadTool(
       }
     }
 
+    const validSections = new Set([
+      "overview",
+      "categories",
+      "burn_pace",
+      "anomalies",
+      "savings",
+      "top_transactions",
+    ]);
+    const requestedSections = Array.isArray(args.sections)
+      ? args.sections
+          .map((s) => String(s || "").trim())
+          .filter((s) => validSections.has(s))
+      : [];
+
+    if (requestedSections.length === 0) {
+      return {
+        ...insights,
+        ...(focusedCategory ? { focusedCategory } : {}),
+      };
+    }
+
+    const sectionSet = new Set(requestedSections);
     return {
-      ...insights,
+      monthProgress: insights.monthProgress,
+      ...(sectionSet.has("overview")
+        ? {
+            periodTotals: insights.periodTotals,
+            savings: insights.savings,
+            recurringLoad: insights.recurringLoad,
+            riskFlags: insights.riskFlags,
+          }
+        : {}),
+      ...(sectionSet.has("categories")
+        ? {
+            categoryInsights: insights.categoryInsights,
+            topExpenseCategories: insights.topExpenseCategories,
+          }
+        : {}),
+      ...(sectionSet.has("burn_pace")
+        ? {
+            overBudgetCategories: insights.overBudgetCategories,
+            nearBudgetCategories: insights.nearBudgetCategories,
+            aheadOfPaceCategories: insights.aheadOfPaceCategories,
+            dailySafeSpendFromBudget: insights.savings.dailySafeSpendFromBudget,
+            dailySafeSpendFromWallet: insights.savings.dailySafeSpendFromWallet,
+            riskFlags: insights.riskFlags,
+          }
+        : {}),
+      ...(sectionSet.has("anomalies")
+        ? { spendingAnomalies: insights.spendingAnomalies }
+        : {}),
+      ...(sectionSet.has("savings")
+        ? {
+            savingsOpportunities: insights.savingsOpportunities,
+            totalPotentialMonthlySavings: insights.totalPotentialMonthlySavings,
+            savingsDisclaimer: insights.savingsDisclaimer,
+          }
+        : {}),
+      ...(sectionSet.has("top_transactions")
+        ? { topTransactions: insights.topTransactions }
+        : {}),
       ...(focusedCategory ? { focusedCategory } : {}),
     };
   }

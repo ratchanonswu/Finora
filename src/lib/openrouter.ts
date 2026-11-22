@@ -38,7 +38,7 @@ export interface LLMMetrics {
   latencyMs: number;
 }
 
-const OPENROUTER_TIMEOUT_MS = 45_000;
+const OPENROUTER_TIMEOUT_MS = 65_000;
 const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
 const RETRY_DELAYS_MS = [1000, 2000];
 
@@ -51,6 +51,7 @@ export async function callOpenRouter(options: {
   apiKeyOverride?: string;
   jsonMode?: boolean;
   temperature?: number;
+  maxTokens?: number;
   tools?: OpenRouterToolDef[];
 }): Promise<{
   ok: boolean;
@@ -86,6 +87,9 @@ export async function callOpenRouter(options: {
     model,
     messages: options.messages,
     ...(typeof options.temperature === "number" ? { temperature: options.temperature } : {}),
+    ...(typeof options.maxTokens === "number" && options.maxTokens > 0
+      ? { max_tokens: Math.round(options.maxTokens) }
+      : {}),
     ...(options.jsonMode ? { response_format: { type: "json_object" } } : {}),
     ...(options.tools?.length ? { tools: options.tools, tool_choice: "auto" } : {}),
   });
@@ -108,7 +112,10 @@ export async function callOpenRouter(options: {
       const rawText = await res.text();
       let data: {
         error?: { message?: string };
-        choices?: Array<{ message?: { content?: unknown; tool_calls?: unknown } }>;
+        choices?: Array<{
+          finish_reason?: unknown;
+          message?: { content?: unknown; tool_calls?: unknown };
+        }>;
         model?: unknown;
         usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown };
       } | null = null;
@@ -134,7 +141,10 @@ export async function callOpenRouter(options: {
         return { ok: false, status: 502, error: "OpenRouter ส่งข้อมูลที่ไม่ใช่รูปแบบ JSON" };
       }
 
-      const message = data?.choices?.[0]?.message;
+      const choice = data?.choices?.[0];
+      const message = choice?.message;
+      const finishReason =
+        typeof choice?.finish_reason === "string" ? choice.finish_reason : undefined;
       const toolCalls: OpenRouterToolCall[] | undefined =
         Array.isArray(message?.tool_calls) && message.tool_calls.length > 0
           ? (message.tool_calls as OpenRouterToolCall[])
@@ -142,7 +152,19 @@ export async function callOpenRouter(options: {
       const content = typeof message?.content === "string" ? message.content : undefined;
 
       if (!toolCalls && (!content || !content.trim())) {
-        return { ok: false, status: 502, error: "AI ไม่ได้ส่งข้อความตอบกลับ" };
+        console.warn("[LLM] empty reply", {
+          model: String(data?.model || model),
+          finishReason,
+          usage: data?.usage,
+        });
+        return {
+          ok: false,
+          status: 502,
+          error:
+            finishReason === "length"
+              ? "AI ประมวลผลเกินขีดจำกัดความยาวก่อนส่งคำตอบ กรุณาลองใหม่อีกครั้ง"
+              : "AI ไม่ได้ส่งข้อความตอบกลับ",
+        };
       }
 
       const metrics: LLMMetrics = {
@@ -160,7 +182,7 @@ export async function callOpenRouter(options: {
         return {
           ok: false,
           status: 504,
-          error: "การเชื่อมต่อ AI ใช้เวลานานเกินกำหนด (45 วินาที) กรุณาลองใหม่อีกครั้ง",
+          error: "การเชื่อมต่อ AI ใช้เวลานานเกินกำหนด (65 วินาที) กรุณาลองใหม่อีกครั้ง",
         };
       }
       if (attempt < RETRY_DELAYS_MS.length) {
