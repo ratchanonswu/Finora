@@ -14,7 +14,7 @@
 | **State & Persistence** | React Context (`FinoraContext`) + `localStorage` / `sessionStorage` | เก็บสถานะธุรกรรม (`finora_state_v1`) และประวัติแชทแยกตามอีเมลผู้ใช้ (`finora_chat_session_v1:<email>`) |
 | **AI / LLM Gateway** | OpenRouter API (`src/lib/openrouter.ts`) | Chat Completions, Multi-Tool Function Calling, และ Multimodal Vision สำหรับอ่านสลิป |
 | **Slip Image & OCR Pipeline** | Browser Canvas (`src/lib/slip-image.ts`) + OCR.space Engine 1 (`src/lib/ocr.ts`) | เตรียม/ย่อขนาดรูปสลิปฝั่ง Client (`<= 950KB` ส่งตรง / `1600px`) ควบคู่กับ OCR ภาษาไทยฝั่ง Server |
-| **Testing** | Node.js Native Type-Stripping (`src/lib/self-check.ts`) | ชุดทดสอบ Deterministic Unit & Integration (`npm run test:check`) 23 หมวดตรวจสอบ |
+| **Testing** | Node.js Native Type-Stripping (`src/lib/self-check.ts`) | ชุดทดสอบ Deterministic Unit & Integration (`npm run test:check`) 30 หมวดตรวจสอบ |
 
 ---
 
@@ -47,7 +47,8 @@ flowchart TD
     subgraph State["🧠 State & Domain Layer"]
         Ctx["FinoraContext (React State + bankBalanceRef + sortTransactionsByDateDesc)"]
         Storage[("localStorage: finora_state_v1\nsessionStorage: finora_chat_session_v1")]
-        Tools["AI Tools Engine (src/lib/ai-tools.ts)\nRead Tools (5) + Write Validators (4)"]
+        Tools["AI Tools Engine (src/lib/ai-tools.ts)\nRead Tools (6) + Write Validators (4)"]
+        Insights["Financial Insights Engine (src/lib/financial-insights.ts)\nMoM, Savings Rate, Burn Pace, Safe Spend, Anomalies"]
         Rollover["Rollover Simulator (src/lib/rollover.ts)"]
         Seed["Seed & Date/THB Utilities (src/lib/seed.ts)"]
     end
@@ -69,11 +70,14 @@ flowchart TD
     AIPage --> Ctx
     AIPage --> SlipPrep
     AIPage --> Tools
+    AIPage --> Insights
     Modals --> Ctx
     Ctx <--> Storage
     Ctx --> Rollover
     Ctx --> Seed
+    Tools --> Insights
     Tools --> Seed
+    Insights --> Seed
 
     AIPage -->|"POST messages + financialSummary"| ChatAPI
     AIPage -->|"POST imageBase64 + mimeType"| SlipAPI
@@ -141,15 +145,16 @@ sequenceDiagram
 | `src/components/dashboard/ExpenseBreakdownCard.tsx` | กราฟโดนัทแสดงสัดส่วนรายจ่ายสูงสุด 5 อันดับ (หากเกิน 5 หมวด จะรวบเป็นหมวด "อื่นๆ") |
 | `src/components/dashboard/dashboard-utils.ts` | ฟังก์ชันคำนวณ Dashboard (`resolveDateRange`, `computePeriodSummary`, `buildSparklineSeries`, `buildBarChartSeries`, `computeBudgetOverview`, `computeExpenseBreakdown`, `buildDashboardInsights`, `buildDashboardNotifications`) |
 | `src/context/FinoraContext.tsx` | ศูนย์กลาง State ของแอป: จัดการ Transactions (เรียงวันที่ล่าสุดขึ้นก่อนเสมอ), Categories, Recurring, Virtual Wallet (`bankBalanceRef`, `txSeqRef`, `catSeqRef`), และ Chat Session |
-| `src/lib/ai-tools.ts` | นิยาม `FINORA_TOOLS` (5 Read Tools + 4 Write Tools: `add_transaction`, `update_category_budget`, `add_category`, `add_recurring_payment` — ถอด `toggle_recurring` แล้ว), `CATEGORY_ALIASES`, `resolveCategory` (ตรวจชื่อหมวดตรงตัวก่อน alias), และ `validateAndNormalizeWriteTool` |
-| `src/lib/prompts.ts` | `FINORA_PROMPT_VERSION = "2.8.0"`, `buildFinoraSystemPrompt`, `buildSlipPrompt`, และ `parseSlipResult` (จับคู่ชื่อผู้โอน/ผู้รับกับชื่อผู้ใช้เพื่อแยก `income`/`expense`) |
+| `src/lib/ai-tools.ts` | นิยาม `FINORA_TOOLS` (6 Read Tools รวม `get_spending_insights` + 4 Write Tools: `add_transaction`, `update_category_budget`, `add_category`, `add_recurring_payment`), `CATEGORY_ALIASES`, `resolveCategory` (ตรวจชื่อหมวดตรงตัวก่อน alias), และ `validateAndNormalizeWriteTool` |
+| `src/lib/financial-insights.ts` | Pure Analytics Engine (`computeFinancialInsights`, `formatCompactInsightsForPrompt`) คำนวณ MoM %, อัตราการออม, Burn Pace เทียบวันของเดือน, Daily Safe Spend, Recurring Load %, หมวดพุ่งผิดปกติ, รายการใหญ่สุด, และเป้าหมายประหยัดจำลอง |
+| `src/lib/prompts.ts` | `FINORA_PROMPT_VERSION = "2.9.1"`, `buildFinoraSystemPrompt` (3-Tier Coaching Scope + Summary Follow-up Advice + Light Proactivity), `buildSlipPrompt`, และ `parseSlipResult` (จับคู่ชื่อผู้โอน/ผู้รับกับชื่อผู้ใช้เพื่อแยก `income`/`expense`) |
 | `src/lib/bank-service.ts` | Pure function `executeBankTransfer` สำหรับคำนวณยอด `bankBalance` (อนุญาตให้ติดลบได้) และสร้าง `BankLedgerEntry` |
 | `src/lib/rollover.ts` | `simulateRolloverToDate` จำลองเหตุการณ์การเงินตามลำดับเวลา: รีเซ็ตโควต้า → รับรายรับประจำ → ตัดบิลรายจ่ายประจำ (ตัดยอดแม้ติดลบ) |
 | `src/lib/seed.ts` | ข้อมูลตั้งต้น (`INITIAL_*`), ตัวจัดรูปแบบ `formatTHB` (รองรับ `-฿...`), `formatThaiDate` (เฉพาะวัน/เดือน/ปี), ตัวจัดการวันที่ (`todayYmd`, `ymdToIso`, `toDateInputValue`, `normalizeTransactionDate`), และ `isInCurrentQuotaCycle` (fallback เป็นเดือนปฏิทินปัจจุบันเมื่อยังไม่ตั้ง `quotaResetAt`) |
 | `src/lib/ocr.ts` | `extractSlipOcrText` เรียก OCR.space Engine 1 (`language: "tha"`) พร้อม timeout 4 วินาที และจำกัดขนาดไฟล์ 1 MB |
 | `src/lib/openrouter.ts` | `callOpenRouter` HTTP client พร้อม timeout 45 วินาที, อ่าน `res.text()` ก่อน `JSON.parse`, Auto-Retry 2 ครั้ง (`1s`/`2s`) สำหรับ `429/502/503/504` หรือ network error ชั่วคราว, และตัวเก็บสถิติ `LLMMetrics` |
 | `src/lib/slip-image.ts` | เตรียมรูปภาพสลิปสำหรับ OCR/Vision API (`prepareSlipImage`: ส่งตรง `<= 950KB`, ย่อ `1600px` ให้อยู่ใต้ลิมิต OCR 1 MB, และสร้าง thumbnail `180px`) |
-| `src/lib/self-check.ts` | ชุดทดสอบอัตโนมัติ 23 หัวข้อครอบคลุมทุกฟังก์ชันหลักใน `src/lib/` |
+| `src/lib/self-check.ts` | ชุดทดสอบอัตโนมัติ 30 หัวข้อครอบคลุมทุกฟังก์ชันหลักใน `src/lib/` (รวม analytics, read tools, date search, seed integrity, และ prompt v2.9.1) |
 
 ---
 

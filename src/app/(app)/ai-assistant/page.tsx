@@ -14,6 +14,11 @@ import {
 } from "@/lib/seed";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { IconColorPicker } from "@/components/IconColorPicker";
+import { consumeAiInsightPrompt } from "@/lib/ai-handoff";
+import {
+  computeFinancialInsights,
+  formatCompactInsightsForPrompt,
+} from "@/lib/financial-insights";
 import { prepareSlipImage } from "@/lib/slip-image";
 import { useDialogAccessibility } from "@/lib/useDialogAccessibility";
 import {
@@ -265,6 +270,7 @@ interface PendingTxDraft {
 export default function AiAssistantPage() {
   const {
     user,
+    hydrated,
     bankBalance,
     transactions,
     categories,
@@ -295,6 +301,8 @@ export default function AiAssistantPage() {
   const scrollAnimRef = useRef<ScrollAnimationState | null>(null);
   const userCancelledScrollRef = useRef(false);
   const hasMountedScrollRef = useRef(false);
+  const handledHandoffRef = useRef(false);
+  const sendPromptRef = useRef<(promptText: string) => Promise<void>>(async () => {});
   const activeUserMediaIdRef = useRef<string | null>(null);
   const prevChatMetaRef = useRef<{
     count: number;
@@ -604,6 +612,16 @@ export default function AiAssistantPage() {
         })
         .join(", ") || "ไม่มี";
 
+    const compactInsights = formatCompactInsightsForPrompt(
+      computeFinancialInsights({
+        bankBalance,
+        transactions,
+        categories: cats,
+        recurring,
+        quotaResetAt: settings.quotaResetAt,
+      })
+    );
+
     return [
       `วันที่ปัจจุบัน: ${todayYmd()} (${new Date().toLocaleDateString("th-TH", { dateStyle: "long" })})`,
       `ยอดเงินคงเหลือ Virtual Wallet: ${formatTHB(bankBalance)}`,
@@ -618,6 +636,7 @@ export default function AiAssistantPage() {
       `รายการ Recurring: ${recList}`,
       `หมวดรายจ่ายที่มี (ยอดใช้ในรอบปัจจุบัน):\n${catBreakdown}`,
       `หมวดรายรับที่มี: ${incomeCats}`,
+      compactInsights,
     ].join("\n");
   };
 
@@ -898,6 +917,16 @@ export default function AiAssistantPage() {
       setLoadingStage(null);
     }
   };
+
+  sendPromptRef.current = sendPrompt;
+
+  useEffect(() => {
+    if (!hydrated || handledHandoffRef.current) return;
+    handledHandoffRef.current = true;
+    const queuedPrompt = consumeAiInsightPrompt();
+    if (!queuedPrompt || inputLocked) return;
+    void sendPromptRef.current(queuedPrompt);
+  }, [hydrated, inputLocked]);
 
   const handleConfirmTool = async (msg: ChatMessage) => {
     const pt = msg.pendingTool;

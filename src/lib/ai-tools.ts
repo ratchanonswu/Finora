@@ -1,4 +1,5 @@
 import type { OpenRouterToolDef } from "./openrouter.ts";
+import { computeFinancialInsights } from "./financial-insights.ts";
 import {
   formatThaiDate,
   isInCurrentQuotaCycle,
@@ -26,6 +27,7 @@ export const READ_TOOL_NAMES = new Set([
   "get_categories",
   "get_recurring_payments",
   "get_financial_prediction",
+  "get_spending_insights",
 ]);
 
 export const CATEGORY_ICON_IDS = [
@@ -296,6 +298,27 @@ export const FINORA_TOOLS: OpenRouterToolDef[] = [
           monthsAhead: {
             type: "number",
             description: "จำนวนเดือนล่วงหน้าที่ต้องการคาดการณ์ (1 ถึง 12 เดือน, ค่าเริ่มต้น 3)",
+          },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_spending_insights",
+      description:
+        "วิเคราะห์พฤติกรรมการใช้จ่ายเชิงลึก: อันดับหมวดรายจ่ายสูงสุด, เทียบเดือนก่อน (MoM), อัตราการออม, งบใช้ได้ต่อวัน (Daily Safe Spend), อัตราเผางบเทียบวันของเดือน, ภาระรายจ่ายประจำ (Recurring Load), หมวดที่ใช้พุ่งผิดปกติ, รายการใหญ่สุด, และเป้าหมายจำลองการประหยัด",
+      parameters: {
+        type: "object",
+        properties: {
+          topN: {
+            type: "number",
+            description: "จำนวนอันดับหมวดรายจ่ายและรายการใหญ่สุดที่ต้องการดู (3 ถึง 10, ค่าเริ่มต้น 5)",
+          },
+          focusCategoryId: {
+            type: "string",
+            description: "รหัสหรือชื่อหมวดหมู่รายจ่ายที่ต้องการเจาะลึกเพิ่มเติม (ไม่บังคับ)",
           },
         },
       },
@@ -619,6 +642,67 @@ export function runReadTool(
         `รวมรายรับประจำ (Recurring Income) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringIncomeMonthly.toLocaleString("en-US")} บาท และภาระรายจ่ายประจำ (Recurring Expense) ที่เปิดใช้งานอยู่เดือนละ ${activeRecurringMonthly.toLocaleString("en-US")} บาท`,
         "สมมติให้พฤติกรรมการใช้จ่ายและรายรับคงที่ตลอดช่วงเวลาที่คาดการณ์",
       ],
+    };
+  }
+
+  if (name === "get_spending_insights") {
+    const rawTopN = args.topN !== undefined && args.topN !== null ? Number(args.topN) : undefined;
+    const insights = computeFinancialInsights({
+      bankBalance,
+      transactions,
+      categories,
+      recurring,
+      quotaResetAt: snapshot.quotaResetAt,
+      topN: Number.isFinite(rawTopN) ? rawTopN : undefined,
+    });
+
+    const rawFocus =
+      args.focusCategoryId !== undefined && args.focusCategoryId !== null
+        ? String(args.focusCategoryId).trim()
+        : "";
+    let focusedCategory: Record<string, unknown> | undefined;
+    if (rawFocus) {
+      const resolved =
+        resolveCategory(rawFocus, categories, "expense") ||
+        resolveCategory(rawFocus, categories);
+      if (resolved) {
+        const insight =
+          insights.categoryInsights.find((c) => c.categoryId === resolved.id) || null;
+        const catTopTxs = transactions
+          .filter(
+            (t) =>
+              t.categoryId === resolved.id &&
+              t.type === resolved.type &&
+              isInCurrentQuotaCycle(t.date, snapshot.quotaResetAt)
+          )
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 5)
+          .map((t) => ({
+            id: t.id,
+            title: t.title,
+            amount: t.amount,
+            channel: t.channel,
+            date: t.date,
+          }));
+        focusedCategory = {
+          resolved: true,
+          categoryId: resolved.id,
+          name: resolved.name,
+          insight,
+          topTransactions: catTopTxs,
+        };
+      } else {
+        focusedCategory = {
+          resolved: false,
+          query: rawFocus,
+          note: "ไม่พบหมวดหมู่ที่ระบุในระบบ",
+        };
+      }
+    }
+
+    return {
+      ...insights,
+      ...(focusedCategory ? { focusedCategory } : {}),
     };
   }
 

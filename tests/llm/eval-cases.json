@@ -59,11 +59,16 @@
     "expectedBehavior": "Calls update_category_budget for food category."
   },
   {
-    "id": "eval-06-create-category-redirect",
-    "category": "policy_guardrail",
+    "id": "eval-06-create-category",
+    "category": "write_tool",
     "input": "สร้างหมวดหมู่ใหม่ชื่อ สัตว์เลี้ยง งบ 3,000 บาทให้หน่อย",
-    "expectedTool": null,
-    "expectedBehavior": "Does not call any category creation tool; politely instructs the user to create new categories in the จัดการหมวดหมู่ page."
+    "expectedTool": "add_category",
+    "expectedArgs": {
+      "name": "สัตว์เลี้ยง",
+      "type": "expense",
+      "budget": 3000
+    },
+    "expectedBehavior": "Calls add_category immediately to show inline confirmation card without claiming it is already created."
   },
   {
     "id": "eval-07-prediction",
@@ -113,5 +118,60 @@
     "input": "สวัสดีค่ะฟิโนร่า",
     "expectedTool": null,
     "expectedBehavior": "Greets briefly as Finora using ค่ะ/นะคะ and invites the user to discuss their finances."
+  },
+  {
+    "id": "eval-13-coaching-spending-analysis",
+    "category": "coaching_advice",
+    "input": "วิเคราะห์รายจ่ายเดือนนี้ของฉันให้หน่อย ควรลดหมวดไหนดี?",
+    "expectedTool": "get_spending_insights",
+    "expectedBehavior": "Calls get_spending_insights, presents top spending categories in a Markdown ranking table, analyzes top drivers/anomalies using exact THB & % numbers, lists simulated savingsOpportunities with totalPotentialMonthlySavings and the simulation disclaimer, and offers a concrete next-step write action without invoking it yet."
+  },
+  {
+    "id": "eval-14-coaching-savings-plan",
+    "category": "coaching_advice",
+    "input": "ด้วยเงินคงเหลือและรายรับตอนนี้ ฉันควรออมเงินเดือนละเท่าไหร่ดี?",
+    "expectedTool": "get_spending_insights",
+    "expectedBehavior": "Calls get_spending_insights, cites actual currentIncome, savingsRatePct, recurringLoadPct, and savingsOpportunities to propose a realistic monthly savings range with exact THB figures, avoiding generic ungrounded rules."
+  },
+  {
+    "id": "eval-15-coaching-budget-burn-rate",
+    "category": "coaching_advice",
+    "input": "ตอนนี้ฉันใช้เงินเร็วเกินไปไหม เหลืองบใช้วันละกี่บาทถึงสิ้นเดือน?",
+    "expectedTool": "get_spending_insights",
+    "expectedBehavior": "Calls get_spending_insights, compares category usagePct against monthProgress.elapsedPct, highlights any over/near/ahead_of_pace categories, and reports dailySafeSpendFromBudget and dailySafeSpendFromWallet accurately."
+  },
+  {
+    "id": "eval-16-light-proactivity-on-overview",
+    "category": "proactive_nudge",
+    "input": "ตอนนี้มียอดเงินเหลือเท่าไหร่คะ",
+    "expectedTool": "get_financial_overview",
+    "contextCondition": "Financial context includes an over-budget or >=80% near-budget risk flag or negative wallet balance.",
+    "expectedBehavior": "Answers the balance question accurately first, then appends a concise, polite 1-line proactive warning citing the active risk flag from Financial Context without overshadowing the main answer."
+  },
+  {
+    "id": "eval-17-coaching-sparse-first-month",
+    "category": "data_honesty",
+    "input": "ช่วยเปรียบเทียบการใช้จ่ายเดือนนี้กับเดือนที่แล้ว และวิเคราะห์แนวโน้มให้หน่อย",
+    "expectedTool": "get_spending_insights",
+    "contextCondition": "First month user where previousIncome === 0, previousExpense === 0, and momChangePct === null.",
+    "expectedBehavior": "Calls get_spending_insights, honestly states there is no previous-month transaction baseline for MoM comparison instead of inventing percentages, and coaches using current-month totals and category shares."
+  },
+  {
+    "id": "eval-18-coaching-to-action-budget-update",
+    "category": "coaching_to_action",
+    "input": "โอเค งั้นช่วยปรับลดงบหมวดช้อปปิ้งเป็น 6,500 บาทตามที่แนะนำเลย",
+    "expectedTool": "update_category_budget",
+    "expectedArgs": {
+      "categoryId": "shopping",
+      "budget": 6500
+    },
+    "expectedBehavior": "Following user confirmation of a coached recommendation, immediately calls update_category_budget for shopping=6500 so the inline confirmation card renders."
+  },
+  {
+    "id": "eval-19-summary-with-followup-advice",
+    "category": "coaching_summary",
+    "input": "top 5 รายจ่ายเป็นรายการเดือนนี้",
+    "expectedTool": "get_transactions",
+    "expectedBehavior": "Answers with the top 5 current-cycle expense items in a Markdown table first, then follows up with a concise ข้อสังเกตและคำแนะนำจากฟิโนร่า section pointing out risky/over-budget drivers, citing current-cycle simulated savings figures with disclaimer, and offering 1 concrete next step without duplicate polite endings like นะคะค่ะ."
   }
 ]

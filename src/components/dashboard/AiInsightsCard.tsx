@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { queueAiInsightPrompt } from "@/lib/ai-handoff";
 import type { DashboardInsight } from "./dashboard-utils";
 
 export function AiInsightsCard({ insight }: { insight: DashboardInsight }) {
@@ -52,6 +53,7 @@ export function AiInsightsCard({ insight }: { insight: DashboardInsight }) {
 
         <Link
           href="/ai-assistant"
+          onClick={() => queueAiInsightPrompt(insight.headline)}
           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-surface-container-high border border-emerald-200/80 dark:border-outline-variant/40 text-xs font-semibold text-emerald-700 dark:text-primary hover:bg-emerald-700 hover:text-white dark:hover:bg-primary-container dark:hover:text-on-primary-container transition-colors shadow-sm"
         >
           <span>ดูคำแนะนำเพิ่มเติมกับ Finora AI</span>
