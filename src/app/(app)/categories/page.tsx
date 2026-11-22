@@ -8,6 +8,7 @@ import {
 } from "@/components/dashboard/dashboard-utils";
 import { IconColorPicker } from "@/components/IconColorPicker";
 import { useFinora } from "@/context/FinoraContext";
+import { toMonthlyRecurringAmount } from "@/lib/financial-insights";
 import { formatTHB, isBaseCategory, isInCurrentQuotaCycle, nextCategoryColor } from "@/lib/seed";
 import type { Category } from "@/lib/types";
 
@@ -101,7 +102,7 @@ export default function CategoriesPage() {
       .reduce((s, t) => s + t.amount, 0);
     const activeRecurringIncome = recurring
       .filter((r) => r.active && r.type === "income")
-      .reduce((s, r) => s + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0);
+      .reduce((s, r) => s + toMonthlyRecurringAmount(r), 0);
     const referenceIncome = Math.max(thisMonthIncome, activeRecurringIncome);
     const surplus = referenceIncome - totalExpenseBudget;
     return { totalExpenseBudget, referenceIncome, surplus };

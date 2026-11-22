@@ -2160,6 +2160,7 @@ export default function AiAssistantPage() {
           <textarea
             ref={textareaRef}
             rows={1}
+            aria-label="พิมพ์คำถามถึงผู้ช่วย AI"
             value={input}
             disabled={inputLocked}
             onPaste={handlePaste}
@@ -2177,7 +2178,7 @@ export default function AiAssistantPage() {
                 ? "กรุณากดยืนยันหรือยกเลิกรายการก่อนส่งข้อความต่อ..."
                 : "พิมพ์คำถาม (Enter ส่ง, Shift+Enter ขึ้นบรรทัดใหม่) หรือวางรูปสลิป..."
             }
-            className="flex-1 resize-none bg-surface-container-low border border-outline-variant/40 rounded-lg px-4 py-2.5 text-sm leading-5 text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex-1 min-h-[42px] resize-none bg-surface-container-low border border-outline-variant/40 rounded-lg px-4 py-2.5 text-sm leading-5 text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 disabled:opacity-60 disabled:cursor-not-allowed"
           />
           <button
             type="submit"
@@ -2308,6 +2309,15 @@ export default function AiAssistantPage() {
                     </p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleCancelTxDraft}
+                  className="p-2 -mr-1.5 -mt-0.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high disabled:opacity-40 shrink-0"
+                  aria-label="ปิดหน้าต่าง"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
               </div>
 
               <form

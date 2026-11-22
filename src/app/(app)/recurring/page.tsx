@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { COLOR_CHOICES, IconColorPicker } from "@/components/IconColorPicker";
 import { useFinora } from "@/context/FinoraContext";
+import { toMonthlyRecurringAmount } from "@/lib/financial-insights";
 import { formatTHB } from "@/lib/seed";
 import type { RecurringPayment } from "@/lib/types";
 
@@ -62,8 +63,7 @@ export default function RecurringPage() {
   );
 
   const monthlyTotal = useMemo(
-    () =>
-      activeItems.reduce((sum, r) => sum + (r.cycle === "yearly" ? r.amount / 12 : r.amount), 0),
+    () => activeItems.reduce((sum, r) => sum + toMonthlyRecurringAmount(r), 0),
     [activeItems]
   );
 

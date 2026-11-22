@@ -113,7 +113,8 @@ function calcMomChangePct(current: number, previous: number): number | null {
   return round1(((current - previous) / Math.abs(previous)) * 100);
 }
 
-function toMonthlyRecurringAmount(item: RecurringPayment): number {
+/** Normalizes a recurring payment's amount to its monthly equivalent. */
+export function toMonthlyRecurringAmount(item: RecurringPayment): number {
   if (item.cycle === "yearly") return item.amount / 12;
   if (item.cycle === "weekly") return item.amount * 4;
   return item.amount;

@@ -51,6 +51,8 @@ export default function DashboardPage() {
     return localDateToYmd(new Date(now.getFullYear(), now.getMonth(), 1));
   });
   const [customEnd, setCustomEnd] = useState(() => todayYmd());
+  const [draftStart, setDraftStart] = useState(customStart);
+  const [draftEnd, setDraftEnd] = useState(customEnd);
   const [dateMenuOpen, setDateMenuOpen] = useState(false);
   const [chartGranularity, setChartGranularity] = useState<ChartGranularity>("monthly");
 
@@ -181,7 +183,14 @@ export default function DashboardPage() {
         <div ref={dateMenuRef} className="relative self-start md:self-auto shrink-0">
           <button
             type="button"
-            onClick={() => setDateMenuOpen((o) => !o)}
+            onClick={() => {
+              const nextOpen = !dateMenuOpen;
+              if (nextOpen) {
+                setDraftStart(customStart);
+                setDraftEnd(customEnd);
+              }
+              setDateMenuOpen(nextOpen);
+            }}
             aria-expanded={dateMenuOpen}
             aria-haspopup="dialog"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-surface-container border border-slate-200/80 dark:border-outline-variant/40 text-xs sm:text-sm font-medium text-slate-700 dark:text-on-surface hover:border-emerald-300 dark:hover:border-primary/50 shadow-sm transition-colors"
@@ -245,8 +254,9 @@ export default function DashboardPage() {
                     <input
                       id="dash-start-date"
                       type="date"
-                      value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
+                      value={draftStart}
+                      max={draftEnd || undefined}
+                      onChange={(e) => setDraftStart(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-surface-container-low border border-slate-200/80 dark:border-outline-variant/40 rounded-lg px-2 py-1.5 text-[11px] font-mono text-slate-900 dark:text-on-surface"
                     />
                   </div>
@@ -260,16 +270,25 @@ export default function DashboardPage() {
                     <input
                       id="dash-end-date"
                       type="date"
-                      value={customEnd}
-                      onChange={(e) => setCustomEnd(e.target.value)}
+                      value={draftEnd}
+                      min={draftStart || undefined}
+                      onChange={(e) => setDraftEnd(e.target.value)}
                       className="w-full bg-slate-50 dark:bg-surface-container-low border border-slate-200/80 dark:border-outline-variant/40 rounded-lg px-2 py-1.5 text-[11px] font-mono text-slate-900 dark:text-on-surface"
                     />
                   </div>
                 </div>
+                {draftStart && draftEnd && draftStart > draftEnd && (
+                  <p role="alert" className="text-[11px] font-medium text-red-600 dark:text-error">
+                    วันเริ่มต้นต้องไม่เกินวันสิ้นสุด
+                  </p>
+                )}
                 <button
                   type="button"
-                  disabled={!customStart || !customEnd}
+                  disabled={!draftStart || !draftEnd || draftStart > draftEnd}
                   onClick={() => {
+                    if (!draftStart || !draftEnd || draftStart > draftEnd) return;
+                    setCustomStart(draftStart);
+                    setCustomEnd(draftEnd);
                     setDatePreset("custom");
                     setDateMenuOpen(false);
                   }}
