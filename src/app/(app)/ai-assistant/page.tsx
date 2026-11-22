@@ -13,6 +13,10 @@ import {
   ymdToIso,
 } from "@/lib/seed";
 import { IconColorPicker } from "@/components/IconColorPicker";
+import {
+  computeFinancialInsights,
+  formatCompactInsightsForPrompt,
+} from "@/lib/financial-insights";
 import { prepareSlipImage } from "@/lib/slip-image";
 import {
   describeWriteTool,
@@ -602,6 +606,16 @@ export default function AiAssistantPage() {
         })
         .join(", ") || "ไม่มี";
 
+    const compactInsights = formatCompactInsightsForPrompt(
+      computeFinancialInsights({
+        bankBalance,
+        transactions,
+        categories: cats,
+        recurring,
+        quotaResetAt: settings.quotaResetAt,
+      })
+    );
+
     return [
       `วันที่ปัจจุบัน: ${todayYmd()} (${new Date().toLocaleDateString("th-TH", { dateStyle: "long" })})`,
       `ยอดเงินคงเหลือ Virtual Wallet: ${formatTHB(bankBalance)}`,
@@ -616,6 +630,7 @@ export default function AiAssistantPage() {
       `รายการ Recurring: ${recList}`,
       `หมวดรายจ่ายที่มี (ยอดใช้ในรอบปัจจุบัน):\n${catBreakdown}`,
       `หมวดรายรับที่มี: ${incomeCats}`,
+      compactInsights,
     ].join("\n");
   };
 
