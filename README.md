@@ -1,15 +1,45 @@
-# Finora — AI-Powered Personal Finance Management Platform
+<div align="center">
 
-Finora is a personal finance management web application built with **Next.js 15 (App Router)**, **React 19**, **TypeScript**, and **Tailwind CSS**, featuring a **Dual Theme** (Light Fintech default + Emerald Nocturne Dark Mode), a **Virtual Bank Simulator API**, and **OpenRouter LLM / Vision + OCR.space Thai Slip Scanner** integration.
+# Finora
+
+**AI-Powered Personal Finance Management Platform**
+
+![Next.js 15](https://img.shields.io/badge/Next.js-15_(App_Router)-000000?style=flat-square&logo=nextdotjs&logoColor=white)
+![React 19](https://img.shields.io/badge/React-19-149ECA?style=flat-square&logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-Styling-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![OpenRouter](https://img.shields.io/badge/OpenRouter-LLM_%26_Vision-6366F1?style=flat-square)
+![OCR.space](https://img.shields.io/badge/OCR.space-Thai_Slip_Scanner-059669?style=flat-square)
+
+[Overview](#overview) · [Documentation](#documentation) · [Project Structure](#project-structure) · [Getting Started](#getting-started) · [Verify & Build](#4-verify--build)
+
+</div>
 
 ---
 
-## Documentation (`docs/`)
+## Overview
 
-- [docs/MAP.md](docs/MAP.md) — System Architecture, Module Responsibilities, & Data Flow Blueprint
-- [docs/REPO_MAP.md](docs/REPO_MAP.md) — File & Symbol Dictionary
-- [docs/AI_TOOLS_AND_PROMPTS.md](docs/AI_TOOLS_AND_PROMPTS.md) — AI Tools (9 Tools) & Prompts (`v2.8.0`) Handbook
-- [docs/Objective.md](docs/Objective.md) — Original Product & UX Specification
+Finora is a personal finance management web application built with **Next.js 15 (App Router)**, **React 19**, **TypeScript**, and **Tailwind CSS**, featuring a **Dual Theme** (Light Fintech default + Emerald Nocturne Dark Mode), a **Virtual Bank Simulator API**, and **OpenRouter LLM / Vision + OCR.space Thai Slip Scanner** integration.
+
+| Pillar | Details |
+| :--- | :--- |
+| **Core Stack** | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS |
+| **Theming** | Dual Theme — Light Fintech (default) and Emerald Nocturne Dark Mode |
+| **Banking Simulation** | Virtual Bank Simulator API (`GET` / `POST`) |
+| **AI & Slip Scanning** | OpenRouter LLM / Vision + OCR.space Thai Slip Scanner |
+
+---
+
+## Documentation
+
+All architecture blueprints, symbol references, AI handbooks, and product specifications live in [`docs/`](docs/).
+
+| Document | Description |
+| :--- | :--- |
+| [`docs/MAP.md`](docs/MAP.md) | System Architecture, Module Responsibilities, & Data Flow Blueprint |
+| [`docs/REPO_MAP.md`](docs/REPO_MAP.md) | File & Symbol Dictionary |
+| [`docs/AI_TOOLS_AND_PROMPTS.md`](docs/AI_TOOLS_AND_PROMPTS.md) | AI Tools (9 Tools) & Prompts (`v2.8.0`) Handbook |
+| [`docs/Objective.md`](docs/Objective.md) | Original Product & UX Specification |
 
 ---
 
@@ -73,30 +103,50 @@ Finora/
 ## Getting Started
 
 ### 1. Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### 2. Configure OpenRouter API Key & Model
+
 Copy `.env.example` to `.env.local` and set your OpenRouter API key and vision-capable model (plus optional OCR.space key for faster/dedicated Thai slip OCR):
+
 ```bash
 cp .env.example .env.local
 ```
+
 ```env
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 OPENROUTER_MODEL=google/gemini-2.5-flash
 # OCR_SPACE_API_KEY=your_ocr_space_api_key_here
 ```
-*(Alternatively, you can enter an OpenRouter API key override directly in **Settings** inside the app.)*
+
+| Variable | Required | Description |
+| :--- | :--- | :--- |
+| `OPENROUTER_API_KEY` | Yes | Your OpenRouter API key |
+| `OPENROUTER_MODEL` | Yes | Vision-capable OpenRouter model (e.g., `google/gemini-2.5-flash`) |
+| `OCR_SPACE_API_KEY` | Optional | Dedicated OCR.space key for faster Thai slip OCR |
+
+> [!NOTE]
+> Alternatively, you can enter an OpenRouter API key override directly in **Settings** inside the app.
 
 ### 3. Run Development Server
+
 ```bash
 npm run dev
 ```
+
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### 4. Verify & Build
+
 ```bash
 npm run test:check   # Runs 23 automated checks (bank, AI tools, prompts, dates, quota cycle)
 npm run build        # Production TypeScript & Next.js build
 ```
+
+| Command | Purpose |
+| :--- | :--- |
+| `npm run test:check` | Runs 23 automated checks (bank, AI tools, prompts, dates, quota cycle) |
+| `npm run build` | Production TypeScript & Next.js build |
