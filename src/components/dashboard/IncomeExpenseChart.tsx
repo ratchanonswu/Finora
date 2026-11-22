@@ -64,7 +64,7 @@ export function IncomeExpenseChart({
       {/* Header + Granularity Switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-primary-container/20 text-emerald-600 dark:text-primary flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-primary-container/20 text-emerald-700 dark:text-primary flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[19px]">bar_chart</span>
           </div>
           <div>
@@ -161,7 +161,7 @@ export function IncomeExpenseChart({
                       x={padLeft - 10}
                       y={y + 4}
                       textAnchor="end"
-                      className="fill-slate-400 dark:fill-on-surface-variant text-[11px] font-mono"
+                      className="fill-slate-600 dark:fill-on-surface-variant text-[11px] font-mono"
                     >
                       {tick === 0 ? "0" : formatCompactTHB(tick).replace("฿", "")}
                     </text>
@@ -183,11 +183,20 @@ export function IncomeExpenseChart({
                 return (
                   <g
                     key={bucket.key}
+                    role="button"
+                    aria-pressed={isHovered}
                     onMouseEnter={() => setHoveredIdx(idx)}
+                    onClick={() => setHoveredIdx((prev) => (prev === idx ? null : idx))}
                     onFocus={() => setHoveredIdx(idx)}
                     onBlur={() => setHoveredIdx(null)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setHoveredIdx((prev) => (prev === idx ? null : idx));
+                      }
+                    }}
                     tabIndex={0}
-                    className="cursor-pointer outline-none"
+                    className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                     aria-label={`${bucket.fullLabel}: รายรับ ${formatTHB(bucket.income)}, รายจ่าย ${formatTHB(bucket.expense)}`}
                   >
                     {/* Hover Highlight Band */}
@@ -212,7 +221,7 @@ export function IncomeExpenseChart({
                         width={barW}
                         height={incomeH}
                         rx={Math.min(6, barW / 2)}
-                        className="fill-emerald-500 dark:fill-primary transition-opacity duration-150"
+                        className="fill-emerald-600 dark:fill-primary transition-opacity duration-150"
                         opacity={hoveredIdx !== null && !isHovered ? 0.55 : 1}
                       />
                     )}
@@ -225,7 +234,7 @@ export function IncomeExpenseChart({
                         width={barW}
                         height={expenseH}
                         rx={Math.min(6, barW / 2)}
-                        className="fill-red-400 dark:fill-secondary transition-opacity duration-150"
+                        className="fill-red-500 dark:fill-secondary transition-opacity duration-150"
                         opacity={hoveredIdx !== null && !isHovered ? 0.55 : 1}
                       />
                     )}
@@ -238,7 +247,7 @@ export function IncomeExpenseChart({
                       className={`text-[11px] font-medium ${
                         isHovered
                           ? "fill-slate-900 dark:fill-on-surface font-semibold"
-                          : "fill-slate-500 dark:fill-on-surface-variant"
+                          : "fill-slate-600 dark:fill-on-surface-variant"
                       }`}
                     >
                       {bucket.label}

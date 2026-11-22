@@ -1,12 +1,27 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useFinora } from "@/context/FinoraContext";
-import { todayYmd, ymdToIso } from "@/lib/seed";
+import { toDateInputValue, todayYmd, ymdToIso } from "@/lib/seed";
+import { useDialogAccessibility } from "@/lib/useDialogAccessibility";
 import type { TransactionType } from "@/lib/types";
 
+const BASE_CHANNELS = [
+  "Virtual Bank Wallet",
+  "สแกน PromptPay QR",
+  "Virtual Card",
+  "เงินสด",
+];
+
 export function TransactionModal() {
-  const { isTxModalOpen, setTxModalOpen, categories, addTransaction } = useFinora();
+  const {
+    isTxModalOpen,
+    setTxModalOpen,
+    editingTransaction,
+    categories,
+    addTransaction,
+    updateTransaction,
+  } = useFinora();
   const [type, setType] = useState<TransactionType>("expense");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -15,12 +30,45 @@ export function TransactionModal() {
   const [date, setDate] = useState<string>(() => todayYmd());
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  const isEditing = Boolean(editingTransaction);
+
+  useEffect(() => {
+    if (!isTxModalOpen) return;
+    setError("");
+    if (editingTransaction) {
+      setType(editingTransaction.type);
+      setTitle(editingTransaction.title);
+      setAmount(String(editingTransaction.amount));
+      setCategoryId(editingTransaction.categoryId);
+      setChannel(editingTransaction.channel || "Virtual Bank Wallet");
+      setDate(toDateInputValue(editingTransaction.date) || todayYmd());
+    } else {
+      setType("expense");
+      setTitle("");
+      setAmount("");
+      setCategoryId("food");
+      setChannel("Virtual Bank Wallet");
+      setDate(todayYmd());
+    }
+  }, [isTxModalOpen, editingTransaction]);
+
+  useDialogAccessibility(
+    isTxModalOpen,
+    dialogRef,
+    () => setTxModalOpen(false),
+    !submitting
+  );
 
   if (!isTxModalOpen) return null;
 
   const filteredCategories = categories.filter(
     (c) => c.type === type && c.id !== "recurring"
   );
+  const channelOptions = BASE_CHANNELS.includes(channel)
+    ? BASE_CHANNELS
+    : [channel, ...BASE_CHANNELS];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,16 +80,19 @@ export function TransactionModal() {
 
     setError("");
     setSubmitting(true);
-    const res = await addTransaction({
+    const payload = {
       title: title.trim(),
       amount: parsedAmount,
       type,
       categoryId: filteredCategories.some((c) => c.id === categoryId)
         ? categoryId
-        : filteredCategories[0]?.id || "food",
+        : filteredCategories[0]?.id || (type === "income" ? "salary" : "food"),
       channel,
       date: ymdToIso(date),
-    });
+    };
+    const res = editingTransaction
+      ? await updateTransaction(editingTransaction.id, payload)
+      : await addTransaction(payload);
     setSubmitting(false);
 
     if (!res.ok) {
@@ -49,9 +100,6 @@ export function TransactionModal() {
       return;
     }
 
-    setTitle("");
-    setAmount("");
-    setDate(todayYmd());
     setTxModalOpen(false);
   };
 
@@ -61,19 +109,30 @@ export function TransactionModal() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="tx-modal-title"
+      onClick={() => {
+        if (!submitting) setTxModalOpen(false);
+      }}
     >
-      <div className="w-full max-w-lg rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden animate-modal-in">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="w-full max-w-lg rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden animate-modal-in focus:outline-none"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/30">
           <div className="flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-primary text-[22px]">add_circle</span>
+            <span className="material-symbols-outlined text-primary text-[22px]">
+              {isEditing ? "edit" : "add_circle"}
+            </span>
             <h2 id="tx-modal-title" className="text-lg font-semibold text-on-surface m-0">
-              บันทึกธุรกรรมใหม่
+              {isEditing ? "แก้ไขรายการธุรกรรม" : "บันทึกธุรกรรมใหม่"}
             </h2>
           </div>
           <button
             type="button"
+            disabled={submitting}
             onClick={() => setTxModalOpen(false)}
-            className="p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+            className="p-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high disabled:opacity-40"
             aria-label="ปิดหน้าต่าง"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -86,7 +145,9 @@ export function TransactionModal() {
               type="button"
               onClick={() => {
                 setType("expense");
-                setCategoryId("food");
+                setCategoryId(
+                  categories.find((c) => c.type === "expense" && c.id !== "recurring")?.id || "food"
+                );
               }}
               className={`py-2 rounded-md text-sm font-semibold transition-colors ${
                 type === "expense"
@@ -100,7 +161,9 @@ export function TransactionModal() {
               type="button"
               onClick={() => {
                 setType("income");
-                setCategoryId("salary");
+                setCategoryId(
+                  categories.find((c) => c.type === "income" && c.id !== "recurring")?.id || "salary"
+                );
               }}
               className={`py-2 rounded-md text-sm font-semibold transition-colors ${
                 type === "income"
@@ -113,8 +176,11 @@ export function TransactionModal() {
           </div>
 
           {error && (
-            <div className="p-3 rounded-lg border border-error/40 bg-error-container/20 text-on-error-container text-xs flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px] text-error">error</span>
+            <div
+              role="alert"
+              className="p-3 rounded-lg border border-error/40 bg-error-container/20 text-on-error-container text-xs flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[16px] text-error shrink-0">error</span>
               <span>{error}</span>
             </div>
           )}
@@ -129,7 +195,7 @@ export function TransactionModal() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="เช่น กาแฟ Starbucks, เงินเดือน, ค่าอินเทอร์เน็ต"
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
             />
           </div>
 
@@ -146,7 +212,7 @@ export function TransactionModal() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
               />
             </div>
 
@@ -158,7 +224,7 @@ export function TransactionModal() {
                 id="tx-cat"
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
               >
                 {filteredCategories.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -178,12 +244,13 @@ export function TransactionModal() {
                 id="tx-channel"
                 value={channel}
                 onChange={(e) => setChannel(e.target.value)}
-                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
               >
-                <option value="Virtual Bank Wallet">Virtual Bank Wallet</option>
-                <option value="สแกน PromptPay QR">สแกน PromptPay QR</option>
-                <option value="Virtual Card">Virtual Card</option>
-                <option value="เงินสด">เงินสด</option>
+                {channelOptions.map((ch) => (
+                  <option key={ch} value={ch}>
+                    {ch}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -197,7 +264,7 @@ export function TransactionModal() {
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary"
+                className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
               />
             </div>
           </div>
@@ -205,8 +272,9 @@ export function TransactionModal() {
           <div className="pt-3 border-t border-outline-variant/30 flex justify-end gap-2">
             <button
               type="button"
+              disabled={submitting}
               onClick={() => setTxModalOpen(false)}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+              className="px-4 py-2 rounded-lg text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high disabled:opacity-40"
             >
               ยกเลิก
             </button>
@@ -215,7 +283,7 @@ export function TransactionModal() {
               disabled={submitting}
               className="px-5 py-2 rounded-lg bg-primary-container text-on-primary-container text-sm font-semibold hover:opacity-90 disabled:opacity-50"
             >
-              {submitting ? "กำลังบันทึก..." : "บันทึกรายการ"}
+              {submitting ? "กำลังบันทึก..." : isEditing ? "บันทึกการแก้ไข" : "บันทึกรายการ"}
             </button>
           </div>
         </form>

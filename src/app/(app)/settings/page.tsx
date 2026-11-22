@@ -27,6 +27,49 @@ function endOfMonthIso(dateStr: string): string {
   return `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 }
 
+function SwitchRow({
+  id,
+  title,
+  description,
+  checked,
+  onChange,
+}: {
+  id: string;
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="p-4 flex items-center justify-between gap-4">
+      <div>
+        <label htmlFor={id} className="text-sm font-semibold text-on-surface block cursor-pointer">
+          {title}
+        </label>
+        <div className="text-xs text-on-surface-variant mt-0.5">{description}</div>
+      </div>
+      <button
+        id={id}
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors ${
+          checked
+            ? "bg-primary-container border-primary-container"
+            : "bg-surface-container-highest border-outline-variant/60"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+            checked ? "translate-x-6" : "translate-x-1"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const {
     theme,
@@ -89,25 +132,33 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold text-on-surface m-0">ข้อมูลบัญชีผู้ใช้ (Profile)</h2>
         <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+            <label
+              htmlFor="settings-name"
+              className="block text-xs font-semibold text-on-surface-variant mb-1.5"
+            >
               ชื่อ-นามสกุล
             </label>
             <input
+              id="settings-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface"
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+            <label
+              htmlFor="settings-email"
+              className="block text-xs font-semibold text-on-surface-variant mb-1.5"
+            >
               อีเมล
             </label>
             <input
+              id="settings-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface"
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
             />
           </div>
         </div>
@@ -165,22 +216,13 @@ export default function SettingsPage() {
         </div>
 
         <div className="rounded-xl bg-surface-container border border-outline-variant/30 divide-y divide-outline-variant/20">
-          <label className="p-4 flex items-center justify-between gap-4 cursor-pointer">
-            <div>
-              <div className="text-sm font-semibold text-on-surface">
-                ตัดเงินจากกระเป๋าเงินอัตโนมัติเมื่อบันทึกรายจ่าย
-              </div>
-              <div className="text-xs text-on-surface-variant">
-                หักยอดคงเหลือใน Finora Virtual Wallet ทันทีที่มีการบันทึกหรือสแกนจ่าย
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={settings.autoDebitOnExpense}
-              onChange={(e) => updateSettings({ autoDebitOnExpense: e.target.checked })}
-              className="w-4 h-4 accent-primary"
-            />
-          </label>
+          <SwitchRow
+            id="auto-debit-switch"
+            title="ตัดเงินจากกระเป๋าเงินอัตโนมัติเมื่อบันทึกรายจ่าย"
+            description="หักยอดคงเหลือใน Finora Virtual Wallet ทันทีที่มีการบันทึกหรือสแกนจ่าย"
+            checked={settings.autoDebitOnExpense}
+            onChange={(next) => updateSettings({ autoDebitOnExpense: next })}
+          />
 
           <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -288,37 +330,55 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Section 4: AI Assistant Preferences */}
+      {/* Section 4: Notifications */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-on-surface m-0">
+          การแจ้งเตือนทางการเงิน (Notifications)
+        </h2>
+        <div className="rounded-xl bg-surface-container border border-outline-variant/30 divide-y divide-outline-variant/20">
+          <SwitchRow
+            id="notify-bills-switch"
+            title="แจ้งเตือนบิลประจำใกล้ครบกำหนด"
+            description="แสดงการแจ้งเตือนเมื่อมีรายการรายจ่ายประจำครบกำหนดภายใน 7 วันข้างหน้า"
+            checked={settings.notifyUpcomingBills}
+            onChange={(next) => updateSettings({ notifyUpcomingBills: next })}
+          />
+          <SwitchRow
+            id="notify-budget-switch"
+            title="แจ้งเตือนเมื่อใช้งบประมาณถึง 80% หรือเกินงบ"
+            description="แสดงการแจ้งเตือนที่ไอคอนกระดิ่งเมื่อยอดใช้จ่ายในหมวดหมู่เข้าใกล้หรือเกินเพดานที่ตั้งไว้"
+            checked={settings.notifyBudget80}
+            onChange={(next) => updateSettings({ notifyBudget80: next })}
+          />
+        </div>
+      </section>
+
+      {/* Section 5: AI Assistant Preferences */}
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-on-surface m-0">การตั้งค่าผู้ช่วย AI (OpenRouter)</h2>
-        <div className="rounded-xl bg-surface-container border border-outline-variant/30 p-5 space-y-4">
-          <label className="flex items-center justify-between gap-4 cursor-pointer">
-            <div>
-              <div className="text-sm font-semibold text-on-surface">
-                จัดหมวดหมู่ธุรกรรมอัตโนมัติด้วย AI
-              </div>
-              <div className="text-xs text-on-surface-variant">
-                ให้ AI ช่วยเลือกหมวดหมู่ที่เหมาะสมจากชื่อร้านค้าหรือสลิปโอนเงิน
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={settings.aiAutoCategorize}
-              onChange={(e) => updateSettings({ aiAutoCategorize: e.target.checked })}
-              className="w-4 h-4 accent-primary"
-            />
-          </label>
+        <div className="rounded-xl bg-surface-container border border-outline-variant/30 divide-y divide-outline-variant/20">
+          <SwitchRow
+            id="ai-autocat-switch"
+            title="จัดหมวดหมู่ธุรกรรมอัตโนมัติด้วย AI"
+            description="ให้ AI ช่วยเลือกหมวดหมู่ที่เหมาะสมจากชื่อร้านค้าหรือสลิปโอนเงิน"
+            checked={settings.aiAutoCategorize}
+            onChange={(next) => updateSettings({ aiAutoCategorize: next })}
+          />
 
-          <div className="pt-3 border-t border-outline-variant/20">
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">
+          <div className="p-4">
+            <label
+              htmlFor="settings-openrouter-key"
+              className="block text-xs font-semibold text-on-surface-variant mb-1.5"
+            >
               OpenRouter API Key (ไม่บังคับ — ใช้แทน OPENROUTER_API_KEY ของเซิร์ฟเวอร์)
             </label>
             <input
+              id="settings-openrouter-key"
               type="password"
               value={geminiKey}
               onChange={(e) => setGeminiKey(e.target.value)}
               placeholder="sk-or-v1-..."
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2 text-sm font-mono text-on-surface"
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
             />
           </div>
         </div>

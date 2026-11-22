@@ -93,6 +93,12 @@ export interface DashboardInsight {
   tone: "positive" | "warning" | "neutral";
 }
 
+export interface BudgetLiquidityGap {
+  isOverLiquidity: boolean;
+  availableCash: number;
+  shortfall: number;
+}
+
 export interface DashboardNotification {
   id: string;
   kind: "budget" | "bill";
@@ -617,6 +623,25 @@ export function computeExpenseBreakdown(
   return { totalExpense, slices };
 }
 
+export function evaluateBudgetLiquidityGap(params: {
+  budgetSummary: BudgetOverviewSummary;
+  summary: PeriodSummary;
+  bankBalance: number;
+  rangePreset: DatePreset;
+}): BudgetLiquidityGap {
+  const { budgetSummary, summary, bankBalance, rangePreset } = params;
+  const shouldCheck = rangePreset === "this_month" || rangePreset === "all_time";
+  const availableCash = Math.max(0, Math.max(summary.net, bankBalance));
+  const shortfall = Math.max(0, budgetSummary.totalRemaining - availableCash);
+  const isOverLiquidity =
+    shouldCheck &&
+    budgetSummary.hasBudgets &&
+    budgetSummary.totalRemaining > 0 &&
+    shortfall > 0;
+
+  return { isOverLiquidity, availableCash, shortfall };
+}
+
 export function buildDashboardInsights(params: {
   summary: PeriodSummary;
   budgetSummary: BudgetOverviewSummary;
@@ -641,6 +666,12 @@ export function buildDashboardInsights(params: {
 
   const overBudgetCat = budgetSummary.items.find((c) => c.over);
   const nearBudgetCat = budgetSummary.items.find((c) => !c.over && c.pct >= 80);
+  const liquidityGap = evaluateBudgetLiquidityGap({
+    budgetSummary,
+    summary,
+    bankBalance,
+    rangePreset: range.preset,
+  });
   const topSlice = breakdown.slices[0];
 
   let tone: DashboardInsight["tone"] = "positive";
@@ -655,6 +686,10 @@ export function buildDashboardInsights(params: {
     tone = "warning";
     headline = `หมวด "${nearBudgetCat.name}" ใกล้เต็มงบแล้ว (${nearBudgetCat.pct}%)`;
     detail = `เหลืองบอีก ${formatTHB(nearBudgetCat.remaining)} จากเพดาน ${formatTHB(nearBudgetCat.budget)} เพื่อไม่ให้บานปลายช่วงปลายเดือน`;
+  } else if (liquidityGap.isOverLiquidity) {
+    tone = "warning";
+    headline = `งบประมาณที่เหลือ (${formatTHB(budgetSummary.totalRemaining)}) สูงกว่าเงินคงเหลือจริง`;
+    detail = `กำลังจ่ายจริงมีประมาณ ${formatTHB(liquidityGap.availableCash)} (ต่ำกว่าเพดานงบที่เหลืออยู่ ${formatTHB(liquidityGap.shortfall)}) แนะนำให้ปรับลดงบบางหมวดในหน้าจัดการหมวดหมู่เพื่อไม่ให้ใช้เงินเกินตัว`;
   } else if (
     summary.hasPrevPeriod &&
     summary.expensePctChange !== null &&

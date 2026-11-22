@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AuthShell } from "@/components/AuthShell";
 import { useFinora } from "@/context/FinoraContext";
 import { INITIAL_USER } from "@/lib/seed";
+import { useDialogAccessibility } from "@/lib/useDialogAccessibility";
 
 const HIGHLIGHTS = [
   {
@@ -32,7 +33,11 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [terms, setTerms] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
   const [error, setError] = useState("");
+  const termsDialogRef = useRef<HTMLDivElement | null>(null);
+
+  useDialogAccessibility(termsModalOpen, termsDialogRef, () => setTermsModalOpen(false), true);
 
   const strength = useMemo(() => {
     let score = 0;
@@ -101,7 +106,10 @@ export default function RegisterPage() {
       </div>
 
       {error && (
-        <div className="mb-5 p-3 rounded-lg border border-error/40 bg-error-container/20 text-on-error-container text-xs flex items-center gap-2">
+        <div
+          role="alert"
+          className="mb-5 p-3 rounded-lg border border-error/40 bg-error-container/20 text-on-error-container text-xs flex items-center gap-2"
+        >
           <span className="material-symbols-outlined text-[16px] text-error shrink-0">error</span>
           <span>{error}</span>
         </div>
@@ -121,7 +129,7 @@ export default function RegisterPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="คุณธนภัทร วงศ์เจริญ"
-            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary"
+            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
           />
         </div>
 
@@ -138,7 +146,7 @@ export default function RegisterPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="thanapat@example.com"
-            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary"
+            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
           />
         </div>
 
@@ -156,7 +164,7 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="อย่างน้อย 8 ตัวอักษร"
-              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 pr-11 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary"
+              className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 pr-11 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
             />
             <button
               type="button"
@@ -195,21 +203,31 @@ export default function RegisterPage() {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="กรอกรหัสผ่านอีกครั้ง"
-            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary"
+            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
           />
         </div>
 
-        <label className="flex items-start gap-2 cursor-pointer select-none pt-1">
+        <div className="flex items-start gap-2 pt-1">
           <input
+            id="reg-terms"
             type="checkbox"
             checked={terms}
             onChange={(e) => setTerms(e.target.checked)}
-            className="mt-0.5 w-4 h-4 rounded border-outline-variant/60 accent-primary"
+            className="mt-0.5 w-4 h-4 rounded border-outline-variant/60 accent-primary cursor-pointer"
           />
           <span className="text-xs text-on-surface-variant leading-relaxed">
-            ฉันได้อ่านและยอมรับข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัวของ Finora
+            <label htmlFor="reg-terms" className="cursor-pointer select-none">
+              ฉันได้อ่านและยอมรับ
+            </label>{" "}
+            <button
+              type="button"
+              onClick={() => setTermsModalOpen(true)}
+              className="font-semibold text-primary hover:underline"
+            >
+              ข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัวของ Finora
+            </button>
           </span>
-        </label>
+        </div>
 
         <button
           type="submit"
@@ -228,6 +246,60 @@ export default function RegisterPage() {
           </Link>
         </p>
       </div>
+
+      {termsModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-backdrop-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="terms-modal-title"
+          onClick={() => setTermsModalOpen(false)}
+        >
+          <div
+            ref={termsDialogRef}
+            tabIndex={-1}
+            className="w-full max-w-lg rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden animate-modal-in focus:outline-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/30">
+              <h2 id="terms-modal-title" className="text-base font-semibold text-on-surface m-0">
+                ข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัว
+              </h2>
+              <button
+                type="button"
+                aria-label="ปิดหน้าต่าง"
+                onClick={() => setTermsModalOpen(false)}
+                className="p-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+            <div className="p-6 space-y-3 text-xs text-on-surface-variant leading-relaxed max-h-[60vh] overflow-y-auto">
+              <p>
+                <strong className="text-on-surface">1. การจัดเก็บข้อมูลส่วนบุคคล:</strong> ข้อมูลรายรับ-รายจ่าย หมวดหมู่ และรายการประจำทั้งหมดถูกเก็บไว้ในเบราว์เซอร์ของคุณ (localStorage) และประวัติแชทถูกเก็บใน sessionStorage เท่านั้น
+              </p>
+              <p>
+                <strong className="text-on-surface">2. การประมวลผลด้วย AI:</strong> เมื่อคุณส่งข้อความหรืออัปโหลดสลิป ระบบจะส่งข้อมูลที่จำเป็นไปยังผู้ให้บริการโมเดลผ่าน OpenRouter (และบริการ OCR สำหรับสลิป) เพื่อวิเคราะห์ข้อมูลเท่านั้น
+              </p>
+              <p>
+                <strong className="text-on-surface">3. ความปลอดภัยและสภาพแวดล้อม Sandbox:</strong> Finora ใช้สำหรับบันทึกรายรับ-รายจ่ายและทดลองวางแผนการเงิน โดยไม่มีการเชื่อมต่อบัญชีธนาคารจริงหรือตัดเงินจริง
+              </p>
+            </div>
+            <div className="px-6 py-4 flex items-center justify-end gap-2 bg-surface-container-low/40 border-t border-outline-variant/20">
+              <button
+                type="button"
+                onClick={() => {
+                  setTerms(true);
+                  setTermsModalOpen(false);
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-semibold bg-primary-container text-on-primary-container hover:opacity-90"
+              >
+                ยอมรับและปิด
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AuthShell>
   );
 }

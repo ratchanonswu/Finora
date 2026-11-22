@@ -3,7 +3,31 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useFinora } from "@/context/FinoraContext";
-import { buildDashboardNotifications } from "./dashboard-utils";
+import { buildDashboardNotifications, type DashboardNotification } from "./dashboard-utils";
+
+const SEEN_NOTIFS_KEY_PREFIX = "finora_seen_notifs_v1";
+
+function notifStorageKey(email: string): string {
+  return `${SEEN_NOTIFS_KEY_PREFIX}:${email.trim().toLowerCase()}`;
+}
+
+function notifSignature(n: DashboardNotification): string {
+  return `${n.id}|${n.title}|${n.description}`;
+}
+
+function loadSeenNotifKeys(email: string): Set<string> {
+  if (typeof window === "undefined" || !email.trim()) return new Set();
+  try {
+    const raw = localStorage.getItem(notifStorageKey(email));
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? new Set(parsed.filter((v): v is string => typeof v === "string"))
+      : new Set();
+  } catch {
+    return new Set();
+  }
+}
 
 export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
   const {
@@ -20,9 +44,16 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [seenNotifKeys, setSeenNotifKeys] = useState<Set<string>>(() =>
+    loadSeenNotifKeys(user.email)
+  );
 
   const notifBoxRef = useRef<HTMLDivElement | null>(null);
   const profileBoxRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setSeenNotifKeys(loadSeenNotifKeys(user.email));
+  }, [user.email]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -54,6 +85,22 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
     [categories, transactions, recurring, settings]
   );
 
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !seenNotifKeys.has(notifSignature(n))).length,
+    [notifications, seenNotifKeys]
+  );
+
+  const markNotificationsRead = () => {
+    const next = new Set(notifications.map(notifSignature));
+    setSeenNotifKeys(next);
+    if (!user.email.trim()) return;
+    try {
+      localStorage.setItem(notifStorageKey(user.email), JSON.stringify(Array.from(next)));
+    } catch {
+      // Ignore storage quota errors
+    }
+  };
+
   return (
     <header className="sticky top-0 z-30 h-16 bg-white/90 dark:bg-surface/90 backdrop-blur-md border-b border-slate-200/80 dark:border-outline-variant/30 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
       {/* Left: Mobile Drawer Trigger */}
@@ -74,7 +121,7 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
         <button
           type="button"
           onClick={() => setTxModalOpen(true)}
-          className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl bg-emerald-500 dark:bg-primary-container text-white dark:text-on-primary-container text-xs sm:text-sm font-semibold hover:bg-emerald-600 dark:hover:opacity-90 transition-all shadow-sm shadow-emerald-500/20"
+          className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl bg-emerald-700 dark:bg-primary-container text-white dark:text-on-primary-container text-xs sm:text-sm font-semibold hover:bg-emerald-800 dark:hover:opacity-90 transition-all shadow-sm shadow-emerald-700/20"
         >
           <span className="material-symbols-outlined text-[18px]">add_circle</span>
           <span className="hidden md:inline">บันทึกธุรกรรม</span>
@@ -102,17 +149,25 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
           <button
             type="button"
             onClick={() => {
-              setNotifOpen((o) => !o);
+              const nextOpen = !notifOpen;
+              setNotifOpen(nextOpen);
               setProfileOpen(false);
+              if (nextOpen && notifications.length > 0) {
+                markNotificationsRead();
+              }
             }}
-            aria-label="การแจ้งเตือน"
+            aria-label={
+              unreadCount > 0
+                ? `การแจ้งเตือน (${unreadCount} รายการที่ยังไม่ได้อ่าน)`
+                : "การแจ้งเตือน"
+            }
             aria-expanded={notifOpen}
             className="relative w-9 h-9 rounded-xl border border-slate-200/80 dark:border-outline-variant/40 bg-white dark:bg-surface-container-low text-slate-600 dark:text-on-surface-variant hover:text-slate-900 dark:hover:text-on-surface hover:bg-slate-50 dark:hover:bg-surface-container-high flex items-center justify-center transition-colors"
           >
             <span className="material-symbols-outlined text-[19px]">notifications</span>
-            {notifications.length > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-sm">
-                {notifications.length}
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-red-600 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-sm">
+                {unreadCount}
               </span>
             )}
           </button>
@@ -126,7 +181,7 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
                 <Link
                   href="/settings"
                   onClick={() => setNotifOpen(false)}
-                  className="text-[11px] font-semibold text-emerald-600 dark:text-primary hover:underline"
+                  className="text-[11px] font-semibold text-emerald-700 dark:text-primary hover:underline"
                 >
                   ตั้งค่า
                 </Link>
@@ -134,7 +189,7 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
 
               {notifications.length === 0 ? (
                 <div className="p-6 text-center space-y-1">
-                  <span className="material-symbols-outlined text-[26px] text-emerald-500 dark:text-primary">
+                  <span className="material-symbols-outlined text-[26px] text-emerald-700 dark:text-primary">
                     notifications_paused
                   </span>
                   <p className="text-xs font-medium text-slate-600 dark:text-on-surface-variant">
@@ -153,10 +208,10 @@ export function DashboardHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => 
                       <div
                         className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
                           n.severity === "danger"
-                            ? "bg-red-50 dark:bg-error-container/25 text-red-500 dark:text-error"
+                            ? "bg-red-50 dark:bg-error-container/25 text-red-600 dark:text-error"
                             : n.severity === "warning"
-                              ? "bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-300"
-                              : "bg-emerald-50 dark:bg-primary-container/20 text-emerald-600 dark:text-primary"
+                              ? "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                              : "bg-emerald-50 dark:bg-primary-container/20 text-emerald-700 dark:text-primary"
                         }`}
                       >
                         <span className="material-symbols-outlined text-[17px]">

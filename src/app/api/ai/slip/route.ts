@@ -5,7 +5,7 @@ import { buildSlipPrompt, parseSlipResult } from "@/lib/prompts";
 
 export async function POST(request: Request) {
   try {
-    const { imageBase64, mimeType, categories, userName, apiKeyOverride } =
+    const { imageBase64, mimeType, categories, userName, apiKeyOverride, autoCategorize } =
       await request.json();
 
     if (!imageBase64 || typeof imageBase64 !== "string") {
@@ -60,6 +60,10 @@ export async function POST(request: Request) {
     );
     if (!validated.ok) {
       return NextResponse.json({ error: validated.error }, { status: 502 });
+    }
+
+    if (autoCategorize === false) {
+      validated.data.categoryId = validated.data.type === "income" ? "salary" : "food";
     }
 
     return NextResponse.json(validated.data);

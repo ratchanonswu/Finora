@@ -16,6 +16,7 @@ import {
   computeBudgetOverview,
   computeExpenseBreakdown,
   computePeriodSummary,
+  evaluateBudgetLiquidityGap,
   filterTransactionsByRange,
   getThaiGreeting,
   localDateToYmd,
@@ -112,6 +113,17 @@ export default function DashboardPage() {
     [categories, transactions, settings.quotaResetAt]
   );
 
+  const liquidityGap = useMemo(
+    () =>
+      evaluateBudgetLiquidityGap({
+        budgetSummary,
+        summary: periodSummary,
+        bankBalance,
+        rangePreset: dateRange.preset,
+      }),
+    [budgetSummary, periodSummary, bankBalance, dateRange.preset]
+  );
+
   const expenseBreakdown = useMemo(
     () => computeExpenseBreakdown(filteredTransactions, categories),
     [filteredTransactions, categories]
@@ -155,8 +167,8 @@ export default function DashboardPage() {
               <strong
                 className={`font-mono ${
                   bankBalance < 0
-                    ? "text-red-500 dark:text-secondary"
-                    : "text-emerald-600 dark:text-primary"
+                    ? "text-red-600 dark:text-secondary"
+                    : "text-emerald-700 dark:text-primary"
                 }`}
               >
                 {formatTHB(bankBalance)}
@@ -174,14 +186,14 @@ export default function DashboardPage() {
             aria-haspopup="dialog"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white dark:bg-surface-container border border-slate-200/80 dark:border-outline-variant/40 text-xs sm:text-sm font-medium text-slate-700 dark:text-on-surface hover:border-emerald-300 dark:hover:border-primary/50 shadow-sm transition-colors"
           >
-            <span className="material-symbols-outlined text-[18px] text-emerald-600 dark:text-primary">
+            <span className="material-symbols-outlined text-[18px] text-emerald-700 dark:text-primary">
               calendar_today
             </span>
             <span className="font-semibold">{dateRange.label}</span>
-            <span className="text-slate-400 dark:text-on-surface-variant font-mono text-xs hidden sm:inline">
+            <span className="text-slate-600 dark:text-on-surface-variant font-mono text-xs hidden sm:inline">
               ({dateRange.shortRangeLabel})
             </span>
-            <span className="material-symbols-outlined text-[18px] text-slate-400 dark:text-outline">
+            <span className="material-symbols-outlined text-[18px] text-slate-500 dark:text-outline">
               expand_more
             </span>
           </button>
@@ -219,14 +231,14 @@ export default function DashboardPage() {
               </div>
 
               <div className="pt-2.5 border-t border-slate-100 dark:border-outline-variant/20 space-y-2">
-                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-on-surface-variant">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-on-surface-variant">
                   กำหนดช่วงวันที่เอง
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label
                       htmlFor="dash-start-date"
-                      className="block text-[10px] text-slate-500 dark:text-on-surface-variant mb-1"
+                      className="block text-[10px] text-slate-600 dark:text-on-surface-variant mb-1"
                     >
                       ตั้งแต่
                     </label>
@@ -241,7 +253,7 @@ export default function DashboardPage() {
                   <div>
                     <label
                       htmlFor="dash-end-date"
-                      className="block text-[10px] text-slate-500 dark:text-on-surface-variant mb-1"
+                      className="block text-[10px] text-slate-600 dark:text-on-surface-variant mb-1"
                     >
                       ถึง
                     </label>
@@ -261,7 +273,7 @@ export default function DashboardPage() {
                     setDatePreset("custom");
                     setDateMenuOpen(false);
                   }}
-                  className="w-full py-2 rounded-xl bg-emerald-500 dark:bg-primary-container text-white dark:text-on-primary-container text-xs font-semibold hover:bg-emerald-600 dark:hover:opacity-90 disabled:opacity-50"
+                  className="w-full py-2 rounded-xl bg-emerald-700 dark:bg-primary-container text-white dark:text-on-primary-container text-xs font-semibold hover:bg-emerald-800 dark:hover:opacity-90 disabled:opacity-50"
                 >
                   ใช้ช่วงวันที่นี้
                 </button>
@@ -276,6 +288,7 @@ export default function DashboardPage() {
         summary={periodSummary}
         sparklines={sparklines}
         budgetSummary={budgetSummary}
+        liquidityGap={liquidityGap}
       />
 
       {/* Middle Row: Income vs Expense Chart + Recent Transactions */}
