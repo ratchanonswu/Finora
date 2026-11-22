@@ -703,10 +703,12 @@ assert.equal(matchesTransactionDateQuery("2026-10-16T12:00:00+07:00", "ลา", 
 assert.equal(matchesTransactionDateQuery(sampleNov16, "-", sampleRefDate), false);
 assert.equal(matchesTransactionDateQuery(sampleNov16, "พ", sampleRefDate), false);
 
-// 25. Coaching prompt v2.9.0 and get_spending_insights tool registration
-assert.equal(FINORA_PROMPT_VERSION, "2.9.0");
+// 25. Coaching prompt v2.9.1 and get_spending_insights tool registration
+assert.equal(FINORA_PROMPT_VERSION, "2.9.1");
 assert.equal(READ_TOOL_NAMES.has("get_spending_insights"), true);
-assert.equal(buildFinoraSystemPrompt("สรุปตัวอย่าง").includes("get_spending_insights"), true);
+const builtPromptSample = buildFinoraSystemPrompt("สรุปตัวอย่าง");
+assert.equal(builtPromptSample.includes("get_spending_insights"), true);
+assert.equal(builtPromptSample.includes("ข้อสังเกตและคำแนะนำจากฟิโนร่า"), true);
 
 // 26. Multi-month financial insights (MoM, savings rate, burn pace, anomalies, savings simulation)
 const augRefDate = new Date(2026, 7, 15, 12, 0, 0); // Aug 15, 2026 -> 17 days remaining, 48% elapsed
@@ -792,12 +794,13 @@ const focused = insightToolRes.focusedCategory as Record<string, unknown> | unde
 assert.equal(focused?.resolved, true);
 assert.equal(focused?.categoryId, "food");
 
-// 29. formatCompactInsightsForPrompt formats Thai KPI summary lines
+// 29. formatCompactInsightsForPrompt formats Thai KPI summary lines including scoped savings targets
 const compactPromptText = formatCompactInsightsForPrompt(fullInsights);
 assert.equal(compactPromptText.includes("อัตราการออม"), true);
 assert.equal(compactPromptText.includes("เทียบเดือนก่อน (MoM)"), true);
 assert.equal(compactPromptText.includes("Daily Safe Spend"), true);
 assert.equal(compactPromptText.includes("Recurring Load"), true);
+assert.equal(compactPromptText.includes("เป้าหมายประหยัดจำลอง (จากยอดรอบปัจจุบัน, ไม่ใช่เงินออมจริง)"), true);
 
 // 30. Enriched 3-month seed dataset integrity & coach insights readiness
 assert.equal(INITIAL_USER.name, "นายรัชชานนท์ แก้วกูล");

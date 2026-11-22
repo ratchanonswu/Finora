@@ -166,5 +166,12 @@
       "budget": 6500
     },
     "expectedBehavior": "Following user confirmation of a coached recommendation, immediately calls update_category_budget for shopping=6500 so the inline confirmation card renders."
+  },
+  {
+    "id": "eval-19-summary-with-followup-advice",
+    "category": "coaching_summary",
+    "input": "top 5 รายจ่ายเป็นรายการเดือนนี้",
+    "expectedTool": "get_transactions",
+    "expectedBehavior": "Answers with the top 5 current-cycle expense items in a Markdown table first, then follows up with a concise ข้อสังเกตและคำแนะนำจากฟิโนร่า section pointing out risky/over-budget drivers, citing current-cycle simulated savings figures with disclaimer, and offering 1 concrete next step without duplicate polite endings like นะคะค่ะ."
   }
 ]
