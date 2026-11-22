@@ -14,6 +14,7 @@ import {
 } from "@/lib/seed";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { IconColorPicker } from "@/components/IconColorPicker";
+import { consumeAiInsightPrompt } from "@/lib/ai-handoff";
 import {
   computeFinancialInsights,
   formatCompactInsightsForPrompt,
@@ -269,6 +270,7 @@ interface PendingTxDraft {
 export default function AiAssistantPage() {
   const {
     user,
+    hydrated,
     bankBalance,
     transactions,
     categories,
@@ -299,6 +301,8 @@ export default function AiAssistantPage() {
   const scrollAnimRef = useRef<ScrollAnimationState | null>(null);
   const userCancelledScrollRef = useRef(false);
   const hasMountedScrollRef = useRef(false);
+  const handledHandoffRef = useRef(false);
+  const sendPromptRef = useRef<(promptText: string) => Promise<void>>(async () => {});
   const activeUserMediaIdRef = useRef<string | null>(null);
   const prevChatMetaRef = useRef<{
     count: number;
@@ -913,6 +917,16 @@ export default function AiAssistantPage() {
       setLoadingStage(null);
     }
   };
+
+  sendPromptRef.current = sendPrompt;
+
+  useEffect(() => {
+    if (!hydrated || handledHandoffRef.current) return;
+    handledHandoffRef.current = true;
+    const queuedPrompt = consumeAiInsightPrompt();
+    if (!queuedPrompt || inputLocked) return;
+    void sendPromptRef.current(queuedPrompt);
+  }, [hydrated, inputLocked]);
 
   const handleConfirmTool = async (msg: ChatMessage) => {
     const pt = msg.pendingTool;
