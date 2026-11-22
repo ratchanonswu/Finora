@@ -5,7 +5,7 @@ import { computeFinancialInsights, formatCompactInsightsForPrompt } from "./fina
 import { cleanOcrText } from "./ocr.ts";
 import { FINORA_PROMPT_VERSION, buildFinoraSystemPrompt, buildSlipPrompt, parseSlipResult } from "./prompts.ts";
 import { simulateRolloverToDate } from "./rollover.ts";
-import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, formatTHB, formatThaiDate, isBaseCategory, isInCurrentQuotaCycle, matchesTransactionDateQuery, nextCategoryColor, normalizeTransactionDate, relativeDateYmd, todayYmd } from "./seed.ts";
+import { CATEGORY_PALETTE, INITIAL_BANK_BALANCE, INITIAL_CATEGORIES, INITIAL_LEDGER, INITIAL_RECURRING, INITIAL_SETTINGS, INITIAL_TRANSACTIONS, INITIAL_USER, formatTHB, formatThaiDate, isBaseCategory, isInCurrentQuotaCycle, matchesTransactionDateQuery, nextCategoryColor, normalizeTransactionDate, relativeDateYmd, todayYmd } from "./seed.ts";
 
 // 1. Valid credit increases balance
 const topup = executeBankTransfer({ type: "credit", amount: 5000, title: "Topup", counterparty: "SCB" }, 10000);
@@ -187,7 +187,7 @@ assert.equal(slipInvalid.ok, false);
 // Step 1 (+3 days): Netflix (+1d, 500) and Condo (+3d, 12000) are both paid from 10,000 -> -2,500
 const step1 = simulateRolloverToDate({
   targetDate: relativeDateYmd(3),
-  bankBalance: INITIAL_BANK_BALANCE, // 10,000
+  bankBalance: 10000,
   recurring: INITIAL_RECURRING,
   settings: { ...INITIAL_SETTINGS, quotaResetDay: 1 },
   nowMs: 1700000000000,
@@ -799,4 +799,20 @@ assert.equal(compactPromptText.includes("เทียบเดือนก่อ
 assert.equal(compactPromptText.includes("Daily Safe Spend"), true);
 assert.equal(compactPromptText.includes("Recurring Load"), true);
 
-console.log("Finora self-check passed (29/29 checks)");
+// 30. Enriched 3-month seed dataset integrity & coach insights readiness
+assert.equal(INITIAL_USER.name, "นายรัชชานนท์ แก้วกูล");
+assert.equal(INITIAL_USER.email, "ratchanon@finora.io");
+assert.equal(INITIAL_TRANSACTIONS.length >= 30, true);
+assert.equal(INITIAL_LEDGER.length, INITIAL_TRANSACTIONS.length);
+assert.equal(INITIAL_LEDGER[0].balanceAfter, INITIAL_BANK_BALANCE);
+const seedInsights = computeFinancialInsights({
+  bankBalance: INITIAL_BANK_BALANCE,
+  transactions: INITIAL_TRANSACTIONS,
+  categories: INITIAL_CATEGORIES,
+  recurring: INITIAL_RECURRING,
+});
+assert.notEqual(seedInsights.periodTotals.expenseChangePct, null);
+assert.equal(seedInsights.overBudgetCategories.some((c) => c.categoryId === "shopping"), true);
+assert.equal(seedInsights.nearBudgetCategories.some((c) => c.categoryId === "food"), true);
+
+console.log("Finora self-check passed (30/30 checks)");
