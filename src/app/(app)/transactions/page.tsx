@@ -3,7 +3,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useFinora } from "@/context/FinoraContext";
-import { formatTHB, formatThaiDate, toDateInputValue } from "@/lib/seed";
+import {
+  formatTHB,
+  formatThaiDate,
+  matchesTransactionDateQuery,
+  toDateInputValue,
+} from "@/lib/seed";
 import type { Transaction } from "@/lib/types";
 
 type SortOrder = "date_desc" | "date_asc" | "amount_desc" | "amount_asc";
@@ -49,8 +54,7 @@ export default function TransactionsPage() {
         const q = query.trim().toLowerCase();
         return (
           tx.title.toLowerCase().includes(q) ||
-          tx.ref.toLowerCase().includes(q) ||
-          tx.channel.toLowerCase().includes(q)
+          matchesTransactionDateQuery(tx.date, q)
         );
       }
       return true;
@@ -123,7 +127,7 @@ export default function TransactionsPage() {
               setQuery(e.target.value);
               setPage(1);
             }}
-            placeholder="ค้นหาชื่อรายการ, เลขอ้างอิง, ช่องทาง..."
+            placeholder="ค้นหาชื่อรายการ หรือวันที่ (เช่น 16, 16/11, พ.ย.)..."
             className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg pl-9 pr-4 py-2 text-sm text-on-surface focus:outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/35"
           />
         </div>
