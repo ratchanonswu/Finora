@@ -1,10 +1,11 @@
-# 📘 สมุดคู่มือ AI Tools & Prompts ของ Finora (`FINORA_PROMPT_VERSION = "2.8.0"`)
+# 📘 สมุดคู่มือ AI Tools & Prompts ของ Finora (`FINORA_PROMPT_VERSION = "2.9.0"`)
 
-> เอกสารอ้างอิงฉบับสมบูรณ์สำหรับดูภาพรวมการทำงานของ **System Prompts**, **Slip Vision Prompts**, **Function Calling Tools ทั้ง 9 ตัว**, **ระบบ Validation / Normalization / Fallback**, และ **Execution Flow** ของผู้ช่วย AI ฟิโนร่า
+> เอกสารอ้างอิงฉบับสมบูรณ์สำหรับดูภาพรวมการทำงานของ **System Prompts**, **Slip Vision Prompts**, **Pre-computed Financial Insights**, **Function Calling Tools ทั้ง 10 ตัว**, **ระบบ Validation / Normalization / Fallback**, และ **Execution Flow** ของผู้ช่วย AI ฟิโนร่า
 >
 > - **ไฟล์ต้นทางหลัก:**
->   - [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) — System Prompt, Slip Vision Prompt, และ Slip JSON Parser
->   - [src/lib/ai-tools.ts](file:///c:/Gitwork/Finora/src/lib/ai-tools.ts) — นิยาม Tools ทั้ง 9 ตัว, Category Resolver, Read Executor, และ Write Validator
+>   - [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) — System Prompt (v2.9.0 Coaching + Light Proactivity), Slip Vision Prompt, และ Slip JSON Parser
+>   - [src/lib/financial-insights.ts](file:///c:/Gitwork/Finora/src/lib/financial-insights.ts) — Analytics Engine คำนวณ MoM, อัตราการออม, Burn Rate/Pace, Daily Safe Spend, Recurring Load, Anomalies และเป้าหมายประหยัดจำลอง
+>   - [src/lib/ai-tools.ts](file:///c:/Gitwork/Finora/src/lib/ai-tools.ts) — นิยาม Tools ทั้ง 10 ตัว, Category Resolver, Read Executor, และ Write Validator
 >   - [src/lib/slip-image.ts](file:///c:/Gitwork/Finora/src/lib/slip-image.ts) — `prepareSlipImage` เตรียมรูปภาพ/ย่อขนาด/thumbnail ฝั่ง Client
 >   - [src/app/(app)/ai-assistant/page.tsx](file:///c:/Gitwork/Finora/src/app/(app)/ai-assistant/page.tsx) — `buildFinancialSummary`, `runToolLoop`, และ Batch/Chained Confirmation Modal
 >   - [src/app/api/ai/chat/route.ts](file:///c:/Gitwork/Finora/src/app/api/ai/chat/route.ts) & [src/app/api/ai/slip/route.ts](file:///c:/Gitwork/Finora/src/app/api/ai/slip/route.ts) — Server API Endpoints
@@ -19,8 +20,8 @@
    - [2.2 Dynamic Financial Context (`buildFinancialSummary`)](#22-dynamic-financial-context-buildfinancialsummary)
    - [2.3 Slip Vision Prompt (`buildSlipPrompt`)](#23-slip-vision-prompt-buildslipprompt)
    - [2.4 การแปลงผลและตรวจจับผู้โอน/ผู้รับ (`parseSlipResult`)](#24-การแปลงผลและตรวจจับผู้โอนผู้รับ-parseslipresult)
-3. [ส่วนที่ 2: สารานุกรม AI Tools ทั้ง 9 ตัว (`FINORA_TOOLS`)](#3-ส่วนที่-2-สารานุกรม-ai-tools-ทั้ง-9-ตัว-finora_tools)
-   - [3.1 Read Tools (5 ตัว — รันอัตโนมัติทันที)](#31-read-tools-5-ตัว--รันอัตโนมัติทันที)
+3. [ส่วนที่ 2: สารานุกรม AI Tools ทั้ง 10 ตัว (`FINORA_TOOLS`)](#3-ส่วนที่-2-สารานุกรม-ai-tools-ทั้ง-10-ตัว-finora_tools)
+   - [3.1 Read Tools (6 ตัว — รันอัตโนมัติทันที)](#31-read-tools-6-ตัว--รันอัตโนมัติทันที)
    - [3.2 Write Tools (4 ตัว — ต้องผ่าน UI Confirmation)](#32-write-tools-4-ตัว--ต้องผ่าน-ui-confirmation)
 4. [ส่วนที่ 3: ระบบ Normalization, Fallback & Validation](#4-ส่วนที่-3-ระบบ-normalization-fallback--validation)
    - [4.1 การเดาและจับคู่หมวดหมู่ (`resolveCategory` & `CATEGORY_ALIASES`)](#41-การเดาและจับคู่หมวดหมู่-resolvecategory--category_aliases)
@@ -39,10 +40,10 @@ flowchart TD
         Slip["🧾 โหมดสแกนสลิป (/api/ai/slip)"]
     end
 
-    Chat --> SysPrompt["buildFinoraSystemPrompt(financialSummary)"]
-    SysPrompt --> ORChat["OpenRouter LLM + FINORA_TOOLS (9 Tools)"]
+    Chat --> SysPrompt["buildFinoraSystemPrompt(financialSummary + compactInsights)"]
+    SysPrompt --> ORChat["OpenRouter LLM + FINORA_TOOLS (10 Tools)"]
 
-    ORChat -->|"Read Tools (5)"| AutoRun["runReadTool() -> คืน JSON กลับให้ LLM สรุปคำตอบ"]
+    ORChat -->|"Read Tools (6)"| AutoRun["runReadTool() -> คืน JSON กลับให้ LLM สรุปคำตอบ"]
     ORChat -->|"add_transaction หรือ add_category + add_transaction"| BatchModal["validateAndNormalizeWriteTool() -> เปิด Batch/Chained Confirmation Modal"]
     ORChat -->|"add_category เดี่ยว / update_category_budget / add_recurring_payment"| CardConfirm["validateAndNormalizeWriteTool() -> แสดงการ์ดยืนยันในแชท"]
 
@@ -58,14 +59,15 @@ flowchart TD
 ## 2. ส่วนที่ 1: System Prompts (Chat & Slip Vision)
 
 ### 2.1 Chat System Prompt (`buildFinoraSystemPrompt`)
-อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts#L18-L57) แบ่งออกเป็น **5 หมวดคำสั่งหลัก**:
+อยู่ใน [src/lib/prompts.ts](file:///c:/Gitwork/Finora/src/lib/prompts.ts) แบ่งออกเป็น **6 หมวดคำสั่งหลัก**:
 
 | หมวดใน Prompt | กฎและพฤติกรรมที่บังคับใช้ |
 |---|---|
 | **`# Identity & Role`** | ชื่อ **"ฟิโนร่า (Finora)"** ผู้ช่วยวางแผนและวิเคราะห์การเงินส่วนบุคคล บุคลิกผู้หญิงสุภาพ เป็นกันเอง แทนตัวเองว่า `"ฟิโนร่า"` ลงท้าย `"ค่ะ"` / `"นะคะ"` ตอบกระชับ ไม่ตัดสินการใช้เงิน |
-| **`# Financial Context`** | รับข้อมูลสรุปสถานะการเงินปัจจุบันจาก Client (`financialSummary`) และบังคับกฎความถูกต้อง: **ห้ามแต่งตัวเลขขึ้นเองเด็ดขาด** ต้องอ้างอิงจาก Context หรือผลลัพธ์ของ Tool เท่านั้น |
-| **`# Core Capabilities`** | 1. วิเคราะห์รายรับ-รายจ่าย & งบประมาณ<br>2. ดูแลรายการประจำทั้งรายจ่าย (`expense`) และรายรับ (`income`)<br>3. พยากรณ์การเงินล่วงหน้าด้วย `get_financial_prediction` พร้อมระบุสมมติฐานและความเสี่ยง |
-| **`# Tool Usage Policy`** | - **นโยบาย Virtual Wallet (ติดลบได้):** ยอดเงินใน Virtual Wallet ติดลบได้ทุกกรณี **ห้ามปฏิเสธการบันทึกรายจ่ายแม้ยอดคงเหลือจะเป็น 0 หรือติดลบ**<br>- **กฎเหล็กข้อ 1 (เรียกทันที):** เมื่อผู้ใช้บอกชื่อรายการและจำนวนเงินครบ ให้เรียก `add_transaction` ทันที ห้ามถามยืนยันในแชทก่อน<br>- **กฎเหล็กข้อ 2 (หลายรายการในข้อความเดียว):** เช่น `"15/08 กระเพรา 20 บาท ชานม 20 บาท"` ต้องส่ง `add_transaction` แยกตามจำนวนรายการทั้งหมดในรอบเดียวกันทันที<br>- **กฎเหล็กข้อ 3 (สร้างหมวดหมู่ใหม่ & แบบพ่วง):** สั่งเพิ่มหมวดใหม่เรียก `add_category` ทันที (เลือก `icon` ที่เหมาะสม, ถ้าไม่บอกงบใช้ `budget: 0`); ถ้าสั่งสร้างหมวดใหม่พร้อมบันทึกรายการในประโยคเดียวกัน ให้เรียก `add_category` + `add_transaction` ในรอบเดียวกันโดยส่งชื่อหมวดใหม่ใน `categoryId`<br>- **กฎเหล็กข้อ 4 (การระบุวันที่ `date`):** แปลงวันที่ เช่น `"15/08"`, `"เมื่อวาน"` เป็น `YYYY-MM-DD` (ค.ศ.) โดยอ้างอิงจากวันที่ปัจจุบันใน Context<br>- **กฎเหล็กข้อ 5–6 (ห้ามหลอนว่าเรียก Tool):** ห้ามพิมพ์ว่า `"โปรดกดยืนยันในการ์ด"` โดยไม่ได้ส่ง `tool_calls` จริง และห้ามอ้างว่าบันทึกสำเร็จก่อนผู้ใช้กดยืนยัน<br>- **งานที่ทำผ่านหน้า UI เท่านั้น:** ลบหมวดหมู่ต้องไปหน้า `/categories`, และพัก/เปิด/ลบรายการประจำ (Recurring) ต้องไปหน้า `/recurring` (ไม่มี Tool ในแชท) |
+| **`# Financial Context`** | รับข้อมูลสรุปสถานะการเงินปัจจุบัน + สรุปวิเคราะห์เชิงลึกที่คำนวณล่วงหน้าจาก Client (`financialSummary`) และบังคับกฎความถูกต้อง: **ห้ามแต่งตัวเลขขึ้นเองเด็ดขาด** ต้องอ้างอิงจาก Context หรือผลลัพธ์ของ Tool เท่านั้น |
+| **`# Core Capabilities`** | 1. วิเคราะห์รายรับ-รายจ่าย & โค้ชชิ่งการเงิน (Burn Rate, MoM, อัตราการออม)<br>2. ดูแลรายการประจำทั้งรายจ่าย (`expense`) และรายรับ (`income`) พร้อมประเมินภาระ Recurring Load<br>3. พยากรณ์การเงินล่วงหน้าด้วย `get_financial_prediction` พร้อมระบุสมมติฐานและความเสี่ยง |
+| **`# Financial Coaching & Advice Style`** | เมื่อผู้ใช้ขอคำแนะนำ/วิเคราะห์/วางแผนออม ให้เรียก `get_spending_insights` แล้วตอบครบ 4 ขั้น: (1) ตาราง Markdown อันดับรายจ่ายจริง (2) สาเหตุหลัก & MoM/งบที่เกินหรือใกล้เต็ม (3) เป้าหมายประหยัดจำลองจาก `savingsOpportunities` + หมายเหตุ *"เป็นเป้าหมายจำลองจากยอดใช้จ่าย ไม่ใช่เงินออมที่เกิดขึ้นจริง"* + Daily Safe Spend (4) ชวนทำต่อด้วย Write Tool (ไม่เรียกเองก่อนสั่ง) พร้อม **Light Proactivity** เตือนสั้นๆ 1 บรรทัดท้ายคำตอบทั่วไปเมื่อมีสัญญาณเสี่ยงใน Context |
+| **`# Tool Usage Policy`** | - **ดูข้อมูล (Read Tools 6 ตัว):** รวม `get_spending_insights` สำหรับการวิเคราะห์เชิงลึก<br>- **นโยบาย Virtual Wallet (ติดลบได้):** ยอดเงินใน Virtual Wallet ติดลบได้ทุกกรณี **ห้ามปฏิเสธการบันทึกรายจ่ายแม้ยอดคงเหลือจะเป็น 0 หรือติดลบ**<br>- **กฎเหล็กข้อ 1 (เรียกทันที):** เมื่อผู้ใช้บอกชื่อรายการและจำนวนเงินครบ ให้เรียก `add_transaction` ทันที ห้ามถามยืนยันในแชทก่อน<br>- **กฎเหล็กข้อ 2 (หลายรายการในข้อความเดียว):** เช่น `"15/08 กระเพรา 20 บาท ชานม 20 บาท"` ต้องส่ง `add_transaction` แยกตามจำนวนรายการทั้งหมดในรอบเดียวกันทันที<br>- **กฎเหล็กข้อ 3 (สร้างหมวดหมู่ใหม่ & แบบพ่วง):** สั่งเพิ่มหมวดใหม่เรียก `add_category` ทันที (เลือก `icon` ที่เหมาะสม, ถ้าไม่บอกงบใช้ `budget: 0`); ถ้าสั่งสร้างหมวดใหม่พร้อมบันทึกรายการในประโยคเดียวกัน ให้เรียก `add_category` + `add_transaction` ในรอบเดียวกันโดยส่งชื่อหมวดใหม่ใน `categoryId`<br>- **กฎเหล็กข้อ 4 (การระบุวันที่ `date`):** แปลงวันที่ เช่น `"15/08"`, `"เมื่อวาน"` เป็น `YYYY-MM-DD` (ค.ศ.) โดยอ้างอิงจากวันที่ปัจจุบันใน Context<br>- **กฎเหล็กข้อ 5–6 (ห้ามหลอนว่าเรียก Tool):** ห้ามพิมพ์ว่า `"โปรดกดยืนยันในการ์ด"` โดยไม่ได้ส่ง `tool_calls` จริง และห้ามอ้างว่าบันทึกสำเร็จก่อนผู้ใช้กดยืนยัน<br>- **งานที่ทำผ่านหน้า UI เท่านั้น:** ลบหมวดหมู่ต้องไปหน้า `/categories`, และพัก/เปิด/ลบรายการประจำ (Recurring) ต้องไปหน้า `/recurring` (ไม่มี Tool ในแชท) |
 | **`# Scope & Off-Topic Guardrail`** | ตอบเฉพาะเรื่องการเงินส่วนบุคคล งบประมาณ การออม รายการประจำ Virtual Wallet และการใช้งาน Finora เท่านั้น หากถามนอกเรื่อง (เช่น เขียนโค้ด แต่งกลอน การเมือง) ให้ปฏิเสธอย่างสุภาพ 1–2 ประโยคแล้วชวนกลับเข้าเรื่องการเงิน |
 
 <details>
@@ -85,12 +87,15 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 - หากข้อมูลไม่ครบหรือเก่า ให้แจ้งข้อจำกัดตรง ๆ และแยกข้อมูลจริงออกจากการคาดการณ์เสมอ
 
 # Core Capabilities
-1. **วิเคราะห์รายรับ-รายจ่าย & งบประมาณ:** สรุปยอดตามช่วงเวลา วิเคราะห์หมวดหมู่ที่ใช้จ่ายสูง คำนวณเงินคงเหลือ และวางแผนการออม
-2. **รายการประจำ (Recurring Expense & Income):** ตรวจสอบทั้งรายจ่ายประจำ (บิล/สมาชิก) และรายรับประจำ (เช่น เงินเดือนประจำ) แจ้งเตือนรายการใกล้ครบกำหนด และเตือนเมื่อยอดเงินใน Virtual Wallet อาจไม่พอ
+1. **วิเคราะห์รายรับ-รายจ่าย & โค้ชชิ่งการเงิน:** สรุปยอดตามช่วงเวลา วิเคราะห์หมวดหมู่ที่ใช้จ่ายสูง อัตราเผางบ (Burn Rate) เทียบสัดส่วนวันของเดือน เทียบเดือนก่อน (MoM) อัตราการออม และวางแผนประหยัดแบบจับต้องได้
+2. **รายการประจำ (Recurring Expense & Income):** ตรวจสอบทั้งรายจ่ายประจำ (บิล/สมาชิก) และรายรับประจำ (เช่น เงินเดือนประจำ) ประเมินสัดส่วนภาระรายจ่ายประจำต่อรายรับ และเตือนเมื่อยอดเงินใน Virtual Wallet อาจไม่พอ
 3. **พยากรณ์การเงิน:** เมื่อผู้ใช้ถามคาดการณ์ในอนาคต ให้เรียก `get_financial_prediction` และระบุสมมติฐานพร้อมความเสี่ยงเสมอ (ไม่รับประกันผลตอบแทนจากการลงทุน และไม่แนะนำให้กู้ยืมเกินตัว)
 
+# Financial Coaching & Advice Style
+... (4-step structured coaching + Markdown table + simulated savings disclaimer + Daily Safe Spend + Light Proactivity) ...
+
 # Tool Usage Policy
-- **ดูข้อมูล (เรียกอัตโนมัติก่อนตอบรายละเอียด):** `get_financial_overview`, `get_transactions`, `get_categories`, `get_recurring_payments`, `get_financial_prediction`
+- **ดูข้อมูล (เรียกอัตโนมัติก่อนตอบรายละเอียด):** `get_financial_overview`, `get_transactions`, `get_categories`, `get_recurring_payments`, `get_financial_prediction`, `get_spending_insights` (ต้องเรียก `get_spending_insights` ทุกครั้งที่มีการขอคำแนะนำ วิเคราะห์การใช้จ่าย ตรวจงบ หรือวางแผนการออม)
 - **นโยบาย Virtual Wallet (ติดลบได้):** แอปนี้ใช้บันทึกรายรับ-รายจ่ายจริง ยอดเงินใน Virtual Wallet สามารถติดลบได้ทุกกรณี **ห้ามปฏิเสธการบันทึกรายจ่ายเพียงเพราะยอดเงินคงเหลือเป็น 0 หรือติดลบ**
 - **ดำเนินการ (ต้องส่ง Function Call `tool_calls` ทันทีเพื่อให้ UI แสดงหน้าต่าง/การ์ดยืนยัน):** `add_transaction` (รวมถึงกรณีผู้ใช้สั่งเติมเงินเข้ากระเป๋าให้บันทึกเป็น `type: "income"` หรือโอน/จ่ายออกให้บันทึกเป็น `type: "expense"` เพื่ออัปเดตทั้งประวัติธุรกรรมและยอด Virtual Wallet พร้อมกัน), `update_category_budget`, `add_category` (สร้างหมวดหมู่รายจ่ายหรือรายรับใหม่พร้อมเลือก `icon` ที่เหมาะสม; หากไม่ระบุงบให้ใช้ `budget: 0`), `add_recurring_payment` (รองรับทั้งรายจ่ายประจำ `type: "expense"` และรายรับประจำ `type: "income"`)
 - **กฎเหล็กของการเรียก Write Tool:**
@@ -113,10 +118,10 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 ---
 
 ### 2.2 Dynamic Financial Context (`buildFinancialSummary`)
-สร้างโดย [src/app/(app)/ai-assistant/page.tsx](file:///c:/Gitwork/Finora/src/app/(app)/ai-assistant/page.tsx) แล้วแนบเข้า `# Financial Context` ทุกครั้งที่ส่งแชท (กรองยอดใช้จ่ายรายหมวดตาม `isInCurrentQuotaCycle` ให้ตรงกับหน้า UI — หากยังไม่ตั้ง `quotaResetAt` จะนับเฉพาะเดือนปฏิทินปัจจุบัน `YYYY-MM`):
+สร้างโดย [src/app/(app)/ai-assistant/page.tsx](file:///c:/Gitwork/Finora/src/app/(app)/ai-assistant/page.tsx) ร่วมกับ `formatCompactInsightsForPrompt(computeFinancialInsights(...))` จาก [src/lib/financial-insights.ts](file:///c:/Gitwork/Finora/src/lib/financial-insights.ts) แล้วแนบเข้า `# Financial Context` ทุกครั้งที่ส่งแชท (กรองยอดใช้จ่ายรายหมวดตาม `isInCurrentQuotaCycle` ให้ตรงกับหน้า UI — หากยังไม่ตั้ง `quotaResetAt` จะนับเฉพาะเดือนปฏิทินปัจจุบัน `YYYY-MM`):
 
 ```text
-วันที่ปัจจุบัน: 2026-11-21 (21 พฤศจิกายน 2569)
+วันที่ปัจจุบัน: 2026-11-22 (22 พฤศจิกายน 2569)
 ยอดเงินคงเหลือ Virtual Wallet: ฿10,000.00
 รายรับรวมทั้งหมด: ฿15,000.00 | รายจ่ายรวมทั้งหมด: ฿5,000.00
 รอบโควต้าปัจจุบัน: รายรับ ฿15,000.00 | รายจ่าย ฿5,000.00   (แสดงเมื่อตั้ง quotaResetAt)
@@ -127,6 +132,13 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 - [food] อาหาร & เครื่องดื่ม: ใช้ไป ฿1,500.00 (งบ ฿10,000.00)
 ...
 หมวดรายรับที่มี: [salary] เงินเดือน & โบนัส, [investment] เงินปันผล & การลงทุน
+สรุปวิเคราะห์เชิงลึก (คำนวณล่วงหน้า):
+- ความคืบหน้าของเดือน: วันที่ 22/30 (ผ่านไปแล้ว 73%, เหลือ 9 วัน)
+- กระแสเงินสดรอบนี้: รายรับ ฿15,000.00 | รายจ่าย ฿5,000.00 | สุทธิ ฿10,000.00 | อัตราการออม 66.7%
+- เทียบเดือนก่อน (MoM): รายจ่าย: ไม่มีข้อมูลเดือนก่อน | รายรับ: ไม่มีข้อมูลเดือนก่อน
+- งบใช้ได้ปลอดภัยต่อวัน (Daily Safe Spend): จากงบที่เหลือ ฿4,000.00/วัน | จากยอดกระเป๋า ฿1,111.11/วัน
+- ภาระรายจ่ายประจำ (Recurring Load): 27% ของรายรับฐาน (฿13,500.00/฿50,000.00)
+- สัญญาณเตือนความเสี่ยง: ไม่มีสัญญาณเสี่ยง
 ```
 
 ---
@@ -163,11 +175,11 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 
 ---
 
-## 3. ส่วนที่ 2: สารานุกรม AI Tools ทั้ง 9 ตัว (`FINORA_TOOLS`)
+## 3. ส่วนที่ 2: สารานุกรม AI Tools ทั้ง 10 ตัว (`FINORA_TOOLS`)
 
-แบ่งเป็น **Read Tools 5 ตัว** (`READ_TOOL_NAMES`) และ **Write Tools 4 ตัว** (`WRITE_TOOL_NAMES`) ใน [src/lib/ai-tools.ts](file:///c:/Gitwork/Finora/src/lib/ai-tools.ts)
+แบ่งเป็น **Read Tools 6 ตัว** (`READ_TOOL_NAMES`) และ **Write Tools 4 ตัว** (`WRITE_TOOL_NAMES`) ใน [src/lib/ai-tools.ts](file:///c:/Gitwork/Finora/src/lib/ai-tools.ts)
 
-### 3.1 Read Tools (5 ตัว — รันอัตโนมัติทันทีใน `runReadTool`)
+### 3.1 Read Tools (6 ตัว — รันอัตโนมัติทันทีใน `runReadTool`)
 
 | # | ชื่อ Tool | คำอธิบาย (Description) | พารามิเตอร์ (Parameters) | ข้อมูลที่ส่งกลับ (Return Payload) |
 |---|---|---|---|---|
@@ -176,6 +188,7 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 | 3 | **`get_categories`** | ดูรายการหมวดหมู่ทั้งหมดพร้อมยอดใช้จริงเทียบกับงบประมาณรายเดือน (ไม่รวมหมวด `"recurring"`) | *(ไม่มี)* | `{ categories: [{ id, name, type, budget, spent, remainingBudget, overBudgetAmount, usagePercent }] }` *(กรอง `t.type === c.type` ในรอบโควต้าปัจจุบัน)* |
 | 4 | **`get_recurring_payments`** | ดูรายการประจำ (Recurring) ทั้งรายจ่ายประจำและรายรับประจำ สถานะ และวันครบกำหนดถัดไป | *(ไม่มี)* | `{ currentBankBalance, activeMonthlyTotal, activeMonthlyIncomeTotal, monthlyNetRecurring, items: [{ id, title, amount, type, cycle, nextDueDate, active }] }` |
 | 5 | **`get_financial_prediction`** | คำนวณคาดการณ์ยอดเงินและกระแสเงินสดในอนาคตล่วงหน้า พร้อมสมมติฐานและคำเตือนความเสี่ยง | - `monthsAhead?`: `number` (1–12 เดือน, default `3`) | `{ monthsAhead, currentBankBalance, baselineMonthlyIncome, baselineMonthlyOutflow, activeRecurringMonthly, activeRecurringIncomeMonthly, estimatedMonthlyNet, projectedBalance, lowBalanceRisk, assumptions: string[] }` *(ใช้ฐานจากรอบโควต้าปัจจุบันหรือย้อนหลัง 30 วันล่าสุด)* |
+| 6 | **`get_spending_insights`** | วิเคราะห์พฤติกรรมการใช้จ่ายเชิงลึก: อันดับหมวดรายจ่ายสูงสุด, MoM, อัตราการออม, Daily Safe Spend, Burn Pace, Recurring Load, หมวดพุ่งผิดปกติ, รายการใหญ่สุด, และเป้าหมายประหยัดจำลอง | - `topN?`: `number` (3–10, default `5`)<br>- `focusCategoryId?`: `string` (รหัสหรือชื่อหมวดหมู่ที่ต้องการเจาะลึก) | `{ monthProgress, periodTotals, savings, recurringLoad, categoryInsights, topExpenseCategories, overBudgetCategories, nearBudgetCategories, aheadOfPaceCategories, spendingAnomalies, topTransactions, savingsOpportunities, totalPotentialMonthlySavings, savingsDisclaimer, riskFlags, focusedCategory? }` |
 
 ---
 
@@ -183,10 +196,10 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 
 | # | ชื่อ Tool | รูปแบบ UI ยืนยัน | พารามิเตอร์ (Parameters) | กฎการตรวจสอบและแปลงค่า (`validateAndNormalizeWriteTool`) |
 |---|---|---|---|---|
-| 6 | **`add_transaction`** | **Blocking Modal** (รองรับทั้งใบเดียวและ **Batch หลายรายการในหน้าต่างเดียว**) | - `type` *(req)*: `"income" \| "expense"`<br>- `title` *(req)*: `string` (ชื่อรายการ/ร้านค้า)<br>- `amount` *(req)*: `number` (`> 0`)<br>- `categoryId` *(req)*: `string`<br>- `channel?`: `string` (default `"Virtual Bank Wallet"`)<br>- `date?`: `string` (`YYYY-MM-DD`, `DD/MM`, หรือคำสัมพัทธ์) | - `title` ต้องไม่ว่าง และปัด `amount` เป็นทศนิยม 2 ตำแหน่ง (`roundCurrency`, `> 0`)<br>- **ไม่บล็อกยอดเงินติดลบ** (อนุญาตให้ `bankBalance < 0`)<br>- แปลง `channel` อัตโนมัติ (`"cash"` → `"เงินสด"`, `"qr"` → `"สแกน PromptPay QR"`, `"card"` → `"Virtual Card"`)<br>- แปลง `date` ด้วย `normalizeTransactionDate` (ถ้าไม่ส่งมาใช้ `todayYmd()`, ถ้าส่งวันที่ผิดเช่น `"31/02"` คืน error)<br>- หาหมวดหมู่ด้วย `resolveCategory(rawCat, categories, txType, title)` (ถ้า `categoryId` ไม่ตรง จะ fallback เดาจาก `title`) |
-| 7 | **`update_category_budget`** | **Inline Card** ในแชท | - `categoryId` *(req)*: `string`<br>- `budget` *(req)*: `number` (`>= 0`) | - ปัด `budget` เป็นทศนิยม 2 ตำแหน่ง (`roundCurrency`, `>= 0`)<br>- ต้องเป็นหมวดรายจ่าย (`type === "expense"`) ที่มีอยู่จริง และห้ามแก้ไขหมวด `"recurring"`<br>- แนบคำเตือน `⚠️` ใน `summary` หาก `budget` ต่ำกว่ายอดที่ใช้ไปแล้วในรอบปัจจุบัน |
-| 8 | **`add_category`** | **Inline Card** ในแชท หรือ **Chained Blocking Modal** (เมื่อเรียกคู่กับ `add_transaction`) | - `name` *(req)*: `string`<br>- `type?`: `"expense" \| "income"` (default `"expense"`)<br>- `budget?`: `number` (`>= 0`, default `0`)<br>- `icon?`: enum `CATEGORY_ICON_IDS` (20 ไอคอน) | - ตัดช่องว่าง `name` และบล็อกชื่อสงวน `"recurring"` / `"รายจ่ายประจำ"`<br>- บล็อกชื่อซ้ำตรงเป๊ะภายในประเภทเดียวกัน (ถ้าซ้ำใน `expense` แนะให้ใช้ `update_category_budget`; อนุญาตหมวดย่อยและชื่อซ้ำข้ามประเภท)<br>- หมวดรายรับบังคับ `budget = 0`; หมวดรายจ่ายถ้าไม่ระบุให้ `budget = 0`<br>- เลือกสีอัตโนมัติด้วย `nextCategoryColor` (ไม่ซ้ำสีเดิม) และ fallback `icon` เป็น `"label"` / `"payments"` หากไม่ตรงชุดไอคอน |
-| 9 | **`add_recurring_payment`** | **Inline Card** ในแชท | - `title` *(req)*: `string`<br>- `amount` *(req)*: `number` (`> 0`)<br>- `type?`: `"expense" \| "income"` (default `"expense"`)<br>- `categoryId?`: `string` (ใช้เมื่อ `type === "income"`)<br>- `cycle?`: `"monthly" \| "weekly" \| "yearly"` (default `"monthly"`)<br>- `nextDueDate?`: `string` (`YYYY-MM-DD` หรือ `DD/MM`, default วันที่ 1 ของเดือนถัดไป) | - ป้องกันชื่อรายการซ้ำ และปัด `amount` เป็นทศนิยม 2 ตำแหน่ง (`roundCurrency`)<br>- แปลง `nextDueDate` ด้วย `normalizeTransactionDate` (คืน error หากรูปแบบผิด, แนบคำเตือน `⚠️` หากเป็นวันในอดีต)<br>- ถ้ารายจ่ายประจำ (`expense`) บังคับ `categoryId = "recurring"` / `icon = "autorenew"`<br>- ถ้ารายรับประจำ (`income`) จับคู่หมวดรายรับด้วย `resolveCategory` (default `"salary"`, `icon = "payments"`) |
+| 7 | **`add_transaction`** | **Blocking Modal** (รองรับทั้งใบเดียวและ **Batch หลายรายการในหน้าต่างเดียว**) | - `type` *(req)*: `"income" \| "expense"`<br>- `title` *(req)*: `string` (ชื่อรายการ/ร้านค้า)<br>- `amount` *(req)*: `number` (`> 0`)<br>- `categoryId` *(req)*: `string`<br>- `channel?`: `string` (default `"Virtual Bank Wallet"`)<br>- `date?`: `string` (`YYYY-MM-DD`, `DD/MM`, หรือคำสัมพัทธ์) | - `title` ต้องไม่ว่าง และปัด `amount` เป็นทศนิยม 2 ตำแหน่ง (`roundCurrency`, `> 0`)<br>- **ไม่บล็อกยอดเงินติดลบ** (อนุญาตให้ `bankBalance < 0`)<br>- แปลง `channel` อัตโนมัติ (`"cash"` → `"เงินสด"`, `"qr"` → `"สแกน PromptPay QR"`, `"card"` → `"Virtual Card"`)<br>- แปลง `date` ด้วย `normalizeTransactionDate` (ถ้าไม่ส่งมาใช้ `todayYmd()`, ถ้าส่งวันที่ผิดเช่น `"31/02"` คืน error)<br>- หาหมวดหมู่ด้วย `resolveCategory(rawCat, categories, txType, title)` (ถ้า `categoryId` ไม่ตรง จะ fallback เดาจาก `title`) |
+| 8 | **`update_category_budget`** | **Inline Card** ในแชท | - `categoryId` *(req)*: `string`<br>- `budget` *(req)*: `number` (`>= 0`) | - ปัด `budget` เป็นทศนิยม 2 ตำแหน่ง (`roundCurrency`, `>= 0`)<br>- ต้องเป็นหมวดรายจ่าย (`type === "expense"`) ที่มีอยู่จริง และห้ามแก้ไขหมวด `"recurring"`<br>- แนบคำเตือน `⚠️` ใน `summary` หาก `budget` ต่ำกว่ายอดที่ใช้ไปแล้วในรอบปัจจุบัน |
+| 9 | **`add_category`** | **Inline Card** ในแชท หรือ **Chained Blocking Modal** (เมื่อเรียกคู่กับ `add_transaction`) | - `name` *(req)*: `string`<br>- `type?`: `"expense" \| "income"` (default `"expense"`)<br>- `budget?`: `number` (`>= 0`, default `0`)<br>- `icon?`: enum `CATEGORY_ICON_IDS` (20 ไอคอน) | - ตัดช่องว่าง `name` และบล็อกชื่อสงวน `"recurring"` / `"รายจ่ายประจำ"`<br>- บล็อกชื่อซ้ำตรงเป๊ะภายในประเภทเดียวกัน (ถ้าซ้ำใน `expense` แนะให้ใช้ `update_category_budget`; อนุญาตหมวดย่อยและชื่อซ้ำข้ามประเภท)<br>- หมวดรายรับบังคับ `budget = 0`; หมวดรายจ่ายถ้าไม่ระบุให้ `budget = 0`<br>- เลือกสีอัตโนมัติด้วย `nextCategoryColor` (ไม่ซ้ำสีเดิม) และ fallback `icon` เป็น `"label"` / `"payments"` หากไม่ตรงชุดไอคอน |
+| 10 | **`add_recurring_payment`** | **Inline Card** ในแชท | - `title` *(req)*: `string`<br>- `amount` *(req)*: `number` (`> 0`)<br>- `type?`: `"expense" \| "income"` (default `"expense"`)<br>- `categoryId?`: `string` (ใช้เมื่อ `type === "income"`)<br>- `cycle?`: `"monthly" \| "weekly" \| "yearly"` (default `"monthly"`)<br>- `nextDueDate?`: `string` (`YYYY-MM-DD` หรือ `DD/MM`, default วันที่ 1 ของเดือนถัดไป) | - ป้องกันชื่อรายการซ้ำ และปัด `amount` เป็นทศนิยม 2 ตำแหน่ง (`roundCurrency`)<br>- แปลง `nextDueDate` ด้วย `normalizeTransactionDate` (คืน error หากรูปแบบผิด, แนบคำเตือน `⚠️` หากเป็นวันในอดีต)<br>- ถ้ารายจ่ายประจำ (`expense`) บังคับ `categoryId = "recurring"` / `icon = "autorenew"`<br>- ถ้ารายรับประจำ (`income`) จับคู่หมวดรายรับด้วย `resolveCategory` (default `"salary"`, `icon = "payments"`) |
 
 > *(หมายเหตุ: เครื่องมือ `toggle_recurring` ถูกนำออกใน v2.7.0 — การพัก/เปิดใช้งานหรือลบรายการประจำให้จัดการผ่านหน้า `/recurring`)*
 
@@ -230,7 +243,7 @@ ${financialSummary || "(ยังไม่มีข้อมูลสรุป �
 
 ### 4.3 ลำดับความสำคัญของการรัน Tools (`getToolExecutionPriority`)
 เมื่อ LLM ส่งหลาย `tool_calls` พร้อมกันในรอบเดียว ระบบจะเรียงลำดับด้วย `getToolExecutionPriority` ([src/lib/ai-tools.ts](file:///c:/Gitwork/Finora/src/lib/ai-tools.ts)):
-1. **Priority `0` (Read Tools ทั้ง 5 ตัว):** รันก่อนเสมอเพื่อให้ได้ข้อมูลล่าสุด
+1. **Priority `0` (Read Tools ทั้ง 6 ตัว):** รันก่อนเสมอเพื่อให้ได้ข้อมูลล่าสุด
 2. **Priority `1` (New Category):** `add_category` — รันก่อน `add_transaction` เพื่อให้หมวดร่าง (`draft-cat-*`) เข้าไปอยู่ใน `workingCategories` สำหรับการจับคู่ `categoryId`
 3. **Priority `2` (Income / Credit):** `add_transaction` ที่เป็น `type: "income"`
 4. **Priority `3` (Configuration Tools):** `update_category_budget`, `add_recurring_payment`
