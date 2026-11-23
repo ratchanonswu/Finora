@@ -489,8 +489,15 @@ function formatMomDelta(pct: number | null, label: string): string {
 export function formatCompactInsightsForPrompt(
   insights: FinancialInsightsResult
 ): string {
-  const { monthProgress, periodTotals, savings, recurringLoad, riskFlags } =
-    insights;
+  const {
+    monthProgress,
+    periodTotals,
+    savings,
+    recurringLoad,
+    riskFlags,
+    savingsOpportunities,
+    totalPotentialMonthlySavings,
+  } = insights;
   const savingsRateText =
     savings.savingsRatePct !== null ? `${savings.savingsRatePct}%` : "ไม่มีรายรับในรอบนี้";
   const dailySafeText =
@@ -503,6 +510,16 @@ export function formatCompactInsightsForPrompt(
       : `ยังไม่มีรายรับฐานสำหรับเทียบ (รายจ่ายประจำ ${formatTHB(recurringLoad.activeRecurringExpenseMonthly)}/เดือน)`;
   const flagsText = riskFlags.length > 0 ? riskFlags.join(" ; ") : "ไม่มีสัญญาณเสี่ยง";
 
+  const savingsLine =
+    savingsOpportunities.length > 0
+      ? `- เป้าหมายประหยัดจำลอง (จากยอดรอบปัจจุบัน, ไม่ใช่เงินออมจริง): ${savingsOpportunities
+          .map(
+            (item) =>
+              `ลด "${item.categoryName}" ${item.targetReductionPct}% (${formatTHB(item.potentialMonthlySavings)}/เดือน)`
+          )
+          .join(", ")} | รวมอาจประหยัดได้ ${formatTHB(totalPotentialMonthlySavings)}/เดือน`
+      : null;
+
   return [
     "สรุปสถานะการเงินรอบปัจจุบัน:",
     `- ความคืบหน้าของเดือน: วันที่ ${monthProgress.dayOfMonth}/${monthProgress.daysInMonth} (ผ่านไปแล้ว ${monthProgress.elapsedPct}%, เหลือ ${monthProgress.daysRemaining} วัน)`,
@@ -511,5 +528,6 @@ export function formatCompactInsightsForPrompt(
     `- งบใช้ได้ปลอดภัยต่อวัน (Daily Safe Spend): ${dailySafeText}`,
     `- ภาระรายจ่ายประจำ (Recurring Load): ${recurringLoadText}`,
     `- สัญญาณเตือนความเสี่ยง: ${flagsText}`,
+    ...(savingsLine ? [savingsLine] : []),
   ].join("\n");
 }
