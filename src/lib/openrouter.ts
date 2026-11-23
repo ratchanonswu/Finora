@@ -38,7 +38,7 @@ export interface LLMMetrics {
   latencyMs: number;
 }
 
-const OPENROUTER_TIMEOUT_MS = 65_000;
+const OPENROUTER_TIMEOUT_MS = 45_000;
 const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
 const RETRY_DELAYS_MS = [1000, 2000];
 
@@ -182,7 +182,7 @@ export async function callOpenRouter(options: {
         return {
           ok: false,
           status: 504,
-          error: "การเชื่อมต่อ AI ใช้เวลานานเกินกำหนด (65 วินาที) กรุณาลองใหม่อีกครั้ง",
+          error: "การเชื่อมต่อ AI ใช้เวลานานเกินกำหนด (45 วินาที) กรุณาลองใหม่อีกครั้ง",
         };
       }
       if (attempt < RETRY_DELAYS_MS.length) {
