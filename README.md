@@ -38,7 +38,7 @@ All architecture blueprints, symbol references, AI handbooks, and product specif
 | :--- | :--- |
 | [`docs/MAP.md`](docs/MAP.md) | System Architecture, Module Responsibilities, & Data Flow Blueprint |
 | [`docs/REPO_MAP.md`](docs/REPO_MAP.md) | File & Symbol Dictionary |
-| [`docs/AI_TOOLS_AND_PROMPTS.md`](docs/AI_TOOLS_AND_PROMPTS.md) | AI Tools (9 Tools) & Prompts (`v2.8.0`) Handbook |
+| [`docs/AI_TOOLS_AND_PROMPTS.md`](docs/AI_TOOLS_AND_PROMPTS.md) | AI Tools (10 Tools) & Prompts (`v2.10.0`) Handbook |
 | [`docs/Objective.md`](docs/Objective.md) | Original Product & UX Specification |
 
 ---
@@ -77,21 +77,25 @@ Finora/
 │   │   ├── dashboard/                  # DashboardHeader & modular Dashboard widgets
 │   │   ├── AppShell.tsx                # Unified sidebar + DashboardHeader topbar
 │   │   ├── AuthShell.tsx               # Split-screen auth layout
+│   │   ├── ConfirmDialog.tsx           # Reusable accessible confirmation dialog
 │   │   ├── IconColorPicker.tsx         # Shared category icon & color picker
 │   │   └── TransactionModal.tsx        # Global add-transaction modal
 │   ├── context/
 │   │   └── FinoraContext.tsx           # Client state + localStorage/sessionStorage persistence
 │   └── lib/
-│       ├── ai-tools.ts                 # 9 AI tool schemas, resolvers & validators
+│       ├── ai-handoff.ts               # One-shot Dashboard AI Insights -> chat handoff
+│       ├── ai-tools.ts                 # 10 AI tool schemas, resolvers & validators
 │       ├── bank-service.ts             # Pure Virtual Bank transfer logic
+│       ├── financial-insights.ts       # Pure MoM, burn-pace, safe-spend & savings engine
 │       ├── ocr.ts                      # OCR.space Thai slip text helper (4s timeout)
 │       ├── openrouter.ts               # OpenRouter HTTP client with timeout & retry
-│       ├── prompts.ts                  # System & slip vision prompts (v2.8.0) + parser
+│       ├── prompts.ts                  # System & slip vision prompts (v2.10.0) + parser
 │       ├── rollover.ts                 # Date-driven monthly rollover simulator
-│       ├── seed.ts                     # Initial data, formatters, date & quota helpers
+│       ├── seed.ts                     # 3-month initial data, formatters, date & quota helpers
 │       ├── slip-image.ts               # Client slip resize/compression (<= 950KB / 1600px)
 │       ├── types.ts                    # Shared TypeScript interfaces
-│       └── self-check.ts               # Automated self-check assertions (23 checks)
+│       ├── useDialogAccessibility.ts   # Modal Escape, focus-trap & scroll-lock hook
+│       └── self-check.ts               # Automated self-check assertions (30 checks)
 ├── prototypes/                         # Static HTML design blueprints
 ├── emerald_nocturne/                   # Dark theme design specification
 ├── .env.example                        # Environment variable template
@@ -142,11 +146,11 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### 4. Verify & Build
 
 ```bash
-npm run test:check   # Runs 23 automated checks (bank, AI tools, prompts, dates, quota cycle)
+npm run test:check   # Runs 30 automated checks (bank, AI tools, insights, prompts, dates, quota cycle)
 npm run build        # Production TypeScript & Next.js build
 ```
 
 | Command | Purpose |
 | :--- | :--- |
-| `npm run test:check` | Runs 23 automated checks (bank, AI tools, prompts, dates, quota cycle) |
+| `npm run test:check` | Runs 30 automated checks (bank, AI tools, insights, prompts, dates, quota cycle) |
 | `npm run build` | Production TypeScript & Next.js build |

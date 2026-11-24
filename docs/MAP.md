@@ -127,13 +127,14 @@ sequenceDiagram
 | Path | Primary Responsibility |
 |---|---|
 | `src/app/(app)/page.tsx` | หน้า **ภาพรวมการเงิน (Dashboard)**: การ์ดสรุป 4 มิติ, AI Insights, กราฟแท่ง 6 เดือน, สัดส่วนรายจ่ายตามหมวดหมู่ และรายการล่าสุด |
-| `src/app/(app)/ai-assistant/page.tsx` | หน้า **ผู้ช่วย AI & สแกนสลิป**: ระบบแชท Markdown, `runToolLoop`, สแกนรูปสลิปด้วย OCR + Vision AI, และ **Batch/Chained Confirmation Modal** |
+| `src/app/(app)/ai-assistant/page.tsx` | หน้า **ผู้ช่วย AI & สแกนสลิป**: ระบบแชท Markdown, `runToolLoop`, สแกนรูปสลิปด้วย OCR + Vision AI, และ **Batch/Chained & Budget Update Blocking Confirmation Modals** |
 | `src/app/(app)/transactions/page.tsx` | หน้า **รายรับรายจ่ายทั้งหมด**: ค้นหา/กรองธุรกรรม, แก้ไขวันที่แบบ Inline (`<input type="date">`), และลบรายการ |
 | `src/app/(app)/categories/page.tsx` | หน้า **จัดการหมวดหมู่**: แยกแท็บหมวดรายจ่าย/รายรับ, ตั้งงบประมาณรายเดือน, สร้างหมวดหมู่กำหนดเองพร้อมสีไม่ซ้ำ |
 | `src/app/(app)/recurring/page.tsx` | หน้า **ตัด/รับเงินอัตโนมัติ (Recurring)**: จัดการทั้งรายจ่ายประจำและรายรับประจำ (เช่น เงินเดือน), สั่งตัด/รับยอดทันทีรายตัวหรือทั้งหมด |
 | `src/app/(app)/virtual-bank/page.tsx` | หน้า **ธนาคารจำลอง (Virtual Bank)**: ฟอร์มจำลองฝาก/โอนเงิน และตารางรายการเดินบัญชี (Ledger) |
 | `src/app/(app)/settings/page.tsx` | หน้า **ตั้งค่าระบบ**: โปรไฟล์, สลับธีม, ตั้งค่าตัดเงินอัตโนมัติ, วันรีเซ็ตโควต้า, จำลองวันครบรอบเดือน (Rollover Simulator), และตั้งค่า OpenRouter API Key |
 | `src/components/AppShell.tsx` | โครงหน้าหลักหลังล็อกอิน: Sidebar พับย่อได้, กล่องแสดงยอด `Virtual Wallet` (ไฮไลต์สีเมื่อติดลบ), และ Topbar ร่วมกันทุกหน้าผ่าน `DashboardHeader` |
+| `src/components/ConfirmDialog.tsx` | Dialog ยืนยันแบบ Reusable พร้อม `useDialogAccessibility` (ใช้ในล้างแชท, ลบธุรกรรม/หมวดหมู่/บิล ฯลฯ) |
 | `src/components/IconColorPicker.tsx` | ป๊อปโอเวอร์เลือกไอคอน Material Symbol และสีหมวดหมู่ (ใช้ทั้งใน `/categories` และการ์ด/Modal `add_category` ในแชท) |
 | `src/components/TransactionModal.tsx` | ป๊อปอัป **"บันทึกธุรกรรมใหม่"** แบบ Manual พร้อมตัวเลือกหมวดหมู่ ช่องทาง และวันที่ทำรายการ (`<input type="date">`) |
 | `src/components/dashboard/DashboardShell.tsx` | `DashboardHeader`: Top Navigation Bar ร่วมทุกหน้า (ปุ่มบันทึกด่วน, สลับ Dark/Light Mode, กระดิ่งแจ้งเตือนงบ/บิล, เมนูโปรไฟล์เหลือเฉพาะปุ่มออกจากระบบ ไม่มี search bar) |
@@ -145,6 +146,7 @@ sequenceDiagram
 | `src/components/dashboard/ExpenseBreakdownCard.tsx` | กราฟโดนัทแสดงสัดส่วนรายจ่ายสูงสุด 5 อันดับ (หากเกิน 5 หมวด จะรวบเป็นหมวด "อื่นๆ") |
 | `src/components/dashboard/dashboard-utils.ts` | ฟังก์ชันคำนวณ Dashboard (`resolveDateRange`, `computePeriodSummary`, `buildSparklineSeries`, `buildBarChartSeries`, `computeBudgetOverview`, `computeExpenseBreakdown`, `buildDashboardInsights`, `buildDashboardNotifications`) |
 | `src/context/FinoraContext.tsx` | ศูนย์กลาง State ของแอป: จัดการ Transactions (เรียงวันที่ล่าสุดขึ้นก่อนเสมอ), Categories, Recurring, Virtual Wallet (`bankBalanceRef`, `txSeqRef`, `catSeqRef`), และ Chat Session |
+| `src/lib/ai-handoff.ts` | จัดการ one-shot prompt Handoff ผ่าน `sessionStorage` จากการ์ด AI Insights บน Dashboard ไปส่งถามอัตโนมัติใน `/ai-assistant` |
 | `src/lib/ai-tools.ts` | นิยาม `FINORA_TOOLS` (6 Read Tools รวม `get_spending_insights` ที่รองรับการกรอง `sections` + 4 Write Tools: `add_transaction`, `update_category_budget`, `add_category`, `add_recurring_payment`), `CATEGORY_ALIASES`, `resolveCategory` (ตรวจชื่อหมวดตรงตัวก่อน alias), และ `validateAndNormalizeWriteTool` |
 | `src/lib/financial-insights.ts` | Pure Analytics Engine (`computeFinancialInsights`, `formatCompactInsightsForPrompt`, `toMonthlyRecurringAmount`) คำนวณ MoM %, อัตราการออม, Burn Pace เทียบวันของเดือน, Daily Safe Spend, Recurring Load %, หมวดพุ่งผิดปกติ, รายการใหญ่สุด, และเป้าหมายประหยัดจำลองแบบไดนามิกพร้อม `sampleTransactions` |
 | `src/lib/prompts.ts` | `FINORA_PROMPT_VERSION = "2.10.0"`, `buildFinoraSystemPrompt` (3-Tier Coaching Scope + Summary Follow-up Advice + Anti-Vague Rule + Light Proactivity), `buildSlipPrompt`, และ `parseSlipResult` (จับคู่ชื่อผู้โอน/ผู้รับกับชื่อผู้ใช้เพื่อแยก `income`/`expense`) |
@@ -154,6 +156,8 @@ sequenceDiagram
 | `src/lib/ocr.ts` | `extractSlipOcrText` เรียก OCR.space Engine 1 (`language: "tha"`) พร้อม timeout 4 วินาที และจำกัดขนาดไฟล์ 1 MB |
 | `src/lib/openrouter.ts` | `callOpenRouter` HTTP client พร้อม timeout 45 วินาที, รองรับ `maxTokens` + จับ `finish_reason === "length"`, Auto-Retry 2 ครั้ง (`1s`/`2s`) สำหรับ `429/502/503/504` หรือ network error ชั่วคราว, และตัวเก็บสถิติ `LLMMetrics` |
 | `src/lib/slip-image.ts` | เตรียมรูปภาพสลิปสำหรับ OCR/Vision API (`prepareSlipImage`: ส่งตรง `<= 950KB`, ย่อ `1600px` ให้อยู่ใต้ลิมิต OCR 1 MB, และสร้าง thumbnail `180px`) |
+| `src/lib/types.ts` | TypeScript interfaces กลาง (`Category`, `Transaction`, `RecurringPayment`, `BankLedgerEntry`, `AppSettings`, `ChatMessage`) |
+| `src/lib/useDialogAccessibility.ts` | Custom hook จัดการ Escape key, Focus Trap, คืน Focus และ Lock Background Scroll สำหรับ Blocking Modals |
 | `src/lib/self-check.ts` | ชุดทดสอบอัตโนมัติ 30 หัวข้อครอบคลุมทุกฟังก์ชันหลักใน `src/lib/` (รวม analytics, `sections`, `sampleTransactions`, date search, seed integrity, และ prompt v2.10.0) |
 
 ---
