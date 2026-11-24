@@ -180,5 +180,5 @@ sequenceDiagram
    - หากผู้ใช้ยังไม่เคยรีเซ็ตรอบโควต้า (`quotaResetAt` ยังไม่ถูกตั้งค่า) `isInCurrentQuotaCycle` ใน `src/lib/seed.ts` จะนับเฉพาะธุรกรรมที่อยู่ในเดือนปฏิทินปัจจุบัน (`YYYY-MM`) เพื่อให้ยอดงบประมาณใน Dashboard, `/categories`, แจ้งเตือน, และ AI Context ไม่สะสมยอดย้อนหลังข้ามเดือน
 7. **Environment Variables (`.env.local`):**
    - `OPENROUTER_API_KEY` (จำเป็นสำหรับ AI Chat และ Vision; หรือใส่ Override Key ได้ในหน้า Settings ของแอป)
-   - `OPENROUTER_MODEL` (ค่าเริ่มต้น `google/gemini-2.5-flash`)
+   - `OPENROUTER_MODEL` (ค่าเริ่มต้น `nvidia/nemotron-3.5-super-vl:free`)
    - `OCR_SPACE_API_KEY` (ไม่บังคับ — หากมีจะช่วยสกัดข้อความภาษาไทยจากสลิปส่งเสริมให้ Vision LLM แม่นยำขึ้น หากไม่มีหรือเกิน 4 วินาที ระบบจะ fallback ไปใช้ Vision LLM ล้วนโดยไม่พัง)

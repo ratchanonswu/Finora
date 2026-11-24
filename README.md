@@ -122,14 +122,14 @@ cp .env.example .env.local
 
 ```env
 OPENROUTER_API_KEY=your_openrouter_api_key_here
-OPENROUTER_MODEL=google/gemini-2.5-flash
+OPENROUTER_MODEL=nvidia/nemotron-3.5-super-vl:free
 # OCR_SPACE_API_KEY=your_ocr_space_api_key_here
 ```
 
 | Variable | Required | Description |
 | :--- | :--- | :--- |
 | `OPENROUTER_API_KEY` | Yes | Your OpenRouter API key |
-| `OPENROUTER_MODEL` | Yes | Vision-capable OpenRouter model (e.g., `google/gemini-2.5-flash`) |
+| `OPENROUTER_MODEL` | Yes | Vision-capable OpenRouter model (e.g., `nvidia/nemotron-3.5-super-vl:free`) |
 | `OCR_SPACE_API_KEY` | Optional | Dedicated OCR.space key for faster Thai slip OCR |
 
 > [!NOTE]
