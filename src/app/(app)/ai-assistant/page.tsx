@@ -267,6 +267,22 @@ interface PendingTxDraft {
   error?: string;
 }
 
+interface PendingBudgetUpdateItem {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  icon: string;
+  color: string;
+  currentBudget: number;
+  newBudget: string;
+  currentSpent: number;
+}
+
+interface PendingBudgetDraft {
+  items: PendingBudgetUpdateItem[];
+  error?: string;
+}
+
 export default function AiAssistantPage() {
   const {
     user,
@@ -292,12 +308,14 @@ export default function AiAssistantPage() {
   const [loadingStage, setLoadingStage] = useState<"chat" | "slip_scan" | "saving" | null>(null);
   const [pendingAmounts, setPendingAmounts] = useState<Record<string, string>>({});
   const [pendingTxDraft, setPendingTxDraft] = useState<PendingTxDraft | null>(null);
+  const [pendingBudgetDraft, setPendingBudgetDraft] = useState<PendingBudgetDraft | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const pendingDraftDialogRef = useRef<HTMLDivElement | null>(null);
+  const pendingBudgetDialogRef = useRef<HTMLDivElement | null>(null);
   const scrollAnimRef = useRef<ScrollAnimationState | null>(null);
   const userCancelledScrollRef = useRef(false);
   const hasMountedScrollRef = useRef(false);
@@ -559,13 +577,14 @@ export default function AiAssistantPage() {
   const hasPendingConfirmation = useMemo(
     () =>
       pendingTxDraft !== null ||
+      pendingBudgetDraft !== null ||
       chatMessages.some(
         (m) =>
           m.pendingTool?.status === "pending" ||
           m.txAction?.status === "pending" ||
           m.txAction?.status === "needs_amount"
       ),
-    [pendingTxDraft, chatMessages]
+    [pendingTxDraft, pendingBudgetDraft, chatMessages]
   );
   const inputLocked = loading || hasPendingConfirmation;
 
@@ -737,6 +756,7 @@ export default function AiAssistantPage() {
       const workingCategories: Category[] = [...categories];
       const draftCategories: PendingCategoryItem[] = [];
       const txItems: PendingTxItem[] = [];
+      const budgetUpdates: PendingBudgetUpdateItem[] = [];
       const otherWriteCards: Array<{
         tc: OpenRouterToolCall;
         args: Record<string, unknown>;
@@ -812,6 +832,36 @@ export default function AiAssistantPage() {
               date: String(check.args.date || todayYmd()),
               needsAmount: !(Number.isFinite(amt) && amt > 0),
             });
+          } else if (tc.function.name === "update_category_budget") {
+            const targetId = String(check.args.categoryId || "");
+            const cat = workingCategories.find((c) => c.id === targetId);
+            const nextBudget = Number(check.args.budget) || 0;
+            const currentSpent = transactions
+              .filter(
+                (t) =>
+                  t.categoryId === targetId &&
+                  t.type === "expense" &&
+                  isInCurrentQuotaCycle(t.date, settings.quotaResetAt)
+              )
+              .reduce((s, t) => s + t.amount, 0);
+            const existingIdx = budgetUpdates.findIndex((b) => b.categoryId === targetId);
+            if (existingIdx >= 0) {
+              budgetUpdates[existingIdx] = {
+                ...budgetUpdates[existingIdx],
+                newBudget: String(nextBudget),
+              };
+            } else {
+              budgetUpdates.push({
+                id: tc.id || `budget-draft-${budgetUpdates.length}`,
+                categoryId: targetId,
+                categoryName: cat?.name || targetId,
+                icon: cat?.icon || "label",
+                color: cat?.color || "#0284C7",
+                currentBudget: cat?.budget ?? 0,
+                newBudget: String(nextBudget),
+                currentSpent,
+              });
+            }
           } else {
             otherWriteCards.push({
               tc,
@@ -844,6 +894,10 @@ export default function AiAssistantPage() {
             status: "pending",
           },
         });
+      }
+
+      if (budgetUpdates.length > 0) {
+        setPendingBudgetDraft({ items: budgetUpdates });
       }
 
       if (txItems.length > 0) {
@@ -881,7 +935,7 @@ export default function AiAssistantPage() {
         return;
       }
 
-      if (otherWriteCards.length > 0) return;
+      if (budgetUpdates.length > 0 || otherWriteCards.length > 0) return;
     }
 
     appendChatMessage({
@@ -1419,6 +1473,107 @@ export default function AiAssistantPage() {
     pendingTxDraft !== null,
     pendingDraftDialogRef,
     handleCancelTxDraft,
+    !loading
+  );
+
+  const handleConfirmBudgetDraft = () => {
+    if (!pendingBudgetDraft || pendingBudgetDraft.items.length === 0 || loading) return;
+    const baseSnapshot = {
+      bankBalance,
+      transactions,
+      categories,
+      recurring,
+      autoDebitOnExpense: settings.autoDebitOnExpense,
+      quotaResetAt: settings.quotaResetAt,
+    };
+
+    const prepared: Array<{
+      item: PendingBudgetUpdateItem;
+      budget: number;
+    }> = [];
+
+    for (let i = 0; i < pendingBudgetDraft.items.length; i++) {
+      const item = pendingBudgetDraft.items[i];
+      const prefix = pendingBudgetDraft.items.length > 1 ? `หมวดที่ ${i + 1}: ` : "";
+      const rawText = item.newBudget.trim();
+      const numeric = Number(rawText);
+      if (!rawText || !Number.isFinite(numeric) || numeric < 0) {
+        setPendingBudgetDraft((prev) =>
+          prev
+            ? { ...prev, error: `${prefix}กรุณาระบุงบประมาณใหม่เป็นตัวเลขตั้งแต่ 0 บาทขึ้นไป` }
+            : prev
+        );
+        return;
+      }
+
+      const check = validateAndNormalizeWriteTool(
+        "update_category_budget",
+        { categoryId: item.categoryId, budget: numeric },
+        baseSnapshot
+      );
+      if (!check.ok) {
+        setPendingBudgetDraft((prev) =>
+          prev ? { ...prev, error: `${prefix}${check.error}` } : prev
+        );
+        return;
+      }
+      prepared.push({
+        item,
+        budget: Number(check.args.budget) || 0,
+      });
+    }
+
+    for (const p of prepared) {
+      updateCategoryBudget(p.item.categoryId, p.budget);
+    }
+
+    setPendingBudgetDraft(null);
+
+    if (prepared.length === 1) {
+      const only = prepared[0];
+      const warnSuffix =
+        only.budget < only.item.currentSpent
+          ? ` (⚠️ ต่ำกว่ายอดที่ใช้ไปแล้วในรอบนี้ ${formatTHB(only.item.currentSpent)})`
+          : "";
+      appendChatMessage({
+        id: `a-budget-${Date.now()}`,
+        role: "assistant",
+        text: `อัปเดตสำเร็จ: ปรับงบประมาณหมวด **${only.item.categoryName}** จาก ${formatTHB(only.item.currentBudget)} เป็น **${formatTHB(only.budget)}/เดือน**${warnSuffix} เรียบร้อยแล้วค่ะ`,
+      });
+    } else {
+      const lines = prepared.map((p) => {
+        const warnSuffix =
+          p.budget < p.item.currentSpent
+            ? ` (⚠️ ต่ำกว่ายอดที่ใช้ไปแล้ว ${formatTHB(p.item.currentSpent)})`
+            : "";
+        return `- **${p.item.categoryName}**: ${formatTHB(p.item.currentBudget)} → **${formatTHB(p.budget)}/เดือน**${warnSuffix}`;
+      });
+      appendChatMessage({
+        id: `a-budget-${Date.now()}`,
+        role: "assistant",
+        text: `อัปเดตงบประมาณสำเร็จทั้ง ${prepared.length} หมวดเรียบร้อยแล้วค่ะ:\n${lines.join("\n")}`,
+      });
+    }
+  };
+
+  const handleCancelBudgetDraft = () => {
+    if (!pendingBudgetDraft || loading) return;
+    const count = pendingBudgetDraft.items.length;
+    setPendingBudgetDraft(null);
+    appendChatMessage({
+      id: `a-budget-cancel-${Date.now()}`,
+      role: "assistant",
+      text:
+        count > 1
+          ? `ยกเลิกการปรับงบประมาณทั้ง ${count} หมวดแล้วค่ะ`
+          : "ยกเลิกการปรับงบประมาณหมวดหมู่แล้วค่ะ",
+    });
+  };
+
+  useDialogAccessibility(
+    pendingBudgetDraft !== null && pendingTxDraft === null,
+    pendingBudgetDialogRef,
+    handleCancelBudgetDraft,
     !loading
   );
 
@@ -2746,6 +2901,223 @@ export default function AiAssistantPage() {
         );
       })()}
 
+      {/* Budget Update Blocking Confirmation Modal */}
+      {pendingBudgetDraft && pendingTxDraft === null && (() => {
+        const items = pendingBudgetDraft.items;
+        const isBatch = items.length > 1;
+        const updateDraftBudgetItem = (itemId: string, newBudget: string) => {
+          setPendingBudgetDraft((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  error: undefined,
+                  items: prev.items.map((it) =>
+                    it.id === itemId ? { ...it, newBudget } : it
+                  ),
+                }
+              : prev
+          );
+        };
+        const removeDraftBudgetItem = (itemId: string) => {
+          setPendingBudgetDraft((prev) =>
+            prev && prev.items.length > 1
+              ? {
+                  ...prev,
+                  error: undefined,
+                  items: prev.items.filter((it) => it.id !== itemId),
+                }
+              : prev
+          );
+        };
+        const allValid =
+          items.length > 0 &&
+          items.every((it) => {
+            const raw = it.newBudget.trim();
+            const val = Number(raw);
+            return raw.length > 0 && Number.isFinite(val) && val >= 0;
+          });
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-backdrop-in"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="budget-confirm-modal-title"
+          >
+            <div
+              ref={pendingBudgetDialogRef}
+              tabIndex={-1}
+              className={`w-full ${isBatch ? "max-w-2xl" : "max-w-lg"} max-h-[88vh] rounded-xl bg-surface-container border border-outline-variant/40 shadow-2xl overflow-hidden flex flex-col animate-modal-in focus:outline-none`}
+            >
+              <div className="shrink-0 flex items-start justify-between gap-3 px-6 py-4 border-b border-outline-variant/30">
+                <div className="flex items-start gap-2.5">
+                  <span className="material-symbols-outlined text-primary text-[22px] mt-0.5">
+                    tune
+                  </span>
+                  <div>
+                    <h2
+                      id="budget-confirm-modal-title"
+                      className="text-lg font-semibold text-on-surface m-0"
+                    >
+                      {isBatch
+                        ? `ตรวจสอบการปรับงบประมาณ (${items.length} หมวดหมู่)`
+                        : "ตรวจสอบการปรับงบประมาณหมวดหมู่"}
+                    </h2>
+                    <p className="text-xs text-on-surface-variant mt-0.5">
+                      กรุณาตรวจสอบตัวเลขงบประมาณใหม่และกดยืนยันหรือยกเลิกก่อนส่งข้อความถัดไป
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleCancelBudgetDraft}
+                  className="p-2 -mr-1.5 -mt-0.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high disabled:opacity-40 shrink-0"
+                  aria-label="ปิดหน้าต่าง"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleConfirmBudgetDraft();
+                }}
+                className="flex-1 min-h-0 flex flex-col"
+              >
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+                  {items.map((item, idx) => {
+                    const parsedNew = Number(item.newBudget);
+                    const hasValidNum =
+                      item.newBudget.trim() !== "" &&
+                      Number.isFinite(parsedNew) &&
+                      parsedNew >= 0;
+                    const delta = hasValidNum ? parsedNew - item.currentBudget : 0;
+                    const belowSpent = hasValidNum && parsedNew < item.currentSpent;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="rounded-xl border border-outline-variant/30 bg-surface-container-low/40 p-4 space-y-3"
+                      >
+                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-outline-variant/20">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                              style={{ backgroundColor: `${item.color}1F` }}
+                            >
+                              <span
+                                className="material-symbols-outlined text-[18px]"
+                                style={{ color: item.color }}
+                              >
+                                {item.icon}
+                              </span>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-on-surface truncate">
+                                {isBatch ? `#${idx + 1} ${item.categoryName}` : item.categoryName}
+                              </div>
+                              <div className="text-[11px] font-mono text-on-surface-variant">
+                                งบเดิม {formatTHB(item.currentBudget)} · ใช้ไปแล้วรอบนี้{" "}
+                                {formatTHB(item.currentSpent)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {isBatch && (
+                            <button
+                              type="button"
+                              disabled={loading}
+                              onClick={() => removeDraftBudgetItem(item.id)}
+                              title="นำหมวดนี้ออก"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-on-surface-variant hover:text-error hover:bg-error-container/20 disabled:opacity-40 shrink-0"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">close</span>
+                              <span>นำออก</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <label
+                              htmlFor={`budget-modal-input-${idx}`}
+                              className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider"
+                            >
+                              งบประมาณใหม่ (บาท/เดือน)
+                            </label>
+                            {hasValidNum && delta !== 0 && (
+                              <span
+                                className={`text-[11px] font-mono font-semibold ${
+                                  delta < 0 ? "text-amber-600 dark:text-amber-400" : "text-primary"
+                                }`}
+                              >
+                                {delta > 0 ? `+${formatTHB(delta)}` : formatTHB(delta)}
+                              </span>
+                            )}
+                          </div>
+                          <input
+                            id={`budget-modal-input-${idx}`}
+                            type="number"
+                            min="0"
+                            step="any"
+                            disabled={loading}
+                            value={item.newBudget}
+                            onChange={(e) => updateDraftBudgetItem(item.id, e.target.value)}
+                            className="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg px-3.5 py-2.5 text-sm font-mono font-bold text-on-surface focus:outline-none focus:border-primary"
+                          />
+                        </div>
+
+                        {belowSpent && (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-300">
+                            <span className="material-symbols-outlined text-[16px] shrink-0">
+                              warning
+                            </span>
+                            <span>
+                              งบใหม่ต่ำกว่ายอดที่ใช้ไปแล้วในรอบนี้ (
+                              {formatTHB(item.currentSpent)})
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {pendingBudgetDraft.error && (
+                    <p role="alert" className="text-xs text-error font-medium">
+                      {pendingBudgetDraft.error}
+                    </p>
+                  )}
+                </div>
+
+                <div className="shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-outline-variant/30 bg-surface-container-low/40">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={handleCancelBudgetDraft}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border border-outline-variant/40 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high disabled:opacity-50"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading || !allValid}
+                    className="px-5 py-2 rounded-lg text-sm font-semibold bg-primary-container text-on-primary-container hover:opacity-90 disabled:opacity-50 shadow-sm"
+                  >
+                    {loading
+                      ? "กำลังบันทึก..."
+                      : isBatch
+                        ? `ยืนยันปรับงบทั้งหมด (${items.length} หมวด)`
+                        : "ยืนยันปรับงบ"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Clear Chat Confirmation Modal */}
       <ConfirmDialog
         open={confirmClearOpen}
@@ -2756,6 +3128,7 @@ export default function AiAssistantPage() {
         onConfirm={() => {
           setConfirmClearOpen(false);
           setPendingTxDraft(null);
+          setPendingBudgetDraft(null);
           clearChatMessages();
         }}
         onCancel={() => setConfirmClearOpen(false)}
