@@ -12,3 +12,4 @@ next-env.d.ts
 tests/llm/samples/
 handoff.md
 docs/handoff.md
+Study.md
