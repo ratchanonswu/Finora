@@ -1,6 +1,6 @@
 <div align="center">
 
-# Finora
+# Finora 
 
 **AI-Powered Personal Finance Management Platform**
 
@@ -143,7 +143,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 4. Verify & Build
+### 4. Verify & Build 
 
 ```bash
 npm run test:check   # Runs 30 automated checks (bank, AI tools, insights, prompts, dates, quota cycle)
@@ -154,3 +154,6 @@ npm run build        # Production TypeScript & Next.js build
 | :--- | :--- |
 | `npm run test:check` | Runs 30 automated checks (bank, AI tools, insights, prompts, dates, quota cycle) |
 | `npm run build` | Production TypeScript & Next.js build |
+
+<img width="740" height="740" alt="image" src="https://github.com/user-attachments/assets/5d2eb642-d7f3-4509-a49b-893e0f46bb92" />
+
